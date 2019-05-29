@@ -6,7 +6,7 @@ import xarray as xr
 import numpy
 import matplotlib.pyplot as plt
 import os
-from latlon_analysis  import check_time_interval
+from .latlon_analysis  import check_time_interval
 
 try: import argparse
 except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
