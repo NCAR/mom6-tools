@@ -1,0 +1,8 @@
+recursive-include mom6_tools *.py
+include LICENSE
+include README.rst
+include requirements.txt
+
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+prune tests*
