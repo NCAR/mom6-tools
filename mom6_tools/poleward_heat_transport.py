@@ -3,15 +3,16 @@
 import io
 import netCDF4
 import numpy
-import m6plot
-import m6toolbox
 import matplotlib.pyplot as plt
 import os
 import sys
 import warnings
-from latlon_analysis import check_time_interval
-from MOM6grid import MOM6grid
 import xarray as xr
+
+import .m6plot
+import .m6toolbox
+from .latlon_analysis import check_time_interval
+from .MOM6grid import MOM6grid
 
 def options():
   try: import argparse

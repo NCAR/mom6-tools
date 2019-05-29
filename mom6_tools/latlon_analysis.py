@@ -4,14 +4,13 @@
 
 import argparse
 import xarray as xr
-from netCDF4 import MFDataset, Dataset
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
-import m6plot
 import warnings
 import os
-from MOM6grid import MOM6grid
+
+import .m6plot
+from .MOM6grid import MOM6grid
 
 class MyError(Exception):
   """
