@@ -9,10 +9,10 @@ It relies on the following python packages:
 
 from pkg_resources import DistributionNotFound, get_distribution
 
-from MOM6grid import *
-from section_transports import *
-from latlon_analysis import *
-from poleward_heat_transport import *
+from .MOM6grid import *
+from .section_transports import *
+from .latlon_analysis import *
+from .poleward_heat_transport import *
 
 try:
     __version__ = get_distribution(__name__).version
