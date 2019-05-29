@@ -4,3 +4,5 @@ numba
 pyyaml
 xarray
 dask
+netCDF4
+matplolib
