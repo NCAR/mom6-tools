@@ -5,4 +5,4 @@ pyyaml
 xarray
 dask
 netCDF4
-matplolib
+matplotlib
