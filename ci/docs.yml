@@ -1,0 +1,21 @@
+name: mom6-tools-dev
+channels:
+  - conda-forge
+dependencies:
+  - jupyterlab
+  - nbsphinx
+  - numpy
+  - numpydoc
+  - pip
+  - python=3.7
+  - recommonmark
+  - sphinx_rtd_theme
+  - sphinx>=1.6
+  - xarray
+  - netcdf4
+  - numba
+  - scipy
+  - jinja2
+  - dask
+  - pip:
+    - sphinx_copybutton
