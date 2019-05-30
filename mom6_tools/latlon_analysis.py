@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 import warnings
 import os
 
-import .m6plot
-from .MOM6grid import MOM6grid
+from mom6_tools import m6plot
+from mom6_tools.MOM6grid import MOM6grid
 
 class MyError(Exception):
   """
@@ -117,14 +117,6 @@ def plot_area_ave_stats(ds, var, args, aspect=[16,9], resolution=576, debug=Fals
     plt.show()
 
   return
-
-def check_time_interval(ti,tf,nc):
- ''' Checks if year_start and year_end are within the time interval of the dataset'''
- if ti < nc.time.min() or tf > nc.time.max():
-    #raise NameError('Selected start/end years outside the range of the dataset. Please fix that and run again.')
-    raise SyntaxError('Selected start/end years outside the range of the dataset. Please fix that and run again.')
-
- return
 
 # -- time-average 2D latlon fields and call plotting function
 def time_mean_latlon(args, grd, variables=[]):
