@@ -9,10 +9,9 @@ import sys
 import warnings
 import xarray as xr
 
-import .m6plot
-import .m6toolbox
-from .latlon_analysis import check_time_interval
-from .MOM6grid import MOM6grid
+from mom6_tools import m6plot
+from mom6_tools  import m6toolbox
+from mom6_tools.MOM6grid import MOM6grid
 
 def options():
   try: import argparse
@@ -47,7 +46,7 @@ def main(stream=False):
   ti = args.year_start
   tf = args.year_end
   # check if data includes years between ti and tf
-  check_time_interval(ti,tf,ds)
+  m6toolbox.check_time_interval(ti,tf,ds)
 
   # create a ndarray subclass
   class C(numpy.ndarray): pass

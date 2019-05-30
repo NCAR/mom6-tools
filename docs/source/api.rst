@@ -38,7 +38,7 @@ Toolbox
    genBasinMasks
 
 Plotting tools
-~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 .. autosummary::
    xyplot

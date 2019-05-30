@@ -6,6 +6,15 @@ import tarfile
 from scipy.io import netcdf
 import xarray as xr
 
+
+def check_time_interval(ti,tf,nc):
+ ''' Checks if year_start and year_end are within the time interval of the dataset'''
+ if ti < nc.time.min() or tf > nc.time.max():
+    #raise NameError('Selected start/end years outside the range of the dataset. Please fix that and run again.')
+    raise SyntaxError('Selected start/end years outside the range of the dataset. Please fix that and run again.')
+
+ return
+
 def section2quadmesh(x, z, q, representation='pcm'):
   """
   Creates the appropriate quadmesh coordinates to plot a scalar q(1:nk,1:ni) at
