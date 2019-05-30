@@ -1,5 +1,9 @@
 MOM6-tools
-=========
+============
+
+.. image:: https://img.shields.io/readthedocs/mom6-tools/latest.svg?style=for-the-badge
+    :target: https://mom6-tools.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 Tools to support analysis of MOM6-CESM model solutions. See
 documentation_ for more information.
