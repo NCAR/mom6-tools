@@ -8,53 +8,37 @@ For more details and examples, refer to the relevant chapters in the main part o
 .. currentmodule:: mom6_tools
 
 Grid
-~~~~
+~~~~~~
 
 .. autosummary::
    MOM6grid
 
 Transports across vertical sections
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
-   Transport
+   section_transports
 
 Meridional overturning
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
-   MOCpsi
-   plotPsi
-   findExtrema
+   moc
 
 Toolbox
 ~~~~~~~~~
 
 .. autosummary::
-   section2quadmesh
-   get_z
-   rho_Wright97
-   nearestJI
-   genBasinMasks
+   m6toolbox
 
 Plotting tools
 ~~~~~~~~~~~~~~~~
 
 .. autosummary::
-   xyplot
-   xycompare
-   yzplot
-   yzcompare
-   ztplot
-   myStats
-   plotBasemapPanel
-
+   m6plot
 
 
 .. currentmodule:: mom6_tools
 
 .. autofunction:: MOM6grid
 
-.. autofunction:: MOCpsi
-
-.. autofunction:: Transport
