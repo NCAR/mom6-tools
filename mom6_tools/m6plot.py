@@ -13,6 +13,7 @@ from matplotlib.colors import BoundaryNorm, ListedColormap, LogNorm
 from matplotlib.ticker import MaxNLocator
 import math
 import numpy, numpy.matlib
+from mom6_tools import VerticalSplitScale
 from mom6_tools import m6toolbox
 
 try: from mpl_toolkits.basemap import Basemap

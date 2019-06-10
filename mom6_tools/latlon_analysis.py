@@ -11,6 +11,7 @@ import os
 
 from mom6_tools import m6plot
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools import m6toolbox
 
 class MyError(Exception):
   """
@@ -136,7 +137,7 @@ def time_mean_latlon(args, grd, variables=[]):
   tf = args.year_end
 
   # check if data includes years between ti and tf
-  check_time_interval(ti,tf,nc)
+  m6toolbox.check_time_interval(ti,tf,nc)
 
   if len(variables) == 0:
     # plot all 2D varialbles in the dataset
