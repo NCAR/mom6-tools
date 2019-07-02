@@ -10,7 +10,7 @@ import xarray as xr
 def check_time_interval(ti,tf,nc):
  ''' Checks if year_start and year_end are within the time interval of the dataset'''
  if ti < nc.time.min() or tf > nc.time.max():
-    #raise NameError('Selected start/end years outside the range of the dataset. Please fix that and run again.')
+    print('Start/End times = ',nc.time.min(), nc.time.max())
     raise SyntaxError('Selected start/end years outside the range of the dataset. Please fix that and run again.')
 
  return
