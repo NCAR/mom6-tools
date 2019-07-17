@@ -220,7 +220,6 @@ def xyplot(field, x=None, y=None, area=None,
   cb = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
   if centerlabels and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
   elif clim is not None and len(clim)>2: cb.set_ticks( clim )
-  #axis.set_axis_bgcolor(landcolor)
   axis.set_facecolor(landcolor)
   plt.xlim( xLims )
   plt.ylim( yLims )
@@ -358,7 +357,7 @@ def xycompare(field1, field2, x=None, y=None, area=None,
       plotBasemapPanel(maskedField1, sector, xCoord, yCoord, lonRange, latRange, \
                        cmap, norm, interactive, extend)
     if centerlabels and len(clim)>2: cb1.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
-    axis.set_axis_bgcolor(landcolor)
+    axis.set_facecolor(landcolor)
     annotateStats(axis, s1Min, s1Max, s1Mean, s1Std, s1RMS, webversion=webversion)
     if len(ylabel+yunits)>0: plt.ylabel(label(ylabel, yunits))
     if len(title1)>0:
@@ -378,7 +377,7 @@ def xycompare(field1, field2, x=None, y=None, area=None,
       plotBasemapPanel(maskedField2, sector, xCoord, yCoord, lonRange, latRange, \
                        cmap, norm, interactive, extend)
     if centerlabels and len(clim)>2: cb2.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
-    axis.set_axis_bgcolor(landcolor)
+    axis.set_facecolor(landcolor)
     annotateStats(axis, s2Min, s2Max, s2Mean, s2Std, s2RMS, webversion=webversion)
     if len(ylabel+yunits)>0: plt.ylabel(label(ylabel, yunits))
     if len(title2)>0:
@@ -401,7 +400,7 @@ def xycompare(field1, field2, x=None, y=None, area=None,
       if dextend is None: dextend = extend
       cb3 = plt.colorbar(fraction=.08, pad=0.02, extend=dextend) # was extend!
       if centerdlabels and len(dlim)>2: cb3.set_ticks(  0.5*(dlim[:-1]+dlim[1:]) )
-      axis.set_axis_bgcolor(landcolor)
+      axis.set_facecolor(landcolor)
       plt.xlim( xLims ); plt.ylim( yLims )
       annotateStats(axis, dMin, dMax, dMean, dStd, dRMS, webversion=webversion)
       if len(ylabel+yunits)>0: plt.ylabel(label(ylabel, yunits))
@@ -509,7 +508,7 @@ def yzplot(field, y=None, z=None,
   if interactive: addStatusBar(yCoord, zCoord, field2)
   cb = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
   if centerlabels and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
-  axis.set_axis_bgcolor(landcolor)
+  axis.set_facecolor(landcolor)
   if splitscale is not None:
     for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
     axis.set_yscale('splitscale', zval=splitscale)
@@ -639,7 +638,7 @@ def yzcompare(field1, field2, y=None, z=None,
     if interactive: addStatusBar(yCoord, zCoord, field1)
     cb1 = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
     if centerlabels and len(clim)>2: cb1.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
-    axis.set_axis_bgcolor(landcolor)
+    axis.set_facecolor(landcolor)
     if splitscale is not None:
       for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
       axis.set_yscale('splitscale', zval=splitscale)
@@ -654,7 +653,7 @@ def yzcompare(field1, field2, y=None, z=None,
     if interactive: addStatusBar(yCoord, zCoord, field2)
     cb2 = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
     if centerlabels and len(clim)>2: cb2.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
-    axis.set_axis_bgcolor(landcolor)
+    axis.set_facecolor(landcolor)
     if splitscale is not None:
       for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
       axis.set_yscale('splitscale', zval=splitscale)
@@ -675,7 +674,7 @@ def yzcompare(field1, field2, y=None, z=None,
     if interactive: addStatusBar(yCoord, zCoord, field1 - field2)
     cb3 = plt.colorbar(fraction=.08, pad=0.02, extend=dextend)
     if centerdlabels and len(dlim)>2: cb3.set_ticks(  0.5*(dlim[:-1]+dlim[1:]) )
-    axis.set_axis_bgcolor(landcolor)
+    axis.set_facecolor(landcolor)
     if splitscale is not None:
       for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
       axis.set_yscale('splitscale', zval=splitscale)
@@ -758,7 +757,7 @@ def ztplot(field, t=None, z=None,
   if interactive: addStatusBar(tCoord, zCoord, field2)
   cb = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
   if centerlabels and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
-  axis.set_axis_bgcolor(landcolor)
+  axis.set_facecolor(landcolor)
   if splitscale is not None:
     for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
     axis.set_yscale('splitscale', zval=splitscale)
