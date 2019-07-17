@@ -11,8 +11,11 @@ except:
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap, LogNorm
 from matplotlib.ticker import MaxNLocator
+import matplotlib.path as mpath
 import math
 import numpy, numpy.matlib
+import cartopy.crs as ccrs
+import cartopy.feature
 from mom6_tools import VerticalSplitScale
 from mom6_tools import m6toolbox
 
@@ -28,6 +31,124 @@ except:
     print('cmocean module not found. Some color maps may not render properly')
 
 from sys import modules
+
+def polarplot(field, grd, proj='SP', contour=None, circle=True, 
+              clim = None, colormap = None, nbins = None, save=None, 
+              ignore = None, debug=False, show=False, extend = None,
+              sigma = 2.0, logscale = False, title = ''):
+  """Renders plot of scalar field(x,y) using polar projections.
+
+  Parameters
+  ----------
+  field : 2D numpy array
+    Scalar 2D array to be plotted
+    
+  grd : object with MOM6 grid data
+    This is the output of module  MOM6grid.
+  
+  contour : float, optional
+    If defined, coutours this value in the figure.
+
+  proj  : str, optional
+    Type of projection: 'SP' = SouthPolarStereo (default) or 'NP' = NorthPolarStereo
+    
+  circle : boolean, optional 
+    If true, compute a circle in axes coordinates, which we can use as a boundary
+    for the map
+
+  clim  : tuple of (min,max), optional
+     color range OR a list of contour levels. Default None
+
+  colormap : str, optional     
+    The name of the colormap to use. Default None (choose using chooseColorMap)
+
+  nbins : integer, optional
+    The number of colors levels (used if clim is missing or only specifies the color range).
+
+  ignore : float, optional
+    A value to use as no-data (NaN). Default None
+
+  save : str, optional
+    Name of file to save figure in. Default None (do not save figure)
+
+  debug : boolean, optional        
+    If true, report stuff for debugging. Default False
+
+  show : boolean, optional
+    If true, causes the figure to appear on screen. Used for testing. Default False.
+
+  extend : str, optional
+    Can be one of 'both', 'neither', 'max', 'min'. Default None
+
+  logscale : boolean, optional
+    If true, use logaritmic coloring scheme. Default False
+
+  sigma : float, optional
+    Range for difference plot autocolor levels. Default is to span a 2. sigma range
+  title  : str, optional
+    The title to place at the top of the panel. Default ''
+
+  Returns
+  -------
+
+  """
+  # Diagnose statistics
+  if ignore is not None: maskedField = numpy.ma.masked_array(field, mask=[field==ignore])
+  else: maskedField = field.copy()
+  sMin, sMax, sMean, sStd, sRMS = myStats(maskedField, grd.area_t, debug=debug)
+
+  # Choose colormap
+  if nbins is None and (clim is None or len(clim)==2): nbins=35
+  if colormap is None: colormap = chooseColorMap(sMin, sMax)
+  if clim is None and sStd>0:
+    cmap, norm, extend = chooseColorLevels(sMean-sigma*sStd, sMean+sigma*sStd, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
+  else:
+    cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
+
+  if proj == 'SP':
+    proj = ccrs.SouthPolarStereo()
+    extent = [-180, 180, -90, -50]
+  else: # NP
+    proj = ccrs.NorthPolarStereo()
+    extent = [-180, 180, 50, 90]
+
+  fig = plt.figure(figsize=[10, 8])
+  ax = plt.subplot(1, 1, 1, projection=proj)
+  ax.set_extent(extent, ccrs.PlateCarree())
+  ax.add_feature(cartopy.feature.LAND)
+  ax.gridlines()
+
+  if circle:
+    # Compute a circle in axes coordinates, which we can use as a boundary
+    # for the map. We can pan/zoom as much as we like - the boundary will be
+    # permanently circular.
+    theta = numpy.linspace(0, 2*numpy.pi, 100)
+    center, radius = [0.5, 0.5], 0.5
+    verts = numpy.vstack([numpy.sin(theta), numpy.cos(theta)]).T
+    circle = mpath.Path(verts * radius + center)
+    ax.set_boundary(circle, transform=ax.transAxes)
+
+  cs = ax.pcolormesh(grd.geolon,grd.geolat,field,transform=ccrs.PlateCarree(),cmap=cmap, 
+                     shading='flat')
+                     #shading='flat', norm=norm)
+  fig.colorbar(cs)
+  # Add Land
+  ax.add_feature( cartopy.feature.LAND, zorder=1, edgecolor='none', facecolor='#fae5c9') #fae5c9')
+  # add Ocean
+  ax.add_feature(cartopy.feature.OCEAN)
+  # Add coastline
+  ax.coastlines(color='black')
+  # Add lat lon rings
+  ax.gridlines(alpha='0.1',color='black')
+  if contour is not None:
+    ax.contour(grd.geolon,grd.geolat,field,[contour],colors='red', transform=ccrs.PlateCarree())
+    
+  if len(title)>0:  plt.title(title)  
+  if save is not None: plt.savefig(save)
+  if show: plt.show(block=False)
+
+  return
+
 
 def xyplot(field, x=None, y=None, area=None,
   xlabel=None, xunits=None, ylabel=None, yunits=None,
@@ -735,6 +856,8 @@ def myStats(s, area, s2=None, debug=False):
   Calculates mean, standard deviation and root-mean-square of s.
   """
   sMin = numpy.ma.min(s); sMax = numpy.ma.max(s)
+  if debug: print('myStats: min(s) =',sMin)
+  if debug: print('myStats: max(s) =',sMax)
   if area is None: return sMin, sMax, None, None, None
   weight = area.copy()
   if debug: print('myStats: sum(area) =',numpy.ma.sum(weight))
