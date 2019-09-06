@@ -142,12 +142,15 @@ def plotPsi(y, z, psi, ci, title):
   plt.title(title)
   cbar.set_label('[Sv]'); plt.ylabel('Elevation [m]')
 
-def findExtrema(y, z, psi, min_lat=-90., max_lat=90., min_depth=0., mult=1.):
+def findExtrema(y, z, psi, min_lat=-90., max_lat=90., min_depth=0., mult=1., plot = True):
   psiMax = mult*numpy.amax( mult * numpy.ma.array(psi)[(y>=min_lat) & (y<=max_lat) & (z<-min_depth)] )
   idx = numpy.argmin(numpy.abs(psi-psiMax))
   (j,i) = numpy.unravel_index(idx, psi.shape)
-  plt.plot(y[j,i],z[j,i],'kx',hold=True)
-  plt.text(y[j,i],z[j,i],'%.1f'%(psi[j,i]))
-
+  if plot:
+    #plt.plot(y[j,i],z[j,i],'kx',hold=True)
+    plt.plot(y[j,i],z[j,i],'kx')
+    plt.text(y[j,i],z[j,i],'%.1f'%(psi[j,i]))
+  else:
+    return psi[j,i]
 if __name__ == '__main__':
   main()
