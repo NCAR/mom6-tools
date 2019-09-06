@@ -2,7 +2,7 @@ Examples
 ========
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
 
     examples/surface.ipynb
     examples/forcing.ipynb
@@ -10,3 +10,4 @@ Examples
     examples/meridional_overturning.ipynb
     examples/poleward_heat_transport.ipynb
     examples/section_transports.ipynb
+    examples/seaice.ipynb
