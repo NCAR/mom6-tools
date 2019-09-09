@@ -35,7 +35,7 @@ from sys import modules
 def polarplot(field, grd, proj='SP', contour=None, circle=True, 
               clim = None, colormap = None, nbins = None, save=None, 
               ignore = None, debug=False, show=False, extend = None,
-              sigma = 2.0, logscale = False, title = ''):
+              sigma = 2.0, logscale = False, title = '', landcolor=[.5,.5,.5] ):
   """Renders plot of scalar field(x,y) using polar projections.
 
   Parameters
@@ -85,8 +85,12 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
 
   sigma : float, optional
     Range for difference plot autocolor levels. Default is to span a 2. sigma range
+
   title  : str, optional
     The title to place at the top of the panel. Default ''
+
+  landcolor : RGB tuple, optional   
+    An rgb tuple to use for the color of land (no data). Default [.5,.5,.5].
 
   Returns
   -------
@@ -133,7 +137,7 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
                      #shading='flat', norm=norm)
   fig.colorbar(cs)
   # Add Land
-  ax.add_feature( cartopy.feature.LAND, zorder=1, edgecolor='none', facecolor='#fae5c9') #fae5c9')
+  ax.add_feature( cartopy.feature.LAND, zorder=1, edgecolor='none', facecolor=landcolor) #fae5c9')
   # add Ocean
   ax.add_feature(cartopy.feature.OCEAN)
   # Add coastline
