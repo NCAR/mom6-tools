@@ -32,6 +32,261 @@ except:
 
 from sys import modules
 
+
+def polarcomparison(field1, field2, grd, proj='SP', circle=True,
+              clim = None, colormap = None, nbins = None, save=None,
+              title1='', title2='', title3='A - B', suptitle='',
+              ignore = None, debug=False, show=False, extend = None,
+              sigma = 2.0, logscale = False, landcolor=[.5,.5,.5], interactive=False, 
+              dlim=None, dcolormap=None, dextend=None, addplabel=True):
+
+  """Renders n-panel plot of two scalar field1(x,y) and field2(x,y) using polar projections.
+
+  Parameters
+  ----------
+  field1 : 2D numpy array
+    Scalar 2D array to be plotted and compared to field2.
+
+  field2 : 2D numpy array
+    Scalar 2D array to be plotted and compared to field1.
+    
+  grd : object with MOM6 grid data
+    This is the output of module MOM6grid.
+  
+  title1 : str, optional
+     The title to place at the top of panel 1. Default ''.
+
+  title2 : str, optional
+     The title to place at the top of panel 2. Default ''.
+
+  title3 : str, optional
+     The title to place at the top of panel 3. Default 'A-B'.
+
+  addplabel : boolean, optional
+     Adds a 'A:' or 'B:' to the title1 and title2. Default True.
+
+  suptitle : str, optional
+     The super-title to place at the top of the figure. Default ''.
+   
+  proj  : str, optional
+    Type of projection: 'SP' = SouthPolarStereo (default) or 'NP' = NorthPolarStereo
+    
+  circle : boolean, optional 
+    If true, compute a circle in axes coordinates, which we can use as a boundary
+    for the map
+
+  clim  : tuple of (min,max), optional
+     color range OR a list of contour levels. Default None
+
+  colormap : str, optional     
+    The name of the colormap to use. Default None (choose using chooseColorMap)
+
+  nbins : integer, optional
+    The number of colors levels (used if clim is missing or only specifies the color range).
+
+  ignore : float, optional
+    A value to use as no-data (NaN). Default None
+
+  save : str, optional
+    Name of file to save figure in. Default None (do not save figure)
+
+  debug : boolean, optional        
+    If true, report stuff for debugging. Default False
+
+  show : boolean, optional
+    If true, causes the figure to appear on screen. Used for testing. Default False.
+
+  extend : str, optional
+    Can be one of 'both', 'neither', 'max', 'min'. Default None
+
+  logscale : boolean, optional
+    If true, use logaritmic coloring scheme. Default False
+
+  sigma : float, optional
+    Range for difference plot autocolor levels. Default is to span a 2. sigma range
+
+  title  : str, optional
+    The title to place at the top of the panel. Default ''
+
+  landcolor : RGB tuple, optional   
+    An rgb tuple to use for the color of land (no data). Default [.5,.5,.5].
+
+  dlim  : tuple (min,max)          
+    A tuple of (min,max) color range OR a list of contour levels for the difference plot. Default None.
+
+  dcolormap  : str, optional
+    The name of the colormap to use for the difference plot. Default None.
+
+  dextend  : str, optional
+     For the difference colorbar. Can be one of 'both', 'neither', 'max', 'min'. Default None.
+
+  interactive : boolean, optional
+    If true, adds interactive features such as zoom, close and cursor. Default False.
+
+  Returns
+  -------
+  """
+
+  if (field1.shape)!=(field2.shape): raise Exception('field1 and field2 must be the same shape')
+
+
+  xCoord, yCoord = createXYcoords(field1, grd.geolon, grd.geolat)
+
+  if proj == 'SP':
+    proj = ccrs.SouthPolarStereo()
+    extent = [-180, 180, -90, -50]
+  else: # NP
+    proj = ccrs.NorthPolarStereo()
+    extent = [-180, 180, 50, 90]
+
+  # Establish ranges for sectors
+  lonRange=(grd.geolon.min(), grd.geolon.max()); latRange=(extent[2], extent[3])
+
+  # Diagnose statistics  
+  if ignore is not None: 
+    maskedField1 = numpy.ma.masked_array(field1, mask=[field1==ignore])
+    maskedField2 = numpy.ma.masked_array(field2, mask=[field2==ignore])
+  else: 
+    maskedField1 = regionalMasking(field1, yCoord, xCoord, latRange, lonRange)
+    maskedField2 = regionalMasking(field2, yCoord, xCoord, latRange, lonRange)
+
+  s1Min, s1Max, s1Mean, s1Std, s1RMS = myStats(maskedField1, grd.area_t, debug=debug)
+  s2Min, s2Max, s2Mean, s2Std, s2RMS = myStats(maskedField2, grd.area_t, debug=debug)
+  dMin, dMax, dMean, dStd, dRMS = myStats(maskedField1 - maskedField2, grd.area_t, debug=debug)
+
+  if s1Mean is not None: dRxy = corr(maskedField1 - s1Mean, maskedField2 - s2Mean, grd.area_t)
+  else: dRxy = None
+
+  s12Min = min(s1Min, s2Min); s12Max = max(s1Max, s2Max)
+  xLims = boundaryStats(xCoord); yLims = boundaryStats(yCoord)
+  if debug: 
+    print('s1: min, max, mean =', s1Min, s1Max, s1Mean)
+    print('s2: min, max, mean =', s2Min, s2Max, s2Mean)
+    print('s12: min, max =', s12Min, s12Max)
+
+  # Choose colormap
+  if nbins is None and (clim is None or len(clim)==2): cBins=35
+  else: cBins=nbins
+  if nbins is None and (dlim is None or len(dlim)==2): nbins=35
+  if colormap is None: colormap = chooseColorMap(s12Min, s12Max)
+  cmap, norm, extend = chooseColorLevels(s12Min, s12Max, colormap, clim=clim, nbins=cBins, extend=extend)
+
+  if addplabel: preTitleA = 'A: '; preTitleB = 'B: '
+  else: preTitleA = ''; preTitleB = ''
+
+  # hard-coded number of panels, aspect and resolution
+  npanels=3
+  #aspect=None 
+  #resolution=None
+  #axis = None
+
+  #if axis is None:
+  #  fig=setFigureSize(aspect, resolution, npanels=npanels, debug=debug)
+  fig = plt.figure(figsize=[16, 24])
+  # panel 1
+  ax = plt.subplot(npanels,1,1, projection=proj)
+  ax.set_extent(extent, ccrs.PlateCarree())
+  ax.add_feature(cartopy.feature.LAND)
+  ax.gridlines()
+
+  if circle: 
+    circle_value = get_circle()
+    ax.set_boundary(circle_value, transform=ax.transAxes)
+  
+  cs = ax.pcolormesh(grd.geolon,grd.geolat,maskedField1,transform=ccrs.PlateCarree(),cmap=cmap, 
+                     shading='flat', norm=norm)
+  
+  def add_features(fig, ax, cs, extend, landcolor):
+    """ Adds some features to the map """
+    fig.colorbar(cs,fraction=.08, pad=0.02, extend=extend)
+    # Add Land
+    ax.add_feature( cartopy.feature.LAND, zorder=1, edgecolor='none', facecolor=landcolor)
+    # add Ocean
+    ax.add_feature(cartopy.feature.OCEAN)
+    # Add coastline
+    ax.coastlines(color='black')
+    # Add lat lon rings
+    ax.gridlines(alpha='0.1',color='black')
+    return
+
+  add_features(fig, ax, cs, extend, landcolor)
+
+  if interactive: addStatusBar(xCoord, yCoord, maskedField1)
+  ax.set_xticklabels([''])
+  annotateStats(ax, s1Min, s1Max, s1Mean, s1Std, s1RMS, webversion=False)
+  if len(title1)>0: ax.set_title(preTitleA+title1)
+  
+  # panel 2
+  ax = plt.subplot(npanels,1,2, projection=proj)
+  ax.set_extent(extent, ccrs.PlateCarree())
+  ax.add_feature(cartopy.feature.LAND)
+  ax.gridlines()
+
+  if circle: 
+    circle_value = get_circle()
+    ax.set_boundary(circle_value, transform=ax.transAxes)
+  
+  cs = ax.pcolormesh(grd.geolon,grd.geolat,maskedField2,transform=ccrs.PlateCarree(),cmap=cmap, 
+                     shading='flat', norm=norm)
+
+  add_features(fig, ax, cs, extend, landcolor)
+
+  if interactive: addStatusBar(xCoord, yCoord, maskedField2)
+  #plt.xlim( xLims ); plt.ylim( yLims )
+  if npanels>2: ax.set_xticklabels([''])
+  annotateStats(ax, s2Min, s2Max, s2Mean, s2Std, s2RMS, webversion=False)
+  if len(title2)>0: ax.set_title(preTitleB+title2)
+
+  # panel 3
+
+  ax = plt.subplot(npanels,1,npanels, projection=proj)
+  ax.set_extent(extent, ccrs.PlateCarree())
+  ax.add_feature(cartopy.feature.LAND)
+  ax.gridlines()
+
+  if circle: 
+    circle_value = get_circle()
+    ax.set_boundary(circle_value, transform=ax.transAxes)
+
+  if dcolormap is None: dcolormap = chooseColorMap(dMin, dMax)
+  if dlim is None and dStd>0:
+    cmap, norm, dextend = chooseColorLevels(dMean-sigma*dStd, dMean+sigma*dStd, dcolormap, clim=dlim, nbins=nbins, \
+                                            extend='both', autocenter=True)
+  else:
+    cmap, norm, dextend = chooseColorLevels(dMin, dMax, dcolormap, clim=dlim, nbins=nbins, extend=dextend, autocenter=True)
+
+
+  
+  cs = ax.pcolormesh(grd.geolon,grd.geolat,maskedField1 - maskedField2,transform=ccrs.PlateCarree(),cmap=cmap, shading='flat', norm=norm)
+
+  if interactive: addStatusBar(xCoord, yCoord, maskedField1 - maskedField2)
+  if dextend is None: dextend = extend
+  add_features(fig, ax, cs, dextend, landcolor)
+  annotateStats(ax, dMin, dMax, dMean, dStd, dRMS, webversion=False)
+  if len(title3)>0: ax.set_title(title3)
+
+  plt.suptitle(suptitle,y=1.0)
+
+  if save is not None: plt.savefig(save,bbox_inches='tight')
+  if interactive: addInteractiveCallbacks()
+  if show: plt.show(block=False)
+
+
+  return
+
+def get_circle():
+  """
+  Compute a circle in axes coordinates, which we can use as a boundary
+  for the map. We can pan/zoom as much as we like - the boundary will be
+  permanently circular.
+  """
+
+  theta = numpy.linspace(0, 2*numpy.pi, 100)
+  center, radius = [0.5, 0.5], 0.5
+  verts = numpy.vstack([numpy.sin(theta), numpy.cos(theta)]).T
+
+  return mpath.Path(verts * radius + center)
+
 def polarplot(field, grd, proj='SP', contour=None, circle=True, 
               clim = None, colormap = None, nbins = None, save=None, 
               ignore = None, debug=False, show=False, extend = None,
@@ -44,7 +299,7 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
     Scalar 2D array to be plotted
     
   grd : object with MOM6 grid data
-    This is the output of module  MOM6grid.
+    This is the output of module MOM6grid.
   
   contour : float, optional
     If defined, coutours this value in the figure.
@@ -94,11 +349,25 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
 
   Returns
   -------
-
   """
+  
+  xCoord, yCoord = createXYcoords(field, grd.geolon, grd.geolat)
+
+  if proj == 'SP':
+    proj = ccrs.SouthPolarStereo()
+    extent = [-180, 180, -90, -50]
+  else: # NP
+    proj = ccrs.NorthPolarStereo()
+    extent = [-180, 180, 50, 90]
+  
+  # Establish ranges for sectors  
+  lonRange=(grd.geolon.min(), grd.geolon.max()); latRange=(extent[2], extent[3]);
+  
   # Diagnose statistics
   if ignore is not None: maskedField = numpy.ma.masked_array(field, mask=[field==ignore])
-  else: maskedField = field.copy()
+  else: 
+    maskedField = regionalMasking(field, yCoord, xCoord, latRange, lonRange)
+
   sMin, sMax, sMean, sStd, sRMS = myStats(maskedField, grd.area_t, debug=debug)
 
   # Choose colormap
@@ -109,13 +378,6 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   else:
     cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
 
-  if proj == 'SP':
-    proj = ccrs.SouthPolarStereo()
-    extent = [-180, 180, -90, -50]
-  else: # NP
-    proj = ccrs.NorthPolarStereo()
-    extent = [-180, 180, 50, 90]
-
   fig = plt.figure(figsize=[10, 8])
   ax = plt.subplot(1, 1, 1, projection=proj)
   ax.set_extent(extent, ccrs.PlateCarree())
@@ -123,18 +385,11 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   ax.gridlines()
 
   if circle:
-    # Compute a circle in axes coordinates, which we can use as a boundary
-    # for the map. We can pan/zoom as much as we like - the boundary will be
-    # permanently circular.
-    theta = numpy.linspace(0, 2*numpy.pi, 100)
-    center, radius = [0.5, 0.5], 0.5
-    verts = numpy.vstack([numpy.sin(theta), numpy.cos(theta)]).T
-    circle = mpath.Path(verts * radius + center)
-    ax.set_boundary(circle, transform=ax.transAxes)
+    circle_value = get_circle()
+    ax.set_boundary(circle_value, transform=ax.transAxes)
 
-  cs = ax.pcolormesh(grd.geolon,grd.geolat,field,transform=ccrs.PlateCarree(),cmap=cmap, 
-                     shading='flat')
-                     #shading='flat', norm=norm)
+  cs = ax.pcolormesh(grd.geolon,grd.geolat,maskedField,transform=ccrs.PlateCarree(),cmap=cmap, 
+                     shading='flat', norm=norm)
   fig.colorbar(cs)
   # Add Land
   ax.add_feature( cartopy.feature.LAND, zorder=1, edgecolor='none', facecolor=landcolor) #fae5c9')
@@ -145,8 +400,11 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   # Add lat lon rings
   ax.gridlines(alpha='0.1',color='black')
   if contour is not None:
-    ax.contour(grd.geolon,grd.geolat,field,[contour],colors='red', transform=ccrs.PlateCarree())
-    
+    ax.contour(grd.geolon,grd.geolat,maskedField,[contour],colors='red', transform=ccrs.PlateCarree())
+ 
+  ax.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10) 
+  ax.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction',verticalalignment='bottom', horizontalalignment='right', fontsize=10)
+  ax.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)  
   if len(title)>0:  plt.title(title)  
   if save is not None: plt.savefig(save)
   if show: plt.show(block=False)
@@ -332,17 +590,6 @@ def xycompare(field1, field2, x=None, y=None, area=None,
   if colormap is None: colormap = chooseColorMap(s12Min, s12Max)
   cmap, norm, extend = chooseColorLevels(s12Min, s12Max, colormap, clim=clim, nbins=cBins, extend=extend)
 
-  def annotateStats(axis, sMin, sMax, sMean, sStd, sRMS, webversion=False):
-    if webversion == True: fontsize=9
-    else: fontsize=10
-    axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.025), xycoords='axes fraction', \
-                  verticalalignment='bottom', fontsize=fontsize)
-    if sMean is not None:
-      axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.025), xycoords='axes fraction', \
-                    verticalalignment='bottom', horizontalalignment='right', fontsize=fontsize)
-      axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.025), xycoords='axes fraction', verticalalignment='bottom', \
-                    horizontalalignment='left', fontsize=fontsize)
-
   if addplabel: preTitleA = 'A: '; preTitleB = 'B: '
   else: preTitleA = ''; preTitleB = ''
 
@@ -443,6 +690,23 @@ def xycompare(field1, field2, x=None, y=None, area=None,
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
 
+  return
+
+def annotateStats(axis, sMin, sMax, sMean, sStd, sRMS, webversion=False):
+  '''
+  Adds (annotates) stats in figures.
+  '''
+  if webversion == True: fontsize=9
+  else: fontsize=10
+  axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.025), xycoords='axes fraction', \
+                  verticalalignment='bottom', fontsize=fontsize)
+  if sMean is not None:
+    axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.025), xycoords='axes fraction', \
+                  verticalalignment='bottom', horizontalalignment='right', fontsize=fontsize)
+    axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.025), xycoords='axes fraction', verticalalignment='bottom', \
+                    horizontalalignment='left', fontsize=fontsize)
+
+  return
 
 def yzplot(field, y=None, z=None,
   ylabel=None, yunits=None, zlabel=None, zunits=None,
@@ -617,17 +881,6 @@ def yzcompare(field1, field2, y=None, z=None,
   if nbins is None and (dlim is None or len(dlim)==2): nbins=35
   if colormap is None: colormap = chooseColorMap(s12Min, s12Max)
   cmap, norm, extend = chooseColorLevels(s12Min, s12Max, colormap, clim=clim, nbins=cBins, extend=extend)
-
-  def annotateStats(axis, sMin, sMax, sMean, sStd, sRMS, webversion=False):
-    if webversion == True: fontsize=9
-    else: fontsize=10
-    axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.025), xycoords='axes fraction', \
-                  verticalalignment='bottom', fontsize=fontsize)
-    if sMean is not None:
-      axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.025), xycoords='axes fraction', \
-                    verticalalignment='bottom', horizontalalignment='right', fontsize=fontsize)
-      axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.025), xycoords='axes fraction', verticalalignment='bottom', \
-                    horizontalalignment='left', fontsize=fontsize)
 
   if addplabel: preTitleA = 'A: '; preTitleB = 'B: '
   else: preTitleA = ''; preTitleB = ''
@@ -993,13 +1246,13 @@ def setFigureSize(aspect=None, verticalresolution=None, horiztonalresolution=Non
   width = width + ( width % 2 ) # Make even
   if debug: print('setFigureSize: corrected width =',width)
   if debug: print('setFigureSize: height =',verticalresolution)
-  plt.figure(figsize=(width/100., verticalresolution/100.)) # 100 dpi always?
+  fig = plt.figure(figsize=(width/100., verticalresolution/100.)) # 100 dpi always?
   if npanels==1: plt.gcf().subplots_adjust(left=.08, right=.99, wspace=0, bottom=.09, top=.9, hspace=0)
   elif npanels==2: plt.gcf().subplots_adjust(left=.11, right=.94, wspace=0, bottom=.09, top=.9, hspace=0.15)
   elif npanels==3: plt.gcf().subplots_adjust(left=.11, right=.94, wspace=0, bottom=.05, top=.93, hspace=0.15)
   elif npanels==0: pass
   else: raise Exception('npanels out of range')
-
+  return fig
 
 def label(label, units):
   """
