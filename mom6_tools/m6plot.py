@@ -140,7 +140,8 @@ def polarcomparison(field1, field2, grd, proj='SP', circle=True,
     extent = [-180, 180, 50, 90]
 
   # Establish ranges for sectors
-  lonRange=(grd.geolon.min(), grd.geolon.max()); latRange=(extent[2], extent[3])
+  #lonRange=(grd.geolon.min(), grd.geolon.max()); latRange=(extent[2], extent[3])
+  lonRange=(-360, 360.); latRange=(extent[2], extent[3])
 
   # Diagnose statistics  
   if ignore is not None: 
@@ -180,7 +181,6 @@ def polarcomparison(field1, field2, grd, proj='SP', circle=True,
   #resolution=None
   #axis = None
 
-  #if axis is None:
   #  fig=setFigureSize(aspect, resolution, npanels=npanels, debug=debug)
   fig = plt.figure(figsize=[16, 24])
   # panel 1
@@ -193,7 +193,7 @@ def polarcomparison(field1, field2, grd, proj='SP', circle=True,
     circle_value = get_circle()
     ax.set_boundary(circle_value, transform=ax.transAxes)
   
-  cs = ax.pcolormesh(grd.geolon,grd.geolat,maskedField1,transform=ccrs.PlateCarree(),cmap=cmap, 
+  cs = ax.pcolormesh(xCoord,yCoord,maskedField1,transform=ccrs.PlateCarree(),cmap=cmap, 
                      shading='flat', norm=norm)
   
   def add_features(fig, ax, cs, extend, landcolor):
@@ -226,13 +226,12 @@ def polarcomparison(field1, field2, grd, proj='SP', circle=True,
     circle_value = get_circle()
     ax.set_boundary(circle_value, transform=ax.transAxes)
   
-  cs = ax.pcolormesh(grd.geolon,grd.geolat,maskedField2,transform=ccrs.PlateCarree(),cmap=cmap, 
+  cs = ax.pcolormesh(xCoord,yCoord,maskedField2,transform=ccrs.PlateCarree(),cmap=cmap, 
                      shading='flat', norm=norm)
 
   add_features(fig, ax, cs, extend, landcolor)
 
   if interactive: addStatusBar(xCoord, yCoord, maskedField2)
-  #plt.xlim( xLims ); plt.ylim( yLims )
   if npanels>2: ax.set_xticklabels([''])
   annotateStats(ax, s2Min, s2Max, s2Mean, s2Std, s2RMS, webversion=False)
   if len(title2)>0: ax.set_title(preTitleB+title2)
@@ -257,7 +256,7 @@ def polarcomparison(field1, field2, grd, proj='SP', circle=True,
 
 
   
-  cs = ax.pcolormesh(grd.geolon,grd.geolat,maskedField1 - maskedField2,transform=ccrs.PlateCarree(),cmap=cmap, shading='flat', norm=norm)
+  cs = ax.pcolormesh(xCoord,yCoord,maskedField1 - maskedField2,transform=ccrs.PlateCarree(),cmap=cmap, shading='flat', norm=norm)
 
   if interactive: addStatusBar(xCoord, yCoord, maskedField1 - maskedField2)
   if dextend is None: dextend = extend
@@ -361,8 +360,9 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
     extent = [-180, 180, 50, 90]
   
   # Establish ranges for sectors  
-  lonRange=(grd.geolon.min(), grd.geolon.max()); latRange=(extent[2], extent[3]);
-  
+  #lonRange=(grd.geolon.min(), grd.geolon.max()); latRange=(extent[2], extent[3]);
+  lonRange=(-360, 360.); latRange=(extent[2], extent[3])
+
   # Diagnose statistics
   if ignore is not None: maskedField = numpy.ma.masked_array(field, mask=[field==ignore])
   else: 
@@ -388,7 +388,7 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
     circle_value = get_circle()
     ax.set_boundary(circle_value, transform=ax.transAxes)
 
-  cs = ax.pcolormesh(grd.geolon,grd.geolat,maskedField,transform=ccrs.PlateCarree(),cmap=cmap, 
+  cs = ax.pcolormesh(xCoord,yCoord,maskedField,transform=ccrs.PlateCarree(),cmap=cmap, 
                      shading='flat', norm=norm)
   fig.colorbar(cs)
   # Add Land
