@@ -1,5 +1,6 @@
 import yaml
-import os
+import os, sys
+import logging as log
 from collections import namedtuple
 
 
@@ -8,7 +9,7 @@ DiagFileEntry = namedtuple('DiagFileEntry',
                      "time_axis_name", "new_file_freq", "new_file_freq_units", "start_time",
                      "file_duration", "file_duration_units"))
 DiagFieldEntry = namedtuple('DiagFieldEntry',
-                    ("module_name", "output_name", "file_name", "time_sampling", "reduction_method",
+                    ("module_name", "output_name", "time_sampling", "reduction_method",
                      "regional_section", "packing"))
 
 class CaseDiags(object,):
@@ -19,9 +20,43 @@ class CaseDiags(object,):
         self.config = yaml.load(open(diag_config_yml_path,'r'), Loader=yaml.Loader)
 
         # check if required keywords are in diag_config.yml
-        reqd_kws = ['rundir']
+        reqd_kws = ['cimeroot', 'rundir']
         for kw in reqd_kws:
             assert kw in self.config, "The required keyword "+kw+" not in diag_config file"
+
+        self._import_cime()
+
+    def _import_cime(self):
+        cimeroot = self.config['cimeroot']
+        sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
+        sys.path.append(os.path.join(cimeroot, "scripts", "Tools"))
+        sys.path.append(os.path.join(cimeroot, "scripts", "lib", "CIME", "case"))
+        from case import Case as CimeCase
+
+    def _get_files_including_field(self, field_name_req:str) -> list:
+        """Returns a list of files in diag_table including a given field name"""
+
+        files_including_field = []
+        for field_name,file_name in self.diag_fields:
+            if field_name_req==field_name:
+                files_including_field.append(file_name)
+        return files_including_field
+
+
+    def get_field(self, field_name_req, file_name_req=None):
+
+        files_including_field = self._get_files_including_field(field_name_req)
+
+        if file_name_req == None:
+            if len(files_including_field) == 0:
+                raise RuntimeError(f"Cannot find '{field_name}' in diag_table")
+            elif len(files_including_field) > 1:
+                raise RuntimeError(f"Multiple '{field_name}' entries in diag_table. Specify file_name!")
+            else: # only one file including field found
+                file_name_req = files_including_field[0]
+
+        # continueeeeeeeeeeeeee
+
 
     def _parse_diag_table(self):
         diag_table_path = os.path.join(self.config['rundir'], 'diag_table')
@@ -40,7 +75,7 @@ class CaseDiags(object,):
             self.diag_files = dict()
             self.diag_fields = dict()
             within_file_list = True # if false, within field list
-            for line in diag_table: 
+            for line in diag_table:
                 line = line.strip()
                 line = line.replace("'"," ").replace('"',' ').replace(",","")
                 line_split = line.split()
@@ -48,7 +83,7 @@ class CaseDiags(object,):
 
                     if len(line)>11 and line[1:12]=="ocean_model":
                         within_file_list = False
-                        
+
                     if within_file_list:
                         file_name = line_split[0]
                         self.diag_files[file_name] = DiagFileEntry(
@@ -63,21 +98,23 @@ class CaseDiags(object,):
                             file_duration = line_split[9] if len(line_split)>9 else None,
                             file_duration_units = line_split[10] if len(line_split)>10 else None
                         )
-                                                
+
                     else: # within field list
                         field_name = line_split[1]
-                        self.diag_fields[field_name] = DiagFieldEntry(
+                        self.diag_fields[field_name,file_name] = DiagFieldEntry(
                             module_name = line_split[0],
                             output_name = line_split[2],
-                            file_name = line_split[3],
                             time_sampling = line_split[4],
                             reduction_method = line_split[5],
                             regional_section = line_split[6],
                             packing = line_split[7])
 
-config_yml_path = "/glade/work/altuntas/mom6.diags/g.c2b6.GJRA.TL319_t061.long_JRA_mct.001/diag_config.yml"
+if __name__ == '__main__':
 
-case_diags = CaseDiags(config_yml_path)
-case_diags._parse_diag_table()
-for entry in case_diags.diag_files:
-    print(entry,case_diags.diag_files[entry])
+
+    config_yml_path = "/glade/work/altuntas/mom6.diags/g.c2b6.GJRA.TL319_t061.long_JRA_mct.001/diag_config.yml"
+
+    case_diags = CaseDiags(config_yml_path)
+    case_diags._parse_diag_table()
+    for entry in case_diags.diag_files:
+        print(entry,case_diags.diag_files[entry])
