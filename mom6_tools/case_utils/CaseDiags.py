@@ -19,19 +19,33 @@ class CaseDiags(object,):
         # load diag_config.yml file:
         self.config = yaml.load(open(diag_config_yml_path,'r'), Loader=yaml.Loader)
 
+        rundir_provided = "RUNDIR" in self.config
+        dout_s_root_provided = "DOUT_S_ROOT" in self.config
+        caseroot_provided = "CASEROOT" in self.config
+        cimeroot_provided = "CIMEROOT" in self.config
+
         # check if required keywords are in diag_config.yml
-        reqd_kws = ['cimeroot', 'rundir']
-        for kw in reqd_kws:
-            assert kw in self.config, "The required keyword "+kw+" not in diag_config file"
+        if not (rundir_provided or dout_s_root_provided):
+            assert (caseroot_provided and cimeroot_provided),\
+                    "If 'RUNDIR' or 'DOUT_S_ROOT' are not provided,"\
+                    " both 'CASEROOT' and 'CIMEROOT' must be provided."
 
-        self._import_cime()
+        if "CIMEROOT" in self.config and "CASEROOT" in self.config:
+            CimeCase = self._import_cime_case()
+            self.cimeCase =  CimeCase(self.config['CASEROOT'])
 
-    def _import_cime(self):
-        cimeroot = self.config['cimeroot']
+            if not rundir_provided:
+                self.config['RUNDIR'] = self.cimeCase.get_value("RUNDIR")
+            if not dout_s_root_provided:
+                self.config['DOUT_S_ROOT'] = self.cimeCase.get_value("DOUT_S_ROOT") 
+
+    def _import_cime_case(self):
+        cimeroot = self.config['CIMEROOT']
         sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
         sys.path.append(os.path.join(cimeroot, "scripts", "Tools"))
         sys.path.append(os.path.join(cimeroot, "scripts", "lib", "CIME", "case"))
         from case import Case as CimeCase
+        return CimeCase
 
     def _get_files_including_field(self, field_name_req:str) -> list:
         """Returns a list of files in diag_table including a given field name"""
@@ -59,7 +73,7 @@ class CaseDiags(object,):
 
 
     def _parse_diag_table(self):
-        diag_table_path = os.path.join(self.config['rundir'], 'diag_table')
+        diag_table_path = os.path.join(self.config['RUNDIR'], 'diag_table')
 
         with open(diag_table_path,'r') as diag_table:
 
