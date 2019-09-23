@@ -12,17 +12,20 @@ DiagFieldEntry = namedtuple('DiagFieldEntry',
                     ("module_name", "output_name", "time_sampling", "reduction_method",
                      "regional_section", "packing"))
 
-class CaseDiags(object,):
+class DiagsCase(object,):
 
     def __init__(self, diag_config_yml_path):
 
-        # load diag_config.yml file:
-        self.config = yaml.load(open(diag_config_yml_path,'r'), Loader=yaml.Loader)
+        # initialize members:
+        self._cime_case = None
 
-        rundir_provided = "RUNDIR" in self.config
-        dout_s_root_provided = "DOUT_S_ROOT" in self.config
-        caseroot_provided = "CASEROOT" in self.config
-        cimeroot_provided = "CIMEROOT" in self.config
+        # load diag_config.yml file:
+        self._config = yaml.load(open(diag_config_yml_path,'r'), Loader=yaml.Loader)
+
+        rundir_provided = "RUNDIR" in self._config
+        dout_s_root_provided = "DOUT_S_ROOT" in self._config
+        caseroot_provided = "CASEROOT" in self._config
+        cimeroot_provided = "CIMEROOT" in self._config
 
         # check if required keywords are in diag_config.yml
         if not (rundir_provided or dout_s_root_provided):
@@ -30,50 +33,85 @@ class CaseDiags(object,):
                     "If 'RUNDIR' or 'DOUT_S_ROOT' are not provided,"\
                     " both 'CASEROOT' and 'CIMEROOT' must be provided."
 
-        if "CIMEROOT" in self.config and "CASEROOT" in self.config:
-            CimeCase = self._import_cime_case()
-            self.cimeCase =  CimeCase(self.config['CASEROOT'])
+        # if available, instantiate a cime case object
+        if caseroot_provided and cimeroot_provided:
+            cimeroot = self._config['CIMEROOT']
+            caseroot = self._config['CASEROOT']
+            sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
+            from CIME.case.case import Case
+            self._cime_case = Case(caseroot)
 
-            if not rundir_provided:
-                self.config['RUNDIR'] = self.cimeCase.get_value("RUNDIR")
-            if not dout_s_root_provided:
-                self.config['DOUT_S_ROOT'] = self.cimeCase.get_value("DOUT_S_ROOT") 
+    def get_value(self, var):
+        """ Returns the value of a variable in yaml config file. If var is not in yaml config
+            file, then checks to see if it can retrive the var from _cime_case instance """
 
-    def _import_cime_case(self):
-        cimeroot = self.config['CIMEROOT']
-        sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
-        sys.path.append(os.path.join(cimeroot, "scripts", "Tools"))
-        sys.path.append(os.path.join(cimeroot, "scripts", "lib", "CIME", "case"))
-        from case import Case as CimeCase
-        return CimeCase
+        val = None
+        if var in self._config:
+            val =  self._config[var]
+        elif self._cime_case:
+            val = self._cime_case.get_value(var)
 
-    def _get_files_including_field(self, field_name_req:str) -> list:
-        """Returns a list of files in diag_table including a given field name"""
+        if val.lower() == "none":
+            val = None
 
-        files_including_field = []
-        for field_name,file_name in self.diag_fields:
-            if field_name_req==field_name:
-                files_including_field.append(file_name)
-        return files_including_field
+        log.info(f"get_value - requsted variable: {var}, returning value: {val}")
+        return val
 
+    @staticmethod
+    def convert_prefix_to_regex(prefix):
+        prefix_split = prefix.split('%')
 
-    def get_field(self, field_name_req, file_name_req=None):
+        # first add the pre-prefix:
+        regex = prefix_split[0]
 
-        files_including_field = self._get_files_including_field(field_name_req)
+        # now add date sections:
+        for date_str in prefix_split[1:]:
+            nchars  = int(date_str[0])
+            regex += f'_\d{{{nchars}}}'
 
-        if file_name_req == None:
-            if len(files_including_field) == 0:
-                raise RuntimeError(f"Cannot find '{field_name}' in diag_table")
-            elif len(files_including_field) > 1:
-                raise RuntimeError(f"Multiple '{field_name}' entries in diag_table. Specify file_name!")
-            else: # only one file including field found
-                file_name_req = files_including_field[0]
+        # add .nc
+        regex += '.nc'
 
-        # continueeeeeeeeeeeeee
+        return regex
+
+    def get_file_prefix(self, fld_to_search:str, output_freq=None, output_freq_units=None) -> str:
+        """Returns the prefix of file including a given field"""
+
+        # first, determine all the files that include the field
+        candidate_files = set()
+        for fld_name,file_name in self.diag_fields:
+            if fld_to_search==fld_name:
+                log.info(f"{fld_to_search}, {fld_name}, {file_name}")
+                candidate_files.add(file_name)
+        log.info(f"{fld_to_search} found in {candidate_files}")
+
+        # second, determine all the files with unmatcing output frequency
+        if output_freq!=None or output_freq_units!=None:
+            non_matching_files = set()
+            for matched_file in candidate_files:
+                if (output_freq and self.diag_files[matched_file].output_freq != output_freq) or\
+                   (output_freq_units and self.diag_files[matched_file].output_freq_units != output_freq_units):
+                    non_matching_files.add(matched_file)
+
+            # final list of candidate files
+            candidate_files -= non_matching_files
+
+        # there must be one matching file only
+        if len(candidate_files) == 0:
+            raise RuntimeError(f"Cannot find '{fld_to_search}' in diag_table")
+        elif len(candidate_files) > 1:
+            raise RuntimeError(f"Multiple '{fld_to_search}' entries in diag_table. Provide output frequency!")
+        else: # only one file including field found
+            pass
+
+        file_prefix = candidate_files.pop()
+        log.info(f"returning {file_prefix} including {fld_to_search}")
+        return file_prefix
+
 
 
     def _parse_diag_table(self):
-        diag_table_path = os.path.join(self.config['RUNDIR'], 'diag_table')
+        diag_table_path = os.path.join(self.get_value('RUNDIR'), 'diag_table')
 
         with open(diag_table_path,'r') as diag_table:
 
@@ -114,8 +152,9 @@ class CaseDiags(object,):
                         )
 
                     else: # within field list
-                        field_name = line_split[1]
-                        self.diag_fields[field_name,file_name] = DiagFieldEntry(
+                        fld_name = line_split[1]
+                        file_name = line_split[3]
+                        self.diag_fields[fld_name,file_name] = DiagFieldEntry(
                             module_name = line_split[0],
                             output_name = line_split[2],
                             time_sampling = line_split[4],
@@ -123,12 +162,3 @@ class CaseDiags(object,):
                             regional_section = line_split[6],
                             packing = line_split[7])
 
-if __name__ == '__main__':
-
-
-    config_yml_path = "/glade/work/altuntas/mom6.diags/g.c2b6.GJRA.TL319_t061.long_JRA_mct.001/diag_config.yml"
-
-    case_diags = CaseDiags(config_yml_path)
-    case_diags._parse_diag_table()
-    for entry in case_diags.diag_files:
-        print(entry,case_diags.diag_files[entry])
