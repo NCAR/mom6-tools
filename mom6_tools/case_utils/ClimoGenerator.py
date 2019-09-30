@@ -4,7 +4,7 @@ import logging
 import os
 import re
 import logging as log
-from DiagsCase import DiagsCase
+from esmlab import climatology
 
 class ClimoGenerator(object,):
 
@@ -22,7 +22,7 @@ class ClimoGenerator(object,):
             hist_file_prefix = diags_case.get_file_prefix(field0)
             for f in fields[1:]:
                 if diags_case.get_file_prefix(f) != hist_file_prefix:
-                    raise RuntimeError(f"The following fields are spreaded across multiple "\
+                    raise RuntimeError(f"The following fields are spreaded across multiple "+\
                                         "netcdf files with different prefixes")
 
         # create a list of all files including the requested fields:
@@ -46,15 +46,4 @@ class ClimoGenerator(object,):
 
     def _construct_dataset(self, fields:list):
         file_list = self._get_file_list(fields)
-        ds = xr.open_mfdataset(file_list)
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-
-    config_yml_path = "/glade/work/altuntas/mom6.diags/g.c2b6.GJRA.TL319_t061.long_JRA_mct.001/diag_config.yml"
-
-    diags_case = DiagsCase(config_yml_path)
-    climo_gen = ClimoGenerator(diags_case)
-    climo_gen._construct_dataset(["temp", "salt"])
-    
+        self.dset = xr.open_mfdataset(file_list, decode_times=False)
