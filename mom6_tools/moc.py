@@ -133,12 +133,39 @@ def MOCpsi(vh, vmsk=None):
         else: psi[n,k-1,:] = psi[n,k,:] - (vmsk*vh[n,k-1]).sum(axis=-1)
   return psi
 
-def plotPsi(y, z, psi, ci, title):
+def plotPsi(y, z, psi, ci, title='', zval=[0.,-2000.,-6500.]):
+  """
+  General function to plot the meridional overturning streamfunction, in Sv.
+
+
+  Parameters
+  ----------
+  y : 2D numpy array
+    Scalar 2D array specifying the latitudes to be plotted.
+
+  z : 2D numpy array
+    Scalar 2D array specifying the elevations (depth) to be plotted.
+
+  psi : 2D numpy array
+    Meridional overturning streamfunction.
+
+  ci : 1D numpy array
+     Contour interval, draw contour lines at the these levels.
+
+  title : str, optional
+     The title to place at the top of panel. Default ''.
+
+  zval : 1D numpy array, optional
+     Array with 3 values used to set the split vertical scale. Default '[0.,-2000.,-6500.]'.
+
+  Returns
+  -------
+  """
   cmap = plt.get_cmap('dunnePM')
   plt.contourf(y, z, psi, levels=ci, cmap=cmap, extend='both')
   cbar = plt.colorbar()
   plt.contour(y, z, psi, levels=ci, colors='k', hold='on')
-  plt.gca().set_yscale('splitscale',zval=[0.,-2000.,-6500.])
+  plt.gca().set_yscale('splitscale',zval=zval)
   plt.title(title)
   cbar.set_label('[Sv]'); plt.ylabel('Elevation [m]')
 
