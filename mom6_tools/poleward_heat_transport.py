@@ -70,6 +70,14 @@ def main(stream=False):
     diffusive = None
     warnings.warn('Diffusive temperature term not found. This will result in an underestimation of the heat transport.')
 
+  varName = 'T_lbm_diffy'
+  if varName in ds.variables:
+    tmp = numpy.ma.masked_invalid(ds[varName].sel(time=slice(ti,tf)).sum('z_l').mean('time').data)
+    tmp = tmp[:].filled(0.)
+    diffusive = diffusive + tmp.view(C)
+  else:
+    warnings.warn('Lateral boundary mixing term not found. This will result in an underestimation of the heat transport.')
+
   plt_heat_transport_model_vs_obs(advective, diffusive, basin_code, grd, args)
   return
 
@@ -182,7 +190,7 @@ def heatTrans(advective, diffusive=None, vmask=None):
     Cp = 3992.
     HT = HT * (rho0 * Cp)
     HT = HT * 1.e-15  # convert to PW
-  elif advective.units == "W m-2":
+  elif advective.units == "W":
     HT = HT * 1.e-15
   else:
     print('Unknown units')
