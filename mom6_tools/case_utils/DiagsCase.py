@@ -1,7 +1,9 @@
 import yaml
 import os, sys
+import re
 import logging as log
-from collections import namedtuple
+from collections import OrderedDict, namedtuple
+import xarray as xr
 
 
 DiagFileEntry = namedtuple('DiagFileEntry',
@@ -14,13 +16,12 @@ DiagFieldEntry = namedtuple('DiagFieldEntry',
 
 class DiagsCase(object,):
 
-    def __init__(self, diag_config_yml_path):
+    def __init__(self, case_config:OrderedDict):
 
-        # initialize members:
+        self._config = case_config
         self._cime_case = None
-
-        # load diag_config.yml file:
-        self._config = yaml.load(open(diag_config_yml_path,'r'), Loader=yaml.Loader)
+        self.diag_files = None
+        self.diag_fields = None
 
         rundir_provided = "RUNDIR" in self._config
         dout_s_root_provided = "DOUT_S_ROOT" in self._config
@@ -51,10 +52,11 @@ class DiagsCase(object,):
         elif self._cime_case:
             val = self._cime_case.get_value(var)
 
-        if val.lower() == "none":
+        if val != None and val.lower() == "none":
             val = None
 
-        log.info(f"get_value - requsted variable: {var}, returning value: {val}")
+        log.info(f"get_value::\n\trequsted variable: {var} \n\treturning value: {val}"\
+                 f"\n\ttype: {type(val)}")
         return val
 
     @staticmethod
@@ -100,7 +102,8 @@ class DiagsCase(object,):
         if len(candidate_files) == 0:
             raise RuntimeError(f"Cannot find '{fld_to_search}' in diag_table")
         elif len(candidate_files) > 1:
-            raise RuntimeError(f"Multiple '{fld_to_search}' entries in diag_table. Provide output frequency!")
+            raise RuntimeError(f"Multiple '{fld_to_search}' entries in diag_table. Provide output frequency "\
+                                "or HIST_FILE_PREFIX!")
         else: # only one file including field found
             pass
 
@@ -162,3 +165,46 @@ class DiagsCase(object,):
                             regional_section = line_split[6],
                             packing = line_split[7])
 
+
+    def _get_file_list(self, fields:list):
+
+        field0 = fields[0]
+
+        # from diag_table, get prefix of file including field:
+        hist_file_prefix = self.get_value("HIST_FILE_PREFIX")
+        if hist_file_prefix == None:
+            if self.diag_files == None:
+                self._parse_diag_table()
+            hist_file_prefix = self.get_file_prefix(field0)
+            for f in fields[1:]:
+                if self.get_file_prefix(f) != hist_file_prefix:
+                    raise RuntimeError(f"The following fields are spreaded across multiple "+\
+                                        "netcdf files with different prefixes")
+
+        # create a list of all files including the requested fields:
+        rundir = self.get_value("RUNDIR")
+        dout_s_root = self.get_value("DOUT_S_ROOT")
+        regex = DiagsCase.convert_prefix_to_regex(hist_file_prefix)
+        log.info(f"regex to determine all files including {field0}: {regex}")
+        all_nc_files = []
+        if rundir != None:
+            all_nc_files += [os.path.join(rundir,f) for f in os.listdir(rundir) if f[-3:]=='.nc']
+        if dout_s_root != None:
+            all_nc_files += [os.path.join(dout_s_root,f) for f in os.listdir(dout_s_root) if f[-3:]=='.nc']
+        all_matched_files = [f for f in all_nc_files if re.search(regex,f)]
+        all_matched_files.sort()
+        log.info(f"number of files including {field0}: {len(all_matched_files)}")
+
+        # sanity check:
+        assert len(all_matched_files)>0, f"Cannot find any history files including {fields}"
+
+        return all_matched_files
+
+    def create_esmlab_dataset(self, fields:list):
+        log.info(f"Constructing a dataset for fields: {fields}")
+        file_list = self._get_file_list(fields)
+        #log.info(f"Files to read:")
+        #for f in file_list:
+        #    log.info(f"\t{f}")
+        esm = xr.open_mfdataset(file_list, decode_times=False).esm
+        return esm

@@ -13,23 +13,34 @@ class DiagsControl(object,):
         self._config = yaml.load(open(diag_config_yml_path,'r'), Loader=yaml.Loader)
 
         # instantiate DiagsCase:
-        self._case = DiagsCase(self._config['Case'])
+        try:
+            self._case = DiagsCase(self._config['Case'])
+        except KeyError:
+            raise KeyError('Must provide a "Case" entry in diag_config file')
+
+        try:
+            self._climo_entries = self._config['Climatology']
+        except KeyError:
+            raise KeyError('Must provide a "Climatology" entry in diag_config file')
 
     @property
     def case(self):
         return self._case
 
+    @property
+    def climo_entries(self):
+        return self._climo_entries
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.INFO)
-
+    log.basicConfig(level=log.INFO)
     config_yml_path = "/glade/work/altuntas/mom6.diags/g.c2b6.GJRA.TL319_t061.long_JRA_mct.001/diag_config.yml"
+    dc = DiagsControl(config_yml_path)
 
-    diags_control = DiagsControl(config_yml_path)
-    diags_case = diags_control.case
-    climo_gen = ClimoGenerator(diags_case)
-    #climo_gen._construct_dataset(["temp", "salt"])    
-    #computed_dset = climatology(climo_gen.dset, freq='mon')
-    #computed_dset.to_netcdf("/glade/scratch/altuntas/climo.nc")
+    for climo_id in dc.climo_entries:
+        log.info(f"Creating climo {climo_id}")
+        climo = ClimoGenerator(climo_id, dc.climo_entries[climo_id], dc.case)
+        field_list = climo.fields
+        esm = dc.case.create_dataset(field_list)
+        print(type(esm.time))
 
