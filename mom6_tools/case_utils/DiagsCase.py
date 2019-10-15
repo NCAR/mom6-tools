@@ -2,6 +2,7 @@ import yaml
 import os, sys
 import re
 import logging as log
+import cftime as cft
 from collections import OrderedDict, namedtuple
 import xarray as xr
 
@@ -52,7 +53,7 @@ class DiagsCase(object,):
         elif self._cime_case:
             val = self._cime_case.get_value(var)
 
-        if val != None and val.lower() == "none":
+        if type(val) == type("") and val.lower() == "none":
             val = None
 
         log.info(f"get_value::\n\trequsted variable: {var} \n\treturning value: {val}"\
@@ -102,8 +103,7 @@ class DiagsCase(object,):
         if len(candidate_files) == 0:
             raise RuntimeError(f"Cannot find '{fld_to_search}' in diag_table")
         elif len(candidate_files) > 1:
-            raise RuntimeError(f"Multiple '{fld_to_search}' entries in diag_table. Provide output frequency "\
-                                "or HIST_FILE_PREFIX!")
+            raise RuntimeError(f"Multiple '{fld_to_search}' entries in diag_table. Provide HIST_FILE_PREFIX!")
         else: # only one file including field found
             pass
 
@@ -180,16 +180,21 @@ class DiagsCase(object,):
                 if self.get_file_prefix(f) != hist_file_prefix:
                     raise RuntimeError(f"The following fields are spreaded across multiple "+\
                                         "netcdf files with different prefixes")
+        else:
+            # check if given hist_file_prefix actually exists in diag_table:
+            self._parse_diag_table()
+            assert hist_file_prefix in self.diag_files, f"Cannot find "+hist_file_prefix+" in diag_table"
 
         # create a list of all files including the requested fields:
         rundir = self.get_value("RUNDIR")
+        dout_s = self.get_value('DOUT_S')
         dout_s_root = self.get_value("DOUT_S_ROOT")
         regex = DiagsCase.convert_prefix_to_regex(hist_file_prefix)
         log.info(f"regex to determine all files including {field0}: {regex}")
         all_nc_files = []
         if rundir != None:
             all_nc_files += [os.path.join(rundir,f) for f in os.listdir(rundir) if f[-3:]=='.nc']
-        if dout_s_root != None:
+        if dout_s_root and dout_s==True:
             all_nc_files += [os.path.join(dout_s_root,f) for f in os.listdir(dout_s_root) if f[-3:]=='.nc']
         all_matched_files = [f for f in all_nc_files if re.search(regex,f)]
         all_matched_files.sort()
@@ -200,11 +205,19 @@ class DiagsCase(object,):
 
         return all_matched_files
 
-    def create_esmlab_dataset(self, fields:list):
+    def stage_dset(self, fields:list):
+        """ Creates and returns a dataset containing the given fields for the entire duration of a run"""
+
         log.info(f"Constructing a dataset for fields: {fields}")
         file_list = self._get_file_list(fields)
-        #log.info(f"Files to read:")
-        #for f in file_list:
-        #    log.info(f"\t{f}")
-        esm = xr.open_mfdataset(file_list, decode_times=False).esm
-        return esm
+        dset = xr.open_mfdataset(file_list)#, decode_times=False)
+
+        # confine dataset to given list of fields
+        if "average_T1" not in fields:
+            fields.append("average_T1")
+        if "average_T2" not in fields:
+            fields.append("average_T2")
+        dset = dset[fields]
+
+        return dset
+
