@@ -5,6 +5,7 @@ import logging as log
 import cftime as cft
 from collections import OrderedDict, namedtuple
 import xarray as xr
+from mom6_tools.MOM6grid import MOM6grid
 
 
 DiagFileEntry = namedtuple('DiagFileEntry',
@@ -21,6 +22,8 @@ class DiagsCase(object,):
 
         self._config = case_config
         self._cime_case = None
+        self._grid = None
+        self._casename = None
         self.diag_files = None
         self.diag_fields = None
 
@@ -35,23 +38,47 @@ class DiagsCase(object,):
                     "If 'RUNDIR' or 'DOUT_S_ROOT' are not provided,"\
                     " both 'CASEROOT' and 'CIMEROOT' must be provided."
 
-        # if available, instantiate a cime case object
-        if caseroot_provided and cimeroot_provided:
-            cimeroot = self._config['CIMEROOT']
-            caseroot = self._config['CASEROOT']
-            sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
-            from CIME.case.case import Case
-            self._cime_case = Case(caseroot)
+    # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None
+    @property
+    def cime_case(self):
+        if not self._cime_case:
+            caseroot = self.get_value('CASEROOT')
+            cimeroot = self.get_value('CIMEROOT')
+            if caseroot and cimeroot:
+                sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
+                from CIME.case.case import Case
+                self._cime_case = Case(caseroot)
+        return self._cime_case
+
+    # deduce the case name:
+    def _deduce_case_name(self):
+        caseroot = self.get_value('CASEROOT')
+        dout_s_root = self.get_value('DOUT_S_ROOT')
+        rundir = self.get_value('RUNDIR')
+        if caseroot:
+            self._casename = os.path.basename(os.path.normpath(caseroot))
+        elif dout_s_root:
+            self._casename = os.path.basename(os.path.normpath(dout_s_root))
+        elif rundir:
+            self._casename = os.path.basename(os.path.normpath(rundir[:-4]))
+        else:
+            raise RuntimeError(f"Cannot deduce casename")
+
+    @property
+    def casename(self):
+        if not self._casename:
+            self._deduce_case_name()
+        return self._casename
 
     def get_value(self, var):
         """ Returns the value of a variable in yaml config file. If var is not in yaml config
-            file, then checks to see if it can retrive the var from _cime_case instance """
+            file, then checks to see if it can retrive the var from cime_case instance """
 
         val = None
         if var in self._config:
             val =  self._config[var]
-        elif self._cime_case:
-            val = self._cime_case.get_value(var)
+        elif self.cime_case:
+            val = self.cime_case.get_value(var)
 
         if type(val) == type("") and val.lower() == "none":
             val = None
@@ -110,7 +137,6 @@ class DiagsCase(object,):
         file_prefix = candidate_files.pop()
         log.info(f"returning {file_prefix} including {fld_to_search}")
         return file_prefix
-
 
 
     def _parse_diag_table(self):
@@ -204,6 +230,19 @@ class DiagsCase(object,):
         assert len(all_matched_files)>0, f"Cannot find any history files including {fields}"
 
         return all_matched_files
+
+
+    def _generate_grid(self):
+        rundir = self.get_value("RUNDIR")
+        static_file_path = os.path.join(rundir, f"{self.casename}.mom6.static.nc")
+        self._grid = MOM6grid(static_file_path)
+
+    @property
+    def grid(self):
+        if not self._grid:
+            self._generate_grid()
+        return self._grid
+
 
     def stage_dset(self, fields:list):
         """ Creates and returns a dataset containing the given fields for the entire duration of a run"""

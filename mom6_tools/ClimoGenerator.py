@@ -4,15 +4,13 @@ import os
 import re
 import cftime as cft
 import logging as log
-from DiagsCase import DiagsCase
-###from esmlab import climatology
+from mom6_tools.DiagsCase import DiagsCase
 
 class ClimoGenerator(object,):
 
     required_entries = set(["type", "date0", "date1", "fields", "freqs"])
 
-    def __init__(self, cid, climo_config:dict, diags_case:DiagsCase):
-        self._cid = cid
+    def __init__(self, climo_config:dict, diags_case:DiagsCase):
         self._climo_config = climo_config
         self.diags_case = diags_case
 
@@ -44,13 +42,13 @@ class ClimoGenerator(object,):
             assert re.search(date_regex,date0_str), f"Invalid date0 entry: {date0_str}"
             calendar = diags_case.get_value("CALENDAR")
             self._date0 = cft_datetime_constr(int(date0_str[:4]),int(date0_str[5:7]),int(date0_str[8:10]))
-            log.info(f"Climo {self._cid}, date0: {self._date0}")
+            log.info(f"Climo date0: {self._date0}")
         if 'date1' in self._climo_config:
             date1_str = self._climo_config['date1']
             assert re.search(date_regex,date1_str), f"Invalid date1 entry: {date1_str}"
             calendar = diags_case.get_value("CALENDAR")
             self._date1 = cft_datetime_constr(int(date1_str[:4]),int(date1_str[5:7]),int(date1_str[8:10]))
-            log.info(f"Climo {self._cid}, date1: {self._date1}")
+            log.info(f"Climo date1: {self._date1}")
 
 
     @property
