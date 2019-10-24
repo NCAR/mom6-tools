@@ -571,6 +571,7 @@ def xycompare(field1, field2, x=None, y=None, area=None,
     maskedField1 = regionalMasking(field1,yCoord,xCoord,latRange,lonRange)
     maskedField2 = regionalMasking(field2,yCoord,xCoord,latRange,lonRange)
     areaCopy = numpy.ma.array(area,mask=maskedField1.mask,copy=True)
+
   s1Min, s1Max, s1Mean, s1Std, s1RMS = myStats(maskedField1, area, debug=debug)
   s2Min, s2Max, s2Mean, s2Std, s2RMS = myStats(maskedField2, area, debug=debug)
   dMin, dMax, dMean, dStd, dRMS = myStats(maskedField1 - maskedField2, area, debug=debug)
@@ -581,6 +582,7 @@ def xycompare(field1, field2, x=None, y=None, area=None,
   if debug:
     print('s1: min, max, mean =', s1Min, s1Max, s1Mean)
     print('s2: min, max, mean =', s2Min, s2Max, s2Mean)
+    print('diff: min, max, mean, std, rms =', dMin, dMax, dMean, dStd, dRMS)
     print('s12: min, max =', s12Min, s12Max)
 
   # Choose colormap
@@ -641,7 +643,7 @@ def xycompare(field1, field2, x=None, y=None, area=None,
     axis = plt.subplot(npanels,1,npanels)
     if sector == None or sector == 'global':
       if dcolormap is None: dcolormap = chooseColorMap(dMin, dMax)
-      if dlim is None and dStd>0:
+      if dlim is None and dStd is not None:
         cmap, norm, dextend = chooseColorLevels(dMean-sigma*dStd, dMean+sigma*dStd, dcolormap, clim=dlim, nbins=nbins, \
                                                 extend=dextend, autocenter=True)
       else:
