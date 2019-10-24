@@ -24,16 +24,20 @@ def options():
   return cmdLineArgs
 
 class Transport():
-  def __init__(self, args, section, var, label=None, ylim=None, zlim=None, mks2Sv=True):
-    print('Processing ', section)
+  def __init__(self, args, section, var, label=None, ylim=None, zlim=None, mks2Sv=True, debug=False):
+    debug = debug or args.debug
+    if debug: print('Processing ', section)
     # List all section* files in args.infile
-    files = [f for f in glob.glob(args.infile+args.case_name+'_'+section+'*', recursive=True)]
+    full_path = args.infile+args.case_name+'.mom6.'+section+'*'
+    if debug: print('Full path ', full_path)
+    files = [f for f in glob.glob(full_path, recursive=True)]
     tiles = [] # list with 'tiles' numbers. These change depending on the total # of PE
     for f in files:
       tiles.append(f[-4::])
 
     # Removing duplicates
     tiles = list(set(tiles))
+    if debug: print('Tiles ', tiles)
 
     self.section = section
     self.var = var
@@ -43,15 +47,15 @@ class Transport():
     # initial and final years, in days
     self.ti = args.year_start * 365
     self.tf = args.year_end * 365
-
+    if debug: print('Start on day {}; End on day {}'.format(self.ti, self.tf))
     missing_var = True
     # loop over tiles
     for t in range(len(tiles)):
-      inFileName = '{}_{}_*.nc.{}'.format(args.infile+args.case_name, section, str(tiles[t]))
-      if args.debug: print(inFileName, var)
+      inFileName = '{}.mom6.{}_*.nc.{}'.format(args.infile+args.case_name, section, str(tiles[t]))
+      if debug: print('inFileName {}, variable {}'.format(inFileName,var))
       rootGroup = xr.open_mfdataset(inFileName,decode_times=False)
-      if args.debug: print(rootGroup)
-      if args.debug: print('ti,tf,time',self.ti,self.tf, rootGroup.time.data)
+      if debug: print(rootGroup)
+      if debug: print('ti,tf,time',self.ti,self.tf, rootGroup.time.data)
       check_time_interval(self.ti,self.tf,rootGroup)
       # select time range requested
       rootGroup = rootGroup.sel(time=slice(self.ti, self.tf))
