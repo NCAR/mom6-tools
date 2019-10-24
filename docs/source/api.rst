@@ -25,6 +25,12 @@ Meridional overturning
 .. autosummary::
    moc
 
+Poleward heat transport
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+   poleward_heat_transport
+
 Toolbox
 ~~~~~~~~~
 
