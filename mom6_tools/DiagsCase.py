@@ -17,8 +17,42 @@ DiagFieldEntry = namedtuple('DiagFieldEntry',
                      "regional_section", "packing"))
 
 class DiagsCase(object,):
+    """ CESM case manager. Provides methods to get the values of CESM case parameters, 
+        to parse case files such as diag_table, and to generate datasets from history
+        output files.
+
+    Attributes
+    -------
+    cime_case
+        CIME case object
+    casename
+        Case name
+    grid
+        MOM6grid instance
+
+    Methods
+    -------
+    get_value(var)
+        Returns the value of a variable defined in yaml config file.
+    stage_dset(fields)
+        Returns an xarray dataset that contain the specified fields.
+    """
 
     def __init__(self, case_config:OrderedDict):
+        """ Parameters
+            ----------
+            case_config : OrderedDict
+                A dictionary containing case information. This is usually read from a yaml
+                file but may also be generated manually. The format of the yaml file to 
+                generate this dictionary:
+
+                Case:
+                    CIMEROOT: ...
+                    CASEROOT: ...
+                    RUNDIR: ...
+                    HIST_FILE_PREFIX: ...
+
+        """
 
         self._config = case_config
         self._cime_case = None
@@ -41,6 +75,10 @@ class DiagsCase(object,):
     # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None
     @property
     def cime_case(self):
+        """ Returns a CIME case object. Must provide the CIME source root 
+            in case_config dict when instantiating this class. Any CIME xml variable,
+            e.g., OCN_GRID, may be retrieved from the returned object using get_value
+            method."""
         if not self._cime_case:
             caseroot = self.get_value('CASEROOT')
             cimeroot = self.get_value('CIMEROOT')
@@ -66,13 +104,22 @@ class DiagsCase(object,):
 
     @property
     def casename(self):
+        """ Returns case name by inferring it from CASEROOT. """
         if not self._casename:
             self._deduce_case_name()
         return self._casename
 
     def get_value(self, var):
-        """ Returns the value of a variable in yaml config file. If var is not in yaml config
-            file, then checks to see if it can retrive the var from cime_case instance """
+        """ Returns the value of a variable in yaml config file. If the variable is not 
+        in yaml config file, then checks to see if it can retrieve the var from cime_case
+        instance.
+
+        Parameters
+        ----------
+        var : string
+            Variable name
+
+        """
 
         val = None
         if var in self._config:
@@ -239,13 +286,25 @@ class DiagsCase(object,):
 
     @property
     def grid(self):
+        """ MOM6grid instance """
         if not self._grid:
             self._generate_grid()
         return self._grid
 
 
     def stage_dset(self, fields:list):
-        """ Creates and returns a dataset containing the given fields for the entire duration of a run"""
+        """ Generates a dataset containing the given fields for the entire
+        duration of a run
+
+        Parameters
+        ----------
+        fields : list
+            The list of fields of this case to include in the dataset to be generated."
+
+        Returns
+        -------
+        xarray.Dataset
+        """
 
         log.info(f"Constructing a dataset for fields: {fields}")
         file_list = self._get_file_list(fields)
