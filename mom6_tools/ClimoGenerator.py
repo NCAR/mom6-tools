@@ -4,13 +4,51 @@ import os
 import re
 import cftime as cft
 import logging as log
+from collections import OrderedDict
 from mom6_tools.DiagsCase import DiagsCase
 
 class ClimoGenerator(object,):
+    """ A class to generate climatology and average datasets
+
+    Attributes
+    ----------
+    fields
+        list of fields to include in the generated datasets
+    date0
+        Begin date
+    date1
+        End date
+    type
+        climo or avg
+
+    Methods
+    -------
+    stage()
+        Generates the requested climatology or average datasets.
+    """
 
     required_entries = set(["type", "date0", "date1", "fields", "freqs"])
 
-    def __init__(self, climo_config:dict, diags_case:DiagsCase):
+    def __init__(self, climo_config:OrderedDict, diags_case:DiagsCase):
+        """
+        Parameters
+        ----------
+        climo_config : OrderedDict
+            A dictionary containing the configuration for average or climatology data to generate
+            This is usually read from a yaml file but may also be generated manually. An example
+            yaml file to generate this dictionary:
+
+            Climo:
+              type: "avg"               # "climo" or "avg"
+              date0: "0001-01-01"
+              date1: "0005-12-31"
+              fields: ["thetao","so"]   # fields to average
+              freqs: ["1Y", "5Y"]       # 1- and 5-yearly averages
+
+        diags_case : mom6_tools.DiagsCase.
+            Case instance
+        """
+
         self._climo_config = climo_config
         self.diags_case = diags_case
 
@@ -75,7 +113,13 @@ class ClimoGenerator(object,):
         return self._climo_config['freqs']
 
     def stage(self):
-        """ Creates datasets of requested climatologies/averages."""
+        """ Generates the requested climatology or average datasets.
+        The request is configured in the climo_config dictionary.
+
+        Returns
+        -------
+        xarray.Dataset
+        """
 
         # first, stage the initial dataset covering the entire duration of the case
         case_dset = self.diags_case.stage_dset(self.fields)
