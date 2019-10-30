@@ -1021,10 +1021,10 @@ def ztplot(field, t=None, z=None,
     for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
     axis.set_yscale('splitscale', zval=splitscale)
   plt.xlim( tLims ); plt.ylim( zLims )
-  axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
+  axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=16)
   if sMean is not None:
-    axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
-    axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
+    axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=16)
+    axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=16)
   if len(tlabel+tunits)>0: plt.xlabel(label(tlabel, tunits))
   if len(zlabel+zunits)>0: plt.ylabel(label(zlabel, zunits))
   if len(title)>0: plt.title(title)
