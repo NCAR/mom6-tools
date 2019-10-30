@@ -4,9 +4,9 @@ numba
 pyyaml
 xarray
 dask
+pytest
 netCDF4
 matplotlib
 cftime
 jupyter
-cartopy
 cmocean

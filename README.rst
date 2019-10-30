@@ -1,5 +1,8 @@
 MOM6-tools
 ============
+.. image:: https://travis-ci.com/gustavo-marques/mom6-tools.svg?style=for-the-badge
+    :target: https://travis-ci.com/gustavo-marques/mom6-tools.svg?branch=master
+    :alt: Build Status
 
 .. image:: https://img.shields.io/readthedocs/mom6-tools/latest.svg?style=for-the-badge
     :target: https://mom6-tools.readthedocs.io/en/latest/?badge=latest
