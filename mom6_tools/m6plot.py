@@ -11,6 +11,7 @@ except:
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap, LogNorm
 from matplotlib.ticker import MaxNLocator
+import matplotlib
 import matplotlib.path as mpath
 import math
 import numpy, numpy.matlib
@@ -955,7 +956,7 @@ def ztplot(field, t=None, z=None,
   splitscale=None,
   title='', suptitle='', autocenter=False,
   clim=None, colormap=None, extend=None, centerlabels=False,
-  nbins=None, landcolor=[.5,.5,.5],
+  nbins=None, landcolor=[.5,.5,.5], contour=False,
   aspect=[16,9], resolution=576, axis=None,
   ignore=None, save=None, debug=False, show=False, interactive=False):
   """
@@ -979,6 +980,7 @@ def ztplot(field, t=None, z=None,
   centerlabels If True, will move the colorbar labels to the middle of the interval. Default False.
   nbins       The number of colors levels (used is clim is missing or only specifies the color range).
   landcolor   An rgb tuple to use for the color of land (no data). Default [.5,.5,.5].
+  contour     If true, draw and label contour lines. Default is False.
   aspect      The aspect ratio of the figure, given as a tuple (W,H). Default [16,9].
   resolution  The vertical resolution of the figure given in pixels. Default 720.
   axis         The axis handle to plot to. Default None.
@@ -1015,6 +1017,11 @@ def ztplot(field, t=None, z=None,
   plt.pcolormesh(tCoord, zCoord, field2, cmap=cmap, norm=norm)
   if interactive: addStatusBar(tCoord, zCoord, field2)
   cb = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
+  if contour:
+    matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
+    cs = plt.contour(tCoord, zCoord,field2,colors='k',lw=0.50)
+    plt.clabel(cs, inline=1, fontsize=10)
+
   if centerlabels and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
   axis.set_facecolor(landcolor)
   if splitscale is not None:
