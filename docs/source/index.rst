@@ -5,7 +5,7 @@
 * :doc:`examples`
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :hidden:
    :caption: User guide
 
