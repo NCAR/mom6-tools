@@ -17,5 +17,12 @@ dependencies:
   - scipy
   - jinja2
   - dask
+  - pyyaml
+  - cmocean
+  - pytest
+  - cartopy
+  - cftime
+  - matplotlib
+  - netCDF4
   - pip:
     - sphinx_copybutton
