@@ -22,7 +22,7 @@ install:
   - conda info -a
 
   # Replace dep1 dep2 ... with your dependencies
-  - conda env create python=$TRAVIS_PYTHON_VERSION -f ci/docs.yml
+  - conda env create python=$TRAVIS_PYTHON_VERSION -f ci/travis-conda-environment.yml
   - conda activate mom6-tools-dev
   - python setup.py install
 
