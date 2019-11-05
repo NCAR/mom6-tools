@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.ClimoGenerator import ClimoGenerator
+from mom6_tools.m6toolbox import genBasinMasks
+from mom6_tools.m6plot import ztplot
 from collections import OrderedDict
 import yaml, os
 
@@ -15,12 +17,8 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for plotting time-series of transports across vertical sections.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-l','--label',    type=str, default='', help='''Label to add to the plot.''')
-  parser.add_argument('-n','--case_name', type=str, default='test', help='''Case name (default=test)''')
-  parser.add_argument('-o','--outdir',   type=str, default='.', help='''Directory in which to place plots.''')
-  parser.add_argument('-ys','--year_start',      type=int, default=0,  help='''Start year to plot (default=0)''')
-  parser.add_argument('-ye','--year_end',      type=int, default=1000, help='''Final year to plot (default=1000)''')
-  parser.add_argument('-debug', help='''Add priting statements for debugging purposes''', action="store_true")
+  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
+  parser.add_argument('-savefig', help='''Add priting statements for debugging purposes''', action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
 
@@ -231,11 +229,25 @@ def main(stream=False):
   # Load the grid
   grd = dcase.grid
 
+  # get ocean area
+  area = grd.area_t.where(grd.wet > 0)
+
+  # Get masking for different regions
+  depth = grd.depth_ocean.values
+
+  # remote Nan's, otherwise genBasinMasks won't work
+  depth[np.isnan(depth)] = 0.0
+  basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
+
   # Create the climatology instance
   climo = ClimoGenerator(diag_config_yml['Climo'], dcase)
 
   # Compute the climatology dataset
   dset_climo = climo.stage()
+
+  # select variables
+  thetao_model = dset_climo['1Y'].thetao
+  salt_model = dset_climo['1Y'].so
 
   # load PHC2 data
   phc_path = '/glade/p/cesm/omwg/obs_data/phc/'
@@ -249,11 +261,62 @@ def main(stream=False):
   thetao_obs['xh'] = thetao_model.xh; thetao_obs['yh'] = thetao_model.yh;
   salt_obs['xh'] = salt_model.xh; salt_obs['yh'] = salt_model.yh;
 
-  # leaving this here to catch if start/end years outside the range of the dataset
-  res = Transport(cmdLineArgs,'Agulhas_Section','umo',label='Agulhas',ylim=(100,200))
+  # compute difference
+  temp_diff = thetao_model - thetao_obs
+  salt_diff = salt_model - salt_obs
 
-  try: res = Transport(cmdLineArgs,'Agulhas_Section','umo',label='Agulhas',ylim=(100,250)); plotSections.append(res)
-  except: print('WARNING: unable to process Agulhas_section')
+  # construct a 3D area with land values masked
+  area3d = np.repeat(area.values[np.newaxis, :, :], len(temp_diff.z_l), axis=0)
+  mask3d = xr.DataArray(area3d, dims=(temp_diff.dims[1:4]), coords= {temp_diff.dims[1]: temp_diff.z_l,
+                                                                   temp_diff.dims[2]: temp_diff.yh,
+                                                                   temp_diff.dims[3]: temp_diff.xh})
+  area3d_masked = mask3d.where(temp_diff[0,:] == temp_diff[0,:])
+
+  # Horizontal Mean difference (model - obs)
+  temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basin_code)
+  salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basin_code)
+
+  # temperature
+  for reg in temp_bias.region:
+    # remove Nan's
+    diff_reg = temp_bias.sel(region=reg).dropna('z_l')
+    if diff_reg.z_l.max() <= 500.0:
+      splitscale = None
+    else:
+      splitscale =  [0., -500., -diff_reg.z_l.max()]
+    if cmdLineArgs.savefig:
+      savefig=str(reg.values)+'temp.png'
+    else:
+      savefig=None
+
+    plt.figure()
+    ztplot(diff_reg.values, diff_reg.time.values, diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
+           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], (model - obs)',
+           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True,
+           save=savefig, interactive=True);
+
+
+  # salinity
+  for reg in salt_bias.region:
+    # remove Nan's
+    diff_reg = salt_bias.sel(region=reg).dropna('z_l')
+    if diff_reg.z_l.max() <= 500.0:
+      splitscale = None
+    else:
+      splitscale =  [0., -500., -diff_reg.z_l.max()]
+
+    if cmdLineArgs.savefig:
+      savefig=str(reg.values)+'salt.png'
+    else:
+      savefig=None
+
+    plt.figure()
+    ztplot(diff_reg.values, diff_reg.time.values, diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
+           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], (model - obs)',
+           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True,
+           save=savefig, interactive=True);
+
+  return
 
 if __name__ == '__main__':
   main()
