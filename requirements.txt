@@ -4,10 +4,11 @@ numba
 pyyaml
 xarray
 dask
+pytest
 netCDF4
 matplotlib
 cftime
-jupyter
-yaml
 cartopy
+scipy
+jupyter
 cmocean

@@ -123,17 +123,19 @@ class ClimoGenerator(object,):
 
         # first, stage the initial dataset covering the entire duration of the case
         case_dset = self.diags_case.stage_dset(self.fields)
-
         ## confine within climatology time frame
         date0_avail = case_dset.time.sel(time=self.date0,method="bfill")
         date1_avail = case_dset.time.sel(time=self.date1,method="pad")
         case_dset = case_dset.sel(time=slice(date0_avail,date1_avail))
-
         dset = dict() # class member that holds climatology dsets
 
         if self.type == 'avg':
             for freq in self.freqs:
-                dset[freq] = case_dset.resample(time=freq, closed='left').mean()
+                dset[freq] = case_dset.resample(time=freq, closed='left', keep_attrs=True).mean()
+                # keep_attrs=True works just for the dataset
+                # We need to force dataArray to keep attributes
+                for var in dset[freq].variables:
+                  dset[freq][var].attrs = case_dset[var].attrs
         else:
             raise NotImplementedError
 

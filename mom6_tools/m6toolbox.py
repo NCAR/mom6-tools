@@ -5,7 +5,7 @@ import numpy as np
 import tarfile
 from scipy.io import netcdf
 import xarray as xr
-
+from collections import OrderedDict
 
 def check_time_interval(ti,tf,nc):
  ''' Checks if year_start and year_end are within the time interval of the dataset'''
@@ -276,7 +276,33 @@ def southOf(x, y, xy0, xy1):
   Y[Y>=0] = 1; Y[Y<=0] = 0
   return Y
 
-def genBasinMasks(x,y,depth,verbose=False):
+def genBasinMasks(x,y,depth,verbose=False, xda=False):
+  """
+  Returns masking for different regions.
+
+  Parameters
+  ----------
+  x : 2D array
+    Longitude
+
+  y : 2D array
+    Latitude
+
+  depth : 2D array
+    Ocean depth. Masked values must be set to zero.
+
+  verbose : boolean, optional
+    If True, print some stuff. Default is false.
+
+  xda : boolean, optional
+    If True, returns an xarray Dataset. Default is false.
+
+  Returns
+  -------
+  """
+  rmask_od = OrderedDict()
+  rmask_od['Global'] = xr.where(depth > 0, 1.0, 0.0)
+
   if verbose: print('Generating global wet mask...')
   wet = ice9(x, y, depth, (0,-35)) # All ocean points seeded from South Atlantic
   if verbose: print('done.')
@@ -299,30 +325,35 @@ def genBasinMasks(x,y,depth,verbose=False):
   tmp = wet*( 1-southOf(x, y, (55.,23.), (56.5,27.)) )
   tmp = ice9(x, y, tmp, (53.,25.))
   code[tmp>0] = 11
+  rmask_od['PersianGulf'] = xr.where(code == 11, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   if verbose: print('Processing Red Sea ...')
   tmp = wet*( 1-southOf(x, y, (40.,11.), (45.,13.)) )
   tmp = ice9(x, y, tmp, (40.,18.))
   code[tmp>0] = 10
+  rmask_od['RedSea'] = xr.where(code == 10, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   if verbose: print('Processing Black Sea ...')
   tmp = wet*( 1-southOf(x, y, (26.,42.), (32.,40.)) )
   tmp = ice9(x, y, tmp, (32.,43.))
   code[tmp>0] = 7
+  rmask_od['BlackSea'] = xr.where(code == 7, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   if verbose: print('Processing Mediterranean ...')
   tmp = wet*( southOf(x, y, (-5.7,35.5), (-5.7,36.5)) )
   tmp = ice9(x, y, tmp, (4.,38.))
   code[tmp>0] = 6
+  rmask_od['MedSea'] = xr.where(code == 6, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   if verbose: print('Processing Baltic ...')
   tmp = wet*( southOf(x, y, (8.6,56.), (8.6,60.)) )
   tmp = ice9(x, y, tmp, (10.,58.))
   code[tmp>0] = 9
+  rmask_od['BalticSea'] = xr.where(code == 9, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   if verbose: print('Processing Hudson Bay ...')
@@ -332,6 +363,7 @@ def genBasinMasks(x,y,depth,verbose=False):
              )*( 1-southOf(x, y, (-70.,58.), (-70.,65.)) ) )
   tmp = ice9(x, y, tmp, (-85.,60.))
   code[tmp>0] = 8
+  rmask_od['HudsonBay'] = xr.where(code == 8, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   if verbose: print('Processing Arctic ...')
@@ -344,6 +376,7 @@ def genBasinMasks(x,y,depth,verbose=False):
             )
   tmp = ice9(x, y, tmp, (0.,85.))
   code[tmp>0] = 4
+  rmask_od['Arctic'] = xr.where(code == 4, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   if verbose: print('Processing Pacific ...')
@@ -355,23 +388,27 @@ def genBasinMasks(x,y,depth,verbose=False):
             )
   tmp = ice9(x, y, tmp, (-150.,0.))
   code[tmp>0] = 3
+  rmask_od['PacificOcean'] = xr.where(code == 3, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   if verbose: print('Processing Atlantic ...')
   tmp = wet*(1-southOf(x, y, (0.,yCGH), (360.,yCGH)))
   tmp = ice9(x, y, tmp, (-20.,0.))
   code[tmp>0] = 2
+  rmask_od['AtlanticOcean'] = xr.where(code == 2, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   if verbose: print('Processing Indian ...')
   tmp = wet*(1-southOf(x, y, (0.,yCGH), (360.,yCGH)))
   tmp = ice9(x, y, tmp, (55.,0.))
   code[tmp>0] = 5
+  rmask_od['IndianOcean'] = xr.where(code == 5, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   if verbose: print('Processing Southern Ocean ...')
   tmp = ice9(x, y, wet, (0.,-55.))
   code[tmp>0] = 1
+  rmask_od['SouthernOcean'] = xr.where(code == 1, 1.0, 0.0)
   wet = wet - tmp # Removed named points
 
   #if verbose: print('Remapping Persian Gulf points to the Indian Ocean for OMIP/CMIP6 ...')
@@ -400,8 +437,17 @@ def genBasinMasks(x,y,depth,verbose=False):
 
     """)
 
-  return code
+  rmask = xr.DataArray(np.zeros((len(rmask_od), depth.shape[0], depth.shape[1])),
+                         dims=('region', 'yh', 'xh'),
+                         coords={'region':list(rmask_od.keys())})
 
+  for i, rmask_field in enumerate(rmask_od.values()):
+        rmask.values[i,:,:] = rmask_field
+
+  if xda:
+    return rmask
+  else:
+    return code
 
 def genBasinMasks_old(x,y,depth,verbose=False):
   if verbose: print('Generating global wet mask ...')

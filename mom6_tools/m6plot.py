@@ -11,6 +11,7 @@ except:
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap, LogNorm
 from matplotlib.ticker import MaxNLocator
+import matplotlib
 import matplotlib.path as mpath
 import math
 import numpy, numpy.matlib
@@ -955,7 +956,7 @@ def ztplot(field, t=None, z=None,
   splitscale=None,
   title='', suptitle='', autocenter=False,
   clim=None, colormap=None, extend=None, centerlabels=False,
-  nbins=None, landcolor=[.5,.5,.5],
+  nbins=None, landcolor=[.5,.5,.5], contour=False,
   aspect=[16,9], resolution=576, axis=None,
   ignore=None, save=None, debug=False, show=False, interactive=False):
   """
@@ -979,6 +980,7 @@ def ztplot(field, t=None, z=None,
   centerlabels If True, will move the colorbar labels to the middle of the interval. Default False.
   nbins       The number of colors levels (used is clim is missing or only specifies the color range).
   landcolor   An rgb tuple to use for the color of land (no data). Default [.5,.5,.5].
+  contour     If true, draw and label contour lines. Default is False.
   aspect      The aspect ratio of the figure, given as a tuple (W,H). Default [16,9].
   resolution  The vertical resolution of the figure given in pixels. Default 720.
   axis         The axis handle to plot to. Default None.
@@ -1015,18 +1017,23 @@ def ztplot(field, t=None, z=None,
   plt.pcolormesh(tCoord, zCoord, field2, cmap=cmap, norm=norm)
   if interactive: addStatusBar(tCoord, zCoord, field2)
   cb = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
+  if contour:
+    matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
+    cs = plt.contour(tCoord, zCoord,field2,colors='k',lw=0.50)
+    plt.clabel(cs, inline=1, fontsize=10)
+
   if centerlabels and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
   axis.set_facecolor(landcolor)
   if splitscale is not None:
     for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
     axis.set_yscale('splitscale', zval=splitscale)
   plt.xlim( tLims ); plt.ylim( zLims )
-  axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
+  axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=12)
   if sMean is not None:
-    axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
-    axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
-  if len(tlabel+tunits)>0: plt.xlabel(label(tlabel, tunits))
-  if len(zlabel+zunits)>0: plt.ylabel(label(zlabel, zunits))
+    axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=12)
+    axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=12)
+  if len(tlabel+tunits)>0: plt.xlabel(label(tlabel, tunits), fontsize=16)
+  if len(zlabel+zunits)>0: plt.ylabel(label(zlabel, zunits), fontsize=16)
   if len(title)>0: plt.title(title)
   if len(suptitle)>0: plt.suptitle(suptitle)
 

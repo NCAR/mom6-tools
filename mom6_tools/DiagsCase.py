@@ -17,7 +17,7 @@ DiagFieldEntry = namedtuple('DiagFieldEntry',
                      "regional_section", "packing"))
 
 class DiagsCase(object,):
-    """ CESM case manager. Provides methods to get the values of CESM case parameters, 
+    """ CESM case manager. Provides methods to get the values of CESM case parameters,
         to parse case files such as diag_table, and to generate datasets from history
         output files.
 
@@ -38,12 +38,12 @@ class DiagsCase(object,):
         Returns an xarray dataset that contain the specified fields.
     """
 
-    def __init__(self, case_config:OrderedDict):
+    def __init__(self, case_config:OrderedDict, xrformat=False):
         """ Parameters
             ----------
             case_config : OrderedDict
                 A dictionary containing case information. This is usually read from a yaml
-                file but may also be generated manually. The format of the yaml file to 
+                file but may also be generated manually. The format of the yaml file to
                 generate this dictionary:
 
                 Case:
@@ -51,6 +51,10 @@ class DiagsCase(object,):
                     CASEROOT: ...
                     RUNDIR: ...
                     HIST_FILE_PREFIX: ...
+
+            xrformat : boolean, optional
+            If True, returns an xarray Dataset with the grid. Otherwise (default), returns an
+            object with numpy arrays.
 
         """
 
@@ -60,6 +64,7 @@ class DiagsCase(object,):
         self._casename = None
         self.diag_files = None
         self.diag_fields = None
+        self.xrformat = xrformat
 
         rundir_provided = "RUNDIR" in self._config
         dout_s_root_provided = "DOUT_S_ROOT" in self._config
@@ -75,7 +80,7 @@ class DiagsCase(object,):
     # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None
     @property
     def cime_case(self):
-        """ Returns a CIME case object. Must provide the CIME source root 
+        """ Returns a CIME case object. Must provide the CIME source root
             in case_config dict when instantiating this class. Any CIME xml variable,
             e.g., OCN_GRID, may be retrieved from the returned object using get_value
             method."""
@@ -110,7 +115,7 @@ class DiagsCase(object,):
         return self._casename
 
     def get_value(self, var):
-        """ Returns the value of a variable in yaml config file. If the variable is not 
+        """ Returns the value of a variable in yaml config file. If the variable is not
         in yaml config file, then checks to see if it can retrieve the var from cime_case
         instance.
 
@@ -282,7 +287,7 @@ class DiagsCase(object,):
     def _generate_grid(self):
         rundir = self.get_value("RUNDIR")
         static_file_path = os.path.join(rundir, f"{self.casename}.mom6.static.nc")
-        self._grid = MOM6grid(static_file_path)
+        self._grid = MOM6grid(static_file_path, self.xrformat)
 
     @property
     def grid(self):
