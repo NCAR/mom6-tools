@@ -197,24 +197,6 @@ def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
 
     return out
 
-def plotPanel(section,n,observedFlows=None,colorCode=True):
-    ax = plt.subplot(6,3,n+1)
-    color = '#c3c3c3'; obsLabel = None
-    if section.label in observedFlows.keys():
-      if isinstance(observedFlows[section.label],tuple):
-        if colorCode == True:
-          if min(observedFlows[section.label]) <= section.data.mean() <= max(observedFlows[section.label]):
-            color = '#90ee90'
-          else: color = '#f26161'
-        obsLabel = str(min(observedFlows[section.label])) + ' to ' + str(max(observedFlows[section.label]))
-      else: obsLabel = str(observedFlows[section.label])
-    plt.plot(section.time,section.data,color=color)
-    plt.title(section.label,fontsize=12)
-    plt.text(0.04,0.11,'Mean = '+'{0:.2f}'.format(section.data.mean()),transform=ax.transAxes,fontsize=10)
-    if obsLabel is not None: plt.text(0.04,0.04,'Obs. = '+obsLabel,transform=ax.transAxes,fontsize=10)
-    if section.ylim is not None: plt.ylim(section.ylim)
-    if n in [1,4,7,10,13,16]: plt.ylabel('Transport (Sv)')
-
 def main(stream=False):
 
   # Get options
