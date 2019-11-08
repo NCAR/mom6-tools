@@ -49,7 +49,7 @@ def main(cmdLineArgs):
   tvar = 'time'
   cp   = 3992.0
   rho0 = 1035.0
-  n    = 3
+  n    = 2
   print('Variables saved:')
   for v in forcing.variables: print (v),
   for v in surface.variables: print (v),
@@ -62,6 +62,7 @@ def main(cmdLineArgs):
   lon  = static.variables['geolon'][:]
   lat  = static.variables['geolat'][:]
   wet  = static.variables['wet'][:]
+  global area
   area = static.variables['area_t'][:]*wet
   #--------------------------------------------------------------
   # time in days, convert to seconds
@@ -230,6 +231,7 @@ def main(cmdLineArgs):
     nextSP()
     field     = 86400.0*(PRCmE - net_massout - net_massin)
     make_plot(lon,lat,field, '$PRCmE - M_{in} - M_{out}$ [$kg/m^2/day$]',cmin=-1e-13,cmax=1e-13,xlabel=True)
+    plt.show()
 
     # Surface mass fluxes II: component fields
     plt.figure(figsize=(16,12))
@@ -255,12 +257,14 @@ def main(cmdLineArgs):
     nextSP()
     field     = 86400.0*vprec
     make_plot(lon,lat,field, 'vprec [$kg/m^2/day$]',cmin=-10,cmax=10,xlabel=True)
+    plt.show()
+
     # Surface mass flux self-consistency check
     plt.figure(figsize=(16,12))
     newSP(1,1);
     field     = 86400.0*(PRCmE -lprec -fprec -lrunoff -frunoff -vprec -evap -seaice_melt)
     make_plot(lon,lat,field, 'PRCmE -lprec -fprec -lrunoff -frunoff -vprec -evap -seaice_melt [$kg/m^2/day$]',cmin=-1e-13,cmax=1e-13)
-
+    plt.show()
   # <h1 align="center">Heat fluxes and global ocean heat budget</h1>
   # <h2 align="center">Global heat budget consistency check</h2>
   # We compute the change in seawater heat content over a given time period.  Two different methods are used, and the two methods should agree at the level of truncation error.  If larger differences exist, then there is a bug.
@@ -329,6 +333,8 @@ def main(cmdLineArgs):
     nextSP()
     field = net_heat_surface-net_heat_coupler-frazil-heat_pme
     make_plot(lon,lat,field, 'Residual(error)[$W/m^2$]',cmin=0.0,cmax=0.0,xlabel=True)
+    plt.show()
+
     # Heat fluxes crossing ocean surface via the coupler
     # Heat fluxes crossing ocean surface via the coupler
     # net_heat_coupler =  LwLatSens + SW + seaice_melt_heat
@@ -349,6 +355,7 @@ def main(cmdLineArgs):
     nextSP()
     field     = net_heat_coupler - SW - LwLatSens - seaice_melt_heat
     make_plot(lon,lat,field, 'Residual(error) [$W/m^2$]',cmin=0.0,cmax=0.0, xlabel=True)
+    plt.show()
 
     # Relation between heat_PmE, heat_content_massin, and heat_content_massout
     # Alternative means to compute to heat_PmE via
@@ -373,6 +380,8 @@ def main(cmdLineArgs):
     nextSP()
     field     = heat_content_massout + heat_content_massin - heat_pme
     make_plot(lon,lat,field, 'heat_massin + heat_massout - heat_pme [$W/m^2$]',cmin=0.0,cmax=0.0, xlabel=True)
+    plt.show()
+
     # Components of heat content from surface mass fluxes
     # Components of heat content of surface mass fluxes
     # heat_PmE = heat_content_lprec + heat_content_fprec + heat_content_vprec
@@ -396,6 +405,7 @@ def main(cmdLineArgs):
     nextSP()
     field     = heat_content_vprec
     make_plot(lon,lat,field, 'heat_content_vprec [$W/m^2$]',cmin=-20.0,cmax=20.0)
+    plt.show()
 
     # Self-consistency of diagnosed heat content from mass entering ocean
     plt.figure(figsize=(16,12))
@@ -410,6 +420,7 @@ def main(cmdLineArgs):
     nextSP()
     field     = heat_content_massin - heat_content_sum
     make_plot(lon,lat,field, 'heat_content_massin - heat_content_sum [$W/m^2$]',cmin=0.0,cmax=0.0)
+    plt.show()
 
     # Self-consistency between heat_pme and heat_content_surfwater
     comp_sum = ( heat_content_lprec + heat_content_fprec + heat_content_vprec + heat_content_lrunoff
@@ -430,6 +441,7 @@ def main(cmdLineArgs):
     nextSP()
     field     = heat_pme - heat_content_surfwater
     make_plot(lon,lat,field, 'heat_pme - heat_content_surfwater [$W/m^2$]',cmin=0.0,cmax=0.0)
+    plt.show()
 
     # Map effective temperatures
     # The following "effective" temperatures differ generally from the SST due to the means
@@ -459,6 +471,7 @@ def main(cmdLineArgs):
     nextSP()
     field     = TnetEff - sst
     make_plot(lon,lat,field, '$\Theta_{net} - SST [{\degree}C$]',cmin=0.0,cmax=0.0, xlabel=True)
+    plt.show()
 
   # Salt fluxes and global ocean salt budget
   # Global salt budget consistency check
@@ -520,7 +533,7 @@ def main(cmdLineArgs):
     nextSP()
     field     = 86400.0*salt_restore
     make_plot(lon,lat,field, 'Surface salt flux from restoring [kg m$^{-2}$ day$^{-1}$]',cmin=0.0,cmax=0.0,xlabel=True)
-
+    plt.show()
   print('Passed!')
   return
 
