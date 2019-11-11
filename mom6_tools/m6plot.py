@@ -374,7 +374,7 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   # Choose colormap
   if nbins is None and (clim is None or len(clim)==2): nbins=35
   if colormap is None: colormap = chooseColorMap(sMin, sMax)
-  if clim is None and sStd>0:
+  if clim is None and sStd is not None:
     cmap, norm, extend = chooseColorLevels(sMean-sigma*sStd, sMean+sigma*sStd, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
   else:
     cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
@@ -469,7 +469,7 @@ def xyplot(field, x=None, y=None, area=None,
   # Choose colormap
   if nbins is None and (clim is None or len(clim)==2): nbins=35
   if colormap is None: colormap = chooseColorMap(sMin, sMax)
-  if clim is None and sStd>0:
+  if clim is None and sStd is not None:
     cmap, norm, extend = chooseColorLevels(sMean-sigma*sStd, sMean+sigma*sStd, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
   else:
     cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
