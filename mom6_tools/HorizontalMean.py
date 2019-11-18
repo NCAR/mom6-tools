@@ -258,6 +258,10 @@ def main(stream=False):
   temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basin_code)
   salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basin_code)
 
+  # Horizontal Mean rms (model - obs)
+  temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basin_code)
+  salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basin_code)
+
   # temperature
   for reg in temp_bias.region:
     # remove Nan's
@@ -267,16 +271,21 @@ def main(stream=False):
     else:
       splitscale =  [0., -500., -diff_reg.z_l.max()]
     if cmdLineArgs.savefig:
-      savefig=str(reg.values)+'temp.png'
+      savefig_diff=str(reg.values)+'temp_diff.png'
+      savefig_rms=str(reg.values)+'temp_rms.png'
     else:
-      savefig=None
+      savefig_diff=None
+      savefig_rms=None
 
-    plt.figure()
     ztplot(diff_reg.values, diff_reg.time.values, diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
-           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True,
-           save=savefig, interactive=True);
+           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], diff (model - obs)',
+           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=True,
+           save=savefig_diff, interactive=True);
 
+    ztplot(diff_reg.values, diff_reg.time.values, diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
+           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], rms (model - obs)',
+           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True,
+           save=savefig_rms, interactive=True);
 
   # salinity
   for reg in salt_bias.region:
@@ -288,16 +297,21 @@ def main(stream=False):
       splitscale =  [0., -500., -diff_reg.z_l.max()]
 
     if cmdLineArgs.savefig:
-      savefig=str(reg.values)+'salt.png'
+      savefig_diff=str(reg.values)+'salt_diff.png'
+      savefig_rms=str(reg.values)+'salt_rms.png'
     else:
-      savefig=None
+      savefig_diff=None
+      savefig_rms=None
 
-    plt.figure()
     ztplot(diff_reg.values, diff_reg.time.values, diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
-           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True,
-           save=savefig, interactive=True);
+           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], diff (model - obs)',
+           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=True,
+           save=savefig_diff, interactive=True);
 
+    ztplot(diff_reg.values, diff_reg.time.values, diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
+           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], rms (model - obs)',
+           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True,
+           save=savefig_rms, interactive=True);
   return
 
 if __name__ == '__main__':
