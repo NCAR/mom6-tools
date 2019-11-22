@@ -30,7 +30,7 @@ class VerticalSplitScale(mscale.ScaleBase):
 
         thresh: The degree above which to crop the data.
         """
-        mscale.ScaleBase.__init__(self)
+        mscale.ScaleBase.__init__(self, axis)
         #thresh = kwargs.pop("thresh", (85 / 180.0) * np.pi)
         #if thresh >= np.pi / 2.0:
         #    raise ValueError("thresh must be less than pi/2")
