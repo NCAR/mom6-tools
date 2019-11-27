@@ -1115,8 +1115,7 @@ def pmCI(min, max, ci, *args):
   if ci[0]>0: return numpy.concatenate( (-ci[::-1],ci) )
   else: return numpy.concatenate( (-ci[::-1],ci[1:]) )
 
-
-def myStats(s, area, s2=None, debug=False):
+def myStats(s, area, debug=False):
   """
   Calculates mean, standard deviation and root-mean-square of s.
   """
