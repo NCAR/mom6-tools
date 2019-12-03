@@ -198,10 +198,10 @@ def heatTrans(advective, diffusive=None, vmask=None):
   HT = HT.sum(axis=-1); HT = HT.squeeze() # sum in x-direction
   return HT
 
-def plotHeatTrans(y, HT, title, xlim=(-80,90)):
+def plotHeatTrans(y, HT, title, xlim=(-80,90), ylim=(-2.5,3.0)):
   plt.plot(y, y*0., 'k', linewidth=0.5)
   plt.plot(y, HT, 'r', linewidth=1.5,label='Model')
-  plt.xlim(xlim); plt.ylim(-2.5,3.0)
+  plt.xlim(xlim); plt.ylim(ylim)
   plt.title(title)
   plt.grid(True)
 
