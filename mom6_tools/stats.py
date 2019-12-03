@@ -670,11 +670,9 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   # initiate NCAR cluster
   cluster = NCARCluster()
   cluster.scale(8)
-  cluster
 
   client = Client(cluster)
   print(cluster.dashboard_link)
-  client
 
   # read dataset
   if args.debug: startTime = datetime.now()
@@ -729,7 +727,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
 
   # close processes
-  if args.debug: print('Close dask workers...\n')
+  if args.debug: print('Close workers...\n')
   client.close(); cluster.close()
 
   # temperature
