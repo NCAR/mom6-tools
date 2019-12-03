@@ -34,7 +34,7 @@ except:
 from sys import modules
 
 
-def plot_stats_da(stats, var, units):
+def plot_stats_da(stats, var, units, save=None):
   """
   Plot statistics computed by myStats_da for multiple basins.
 
@@ -51,6 +51,10 @@ def plot_stats_da(stats, var, units):
 
   units : str
    Units of variable var.
+
+  save : str, optional
+    Name of file to save figure in. Default None.
+
   """
   import seaborn
   import matplotlib
@@ -71,7 +75,11 @@ def plot_stats_da(stats, var, units):
       plt.title('')
     if i < (len(labels) -1):
       ax1.set_xlabel('')
-  plt.show()
+
+  if save is not None:
+    plt.savefig(save)
+    plt.close()
+
   return
 
 def plot_stats_da_reg(stats, title, var, units):
@@ -115,7 +123,10 @@ def plot_stats_da_reg(stats, title, var, units):
   ax5 = plt.subplot(515, sharex=ax1)
   stats[4,:].plot(ax=ax5, marker='.'); ax5.set_ylabel('RMS')
   plt.title('')
-  plt.show()
+  if save is not None:
+    plt.savefig(save)
+    plt.close()
+
   return
 
 def polarcomparison(field1, field2, grd, proj='SP', circle=True,
