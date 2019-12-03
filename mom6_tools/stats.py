@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 """
 Functions used to calculate statistics.
 """
@@ -9,7 +10,11 @@ import matplotlib.pyplot as plt
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.ClimoGenerator import ClimoGenerator
 from mom6_tools.m6toolbox import genBasinMasks
-from mom6_tools.m6plot import ztplot
+from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
+from mom6_tools.MOM6grid import MOM6grid
+from ncar_jobqueue import NCARCluster
+from dask.distributed import Client
+from datetime import datetime
 from collections import OrderedDict
 import yaml, os
 
@@ -20,8 +25,14 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for computing and plotting statistics.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
+  parser.add_argument('-diff_rms', help='''Compute horizontal mean difference and RMS: model versus \
+                      observations''', action="store_true")
+  parser.add_argument('-forcing', help='''Compute global time averages and regionally-averaged time-series \
+                      of forcing fields''', action="store_true")
+  parser.add_argument('-surface', help='''Compute global time averages and regionally-averaged time-series \
+                      of surface fields''', action="store_true")
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
-  parser.add_argument('-savefig', help='''Add priting statements for debugging purposes''', action="store_true")
+  parser.add_argument('-savefig', help='''Save figure (.png)''', action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
 
@@ -207,7 +218,7 @@ def min_da(da, dims=('yh', 'xh')):
       xarray.Dataset with min for da.
   """
   check_dims(da,dims)
-  return da.min(dim=dims)
+  return da.min(dim=dims, keep_attrs=True)
 
 def max_da(da, dims=('yh', 'xh')):
   """
@@ -226,7 +237,7 @@ def max_da(da, dims=('yh', 'xh')):
       xarray.Dataset with the max for da.
   """
   check_dims(da,dims)
-  return da.max(dim=dims)
+  return da.max(dim=dims, keep_attrs=True)
 
 def mean_da(da, dims=('yh', 'xh'), weights=None,  weights_sum=None):
   """
@@ -252,11 +263,13 @@ def mean_da(da, dims=('yh', 'xh'), weights=None,  weights_sum=None):
   """
   check_dims(da,dims)
   if weights is not None:
-    if weights_sum is None:
-      weights_sum = weights.sum(dim=dims)
-    return ((da * weights).sum(dim=dims) / weights_sum)
+    if weights_sum is None: weights_sum = weights.sum(dim=dims)
+    out = ((da * weights).sum(dim=dims) / weights_sum)
+    # copy attrs
+    out.attrs = da.attrs
+    return out
   else:
-    return da.mean(dim=dims)
+    return da.mean(dim=dims, keep_attrs=True)
 
 def std_da(da, dims=('yh', 'xh'), weights=None,  weights_sum=None, da_mean=None):
   """
@@ -289,9 +302,12 @@ def std_da(da, dims=('yh', 'xh'), weights=None,  weights_sum=None, da_mean=None)
     if weights_sum is None:
       weights_sum = weights.sum(dim=dims)
     if da_mean is None: da_mean = mean_da(da, dims, weights, weights_sum)
-    return np.sqrt(((da-da_mean)**2 * weights).sum(dim=dims)/weights_sum)
+    out = np.sqrt(((da-da_mean)**2 * weights).sum(dim=dims)/weights_sum)
+    # copy attrs
+    out.attrs = da.attrs
+    return out
   else:
-    return da.std(dim=dims)
+    return da.std(dim=dims, keep_attrs=True)
 
 def rms_da(da, dims=('yh', 'xh'), weights=None,  weights_sum=None):
   """
@@ -318,11 +334,13 @@ def rms_da(da, dims=('yh', 'xh'), weights=None,  weights_sum=None):
 
   check_dims(da,dims)
   if weights is not None:
-    if weights_sum is None:
-      weights_sum = weights.sum(dim=dims)
-    return np.sqrt((da**2 * weights).sum(dim=dims)/weights_sum)
+    if weights_sum is None: weights_sum = weights.sum(dim=dims)
+    out = np.sqrt((da**2 * weights).sum(dim=dims)/weights_sum)
+    # copy attrs
+    out.attrs = da.attrs
+    return out
   else:
-    return np.sqrt((da**2).mean(dim=dims))
+    return np.sqrt((da**2).mean(dim=dims, keep_attrs=True))
 
 def check_dims(da,dims):
   """
@@ -388,6 +406,8 @@ def myStats_da(da, weights, dims=('yh', 'xh'), basins=None, debug=False):
     if debug: print_stats(da_min, da_max, da_mean, da_std, da_rms)
 
     out = stats_to_ds(da_min, da_max, da_mean, da_std, da_rms)
+    # copy attrs
+    out.attrs = da.attrs
     rmask_od['Global'] = out
 
   else:
@@ -499,36 +519,177 @@ def dict_to_da(stats_dict):
 def main(stream=False):
 
   # Get options
-  cmdLineArgs = options()
+  args = options()
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(cmdLineArgs.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
+  print('Casename is:', dcase.casename)
+  RUNDIR = dcase.get_value('RUNDIR')
 
-  # Load the grid
-  grd = dcase.grid
-
-  # get ocean area
+  # read grid
+  grd = MOM6grid(RUNDIR+'/'+dcase.casename+'.mom6.static.nc', xrformat=True)
   area = grd.area_t.where(grd.wet > 0)
 
   # Get masking for different regions
   depth = grd.depth_ocean.values
-
-  # remote Nan's, otherwise genBasinMasks won't work
+  # remove Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
   basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
 
-  # Create the climatology instance
-  climo = ClimoGenerator(diag_config_yml['Climo'], dcase)
+  #select a few basins, namely, Global, PersianGulf, Arctic, Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
+  basins = basin_code.isel(region=[0,1,7,8,9,10,11,12,13])
 
-  # Compute the climatology dataset
-  dset_climo = climo.stage()
+  if not args.diff_rms and not args.surface and not args.forcing:
+    raise ValueError("Please select -diff_rms, -surface and/or -forcing.")
 
-  # select variables
-  thetao_model = dset_climo['1Y'].thetao
-  salt_model = dset_climo['1Y'].so
+  if args.diff_rms:
+    horizontal_mean_diff_rms(grd, dcase, basins, args)
+
+  if args.surface:
+    variables = ['SSH','tos','sos','mlotst','oml']
+    fname = '.mom6.sfc_*.nc'
+    xystats(grd, dcase, basins, args)
+
+  if args.forcing:
+    variables = ['friver','ficeberg','fsitherm','hfsnthermds','sfdsi', 'hflso',
+             'seaice_melt_heat', 'wfo', 'hfds', 'Heat_PmE']
+    fname = '.mom6.hm_*.nc'
+    xystats(grd, dcase, basins, args)
+
+  return
+
+
+def xystats(fname, variables, grd, dcase, basins, args):
+  '''
+   Compute and plot statistics for 2D variables.
+
+   Parameters
+  ----------
+
+  fname : str
+    Name of the file to be processed.
+
+  variables : str
+    List of variables to be processed.
+
+  grd : OrderedDict
+    Dictionary with statistics computed using function myStats_da
+
+  dcase : case object
+    Object created using mom6_tools.DiagsCase.
+
+  basins : DataArray
+   Basins mask to apply. Returns horizontal mean RMSE for each basin provided.
+   Basins must be generated by genBasinMasks.
+
+  args : object
+    Object with command line options.
+
+  Returns
+  -------
+    Plots min, max, mean, std and rms for variables provided and for different basins.
+
+  '''
+  RUNDIR = dcase.get_value('RUNDIR')
+  area = grd.area_t.where(grd.wet > 0)
+  if args.debug: print('RUNDIR:', RUNDIR)
+
+  # initiate NCAR cluster
+  cluster = NCARCluster()
+  cluster.scale(4)
+  cluster
+
+  client = Client(cluster)
+  print(cluster.dashboard_link)
+  client
+
+  # read forcing files
+  if args.debug: startTime = datetime.now()
+  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', data_vars=variables, \
+                             chunks={'time': 12}, parallel=True)
+  if args.debug:
+    print('Read dataset', ds)
+    print('\nTime elasped: ', datetime.now() - startTime)
+
+  for var in variables:
+    if args.savefig:
+      savefig1=str(var)+'_xymean.png'
+      savefig2=str(var)+'_stats.png'
+    else:
+      savefig1=None
+      savefig2=None
+
+    # yearly mean
+    ds_yr = ds[var].resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', keep_attrs=True).load()
+    stats = myStats_da(ds_yr, weights=area, basins=basins)
+    plot_stats_da(stats, var, ds[var].attrs['units'], save=savefig2)
+    dummy = np.ma.masked_invalid(ds_yr.mean(dim='time').values)
+    xyplot(dummy, grd.geolon.values, grd.geolat.values, area.values, save=savefig1,
+           suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']',
+           title='Averaged between ' +str(ds_yr.time[0].values) + ' and '+ str(ds_yr.time[-1].values))
+
+  # close processes
+  if args.debug: print('Close dask workers...\n')
+  client.close(); cluster.close()
+
+  return
+
+def horizontal_mean_diff_rms(grd, dcase, basins, args):
+  '''
+   Compute horizontal mean difference and rms: model versus observations.
+
+   Parameters
+  ----------
+
+  grd : OrderedDict
+    Dictionary with statistics computed using function myStats_da
+
+  dcase : case object
+    Object created using mom6_tools.DiagsCase.
+
+  basins : DataArray
+   Basins mask to apply. Returns horizontal mean RMSE for each basin provided.
+   Basins must be generated by genBasinMasks.
+
+  args : object
+    Object with command line options.
+
+  Returns
+  -------
+    Plots horizontal mean difference and rms for different basins.
+
+  '''
+
+  RUNDIR = dcase.get_value('RUNDIR')
+  area = grd.area_t.where(grd.wet > 0)
+  if args.debug: print('RUNDIR:', RUNDIR)
+
+  # initiate NCAR cluster
+  cluster = NCARCluster()
+  cluster.scale(8)
+  cluster
+
+  client = Client(cluster)
+  print(cluster.dashboard_link)
+  client
+
+  # read dataset
+  if args.debug: startTime = datetime.now()
+  # since we are loading 3D data, chunksize in time = 1
+  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', chunks={'time': 1})
+  if args.debug:
+    print('Read dataset', ds)
+    print('\nTime elasped: ', datetime.now() - startTime)
+
+  # Compute climatologies
+  thetao_model = ds.thetao.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
+                                    keep_attrs=True)
+
+  salt_model = ds.so.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
+                               keep_attrs=True)
 
   # load PHC2 data
   phc_path = '/glade/p/cesm/omwg/obs_data/phc/'
@@ -554,22 +715,33 @@ def main(stream=False):
   area3d_masked = mask3d.where(temp_diff[0,:] == temp_diff[0,:])
 
   # Horizontal Mean difference (model - obs)
-  temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basin_code)
-  salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basin_code)
+  if args.debug: print('Computing Horizontal Mean difference...\n')
+  if args.debug: startTime = datetime.now()
+  temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basins)
+  salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basins)
+  if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
 
   # Horizontal Mean rms (model - obs)
-  temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basin_code)
-  salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basin_code)
+  if args.debug: print('Computing Horizontal Mean rms...\n')
+  if args.debug: startTime = datetime.now()
+  temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basins)
+  salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basins)
+  if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
+
+  # close processes
+  if args.debug: print('Close dask workers...\n')
+  client.close(); cluster.close()
 
   # temperature
   for reg in temp_bias.region:
+    if args.debug: print('Temperature bias for region:', str(reg.values))
     # remove Nan's
     diff_reg = temp_bias.sel(region=reg).dropna('z_l')
     if diff_reg.z_l.max() <= 500.0:
       splitscale = None
     else:
       splitscale =  [0., -500., -diff_reg.z_l.max()]
-    if cmdLineArgs.savefig:
+    if args.savefig:
       savefig_diff=str(reg.values)+'temp_diff.png'
       savefig_rms=str(reg.values)+'temp_rms.png'
     else:
@@ -588,6 +760,7 @@ def main(stream=False):
 
   # salinity
   for reg in salt_bias.region:
+    if args.debug: print('Salinity bias for region:', str(reg.values))
     # remove Nan's
     diff_reg = salt_bias.sel(region=reg).dropna('z_l')
     if diff_reg.z_l.max() <= 500.0:
@@ -595,7 +768,7 @@ def main(stream=False):
     else:
       splitscale =  [0., -500., -diff_reg.z_l.max()]
 
-    if cmdLineArgs.savefig:
+    if args.savefig:
       savefig_diff=str(reg.values)+'salt_diff.png'
       savefig_rms=str(reg.values)+'salt_rms.png'
     else:
