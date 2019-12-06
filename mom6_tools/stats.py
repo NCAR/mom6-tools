@@ -12,8 +12,6 @@ from mom6_tools.ClimoGenerator import ClimoGenerator
 from mom6_tools.m6toolbox import genBasinMasks
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
 from datetime import datetime
 from collections import OrderedDict
 import yaml, os
@@ -600,6 +598,13 @@ def xystats(fname, variables, grd, dcase, basins, args):
     Plots min, max, mean, std and rms for variables provided and for different basins.
 
   '''
+  try:
+    from ncar_jobqueue import NCARCluster
+    from dask.distributed import Client
+    parallel = True
+  except:
+    parallel = False
+
   RUNDIR = dcase.get_value('RUNDIR')
   area = grd.area_t.where(grd.wet > 0)
   if args.debug: print('RUNDIR:', RUNDIR)
@@ -612,8 +617,12 @@ def xystats(fname, variables, grd, dcase, basins, args):
 
   # read forcing files
   if args.debug: startTime = datetime.now()
-  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', data_vars=variables, \
-                             chunks={'time': 12}, parallel=True)
+  if parallel:
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', data_vars=variables, \
+                               chunks={'time': 12}, parallel=True)
+  else:
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', data_vars=variables)
+  if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
 
   for var in variables:
     if args.savefig:
