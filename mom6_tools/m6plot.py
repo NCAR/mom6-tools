@@ -34,6 +34,101 @@ except:
 from sys import modules
 
 
+def plot_stats_da(stats, var, units, save=None):
+  """
+  Plot statistics computed by myStats_da for multiple basins.
+
+  Parameters
+  ----------
+  stats : xarray.DataArray
+    DataArray with statistics computed using myStats_da.
+
+  title : str
+   Title to be used in the plot.
+
+  var : str
+   Variable to used to compute stats.
+
+  units : str
+   Units of variable var.
+
+  save : str, optional
+    Name of file to save figure in. Default None.
+
+  """
+  import seaborn
+  import matplotlib
+  matplotlib.rcParams.update({'font.size': 15})
+  seaborn.set()
+  labels = ['Min', 'Max', 'Mean', 'Std', 'RMS']
+  plt.figure(figsize=(12,14))
+  for i in range(len(labels)):
+    ax1 = plt.subplot(5,1,i+1)
+    for r in range(len(stats.basin)):
+      stats[r,i,:].plot(ax=ax1, marker='.', linewidth = 3, label=str(stats.basin[r].values));
+
+    ax1.set_ylabel(str(labels[i]))
+    if i == 0:
+      plt.legend()
+      plt.title(str(var) + ' ['+str(units)+']')
+    else:
+      plt.title('')
+    if i < (len(labels) -1):
+      ax1.set_xlabel('')
+
+  if save is not None:
+    plt.savefig(save)
+    plt.close()
+
+  return
+
+def plot_stats_da_reg(stats, title, var, units):
+  """
+  Plot statistics computed by myStats_da for a specific region.
+
+  Parameters
+  ----------
+  stats : xarray.DataArray
+    DataArray with statistics computed using myStats_da.
+
+  title : str
+   Title to be used in the plot.
+
+  var : str
+   Variable to used to compute stats.
+
+  units : str
+   Units of variable var.
+  """
+  import seaborn
+  matplotlib.rcParams.update({'font.size': 15})
+  seaborn.set()
+  plt.figure(figsize=(12,14))
+  ax1 = plt.subplot(511)
+  stats[0,:].plot(ax=ax1, marker='.'); ax1.set_ylabel('Min')
+  plt.title(str(var) + ' ['+str(units)+'], Region = '+ str(title))
+  ax1.set_xlabel('')
+  ax2 = plt.subplot(512, sharex=ax1)
+  stats[1,:].plot(ax=ax2, marker='.'); ax2.set_ylabel('Max')
+  plt.title('')
+  ax2.set_xlabel('')
+  ax3 = plt.subplot(513, sharex=ax1)
+  stats[2,:].plot(ax=ax3, marker='.'); ax3.set_ylabel('Mean')
+  plt.title('')
+  ax3.set_xlabel('')
+  ax4 = plt.subplot(514, sharex=ax1)
+  stats[3,:].plot(ax=ax4, marker='.'); ax4.set_ylabel('Std')
+  plt.title('')
+  ax4.set_xlabel('')
+  ax5 = plt.subplot(515, sharex=ax1)
+  stats[4,:].plot(ax=ax5, marker='.'); ax5.set_ylabel('RMS')
+  plt.title('')
+  if save is not None:
+    plt.savefig(save)
+    plt.close()
+
+  return
+
 def polarcomparison(field1, field2, grd, proj='SP', circle=True,
               clim = None, colormap = None, nbins = None, save=None,
               title1='', title2='', title3='A - B', suptitle='',
@@ -374,7 +469,7 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   # Choose colormap
   if nbins is None and (clim is None or len(clim)==2): nbins=35
   if colormap is None: colormap = chooseColorMap(sMin, sMax)
-  if clim is None and sStd>0:
+  if clim is None and sStd is not None:
     cmap, norm, extend = chooseColorLevels(sMean-sigma*sStd, sMean+sigma*sStd, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
   else:
     cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
@@ -469,7 +564,7 @@ def xyplot(field, x=None, y=None, area=None,
   # Choose colormap
   if nbins is None and (clim is None or len(clim)==2): nbins=35
   if colormap is None: colormap = chooseColorMap(sMin, sMax)
-  if clim is None and sStd>0:
+  if clim is None and sStd is not None:
     cmap, norm, extend = chooseColorLevels(sMean-sigma*sStd, sMean+sigma*sStd, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
   else:
     cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
@@ -1027,6 +1122,7 @@ def ztplot(field, t=None, z=None,
   if splitscale is not None:
     for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
     axis.set_yscale('splitscale', zval=splitscale)
+
   plt.xlim( tLims ); plt.ylim( zLims )
   axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=12)
   if sMean is not None:
@@ -1036,7 +1132,8 @@ def ztplot(field, t=None, z=None,
   if len(zlabel+zunits)>0: plt.ylabel(label(zlabel, zunits), fontsize=16)
   if len(title)>0: plt.title(title)
   if len(suptitle)>0: plt.suptitle(suptitle)
-
+  if splitscale is not None:
+    plt.gca().invert_yaxis()
   if save is not None: plt.savefig(save)
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
@@ -1115,8 +1212,7 @@ def pmCI(min, max, ci, *args):
   if ci[0]>0: return numpy.concatenate( (-ci[::-1],ci) )
   else: return numpy.concatenate( (-ci[::-1],ci[1:]) )
 
-
-def myStats(s, area, s2=None, debug=False):
+def myStats(s, area, debug=False):
   """
   Calculates mean, standard deviation and root-mean-square of s.
   """

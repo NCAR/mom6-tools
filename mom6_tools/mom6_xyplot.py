@@ -6,8 +6,8 @@ import argparse
 from netCDF4 import MFDataset, Dataset
 import numpy as np
 import matplotlib.pyplot as plt
-import m6plot
-import mom6_diag
+from mom6_tools.m6plot import xyplot
+from mom6_tools.MOM6grid import MOM6grid
 import warnings
 import os
 
@@ -59,7 +59,7 @@ def parseCommandLine():
 def driver(args):
   os.system('mkdir PNG')
   # mom6 grid
-  grd = mom6_diag.MOM6grid(args.geometry)
+  grd = MOM6grid(args.geometry)
 
   latlon_plot(args,args.outfile,grd,args.variable)
 
@@ -81,6 +81,8 @@ def latlon_plot(args, ncfile, grd, variable):
         clim = [-1.5,31]
       elif var == 'KPP_OBLdepth':
         clim = [0,500]
+      elif var == 'MEKE':
+        clim = [0,0.3]
       elif var == 'MLD_003':
         clim = [0,2000]
 
@@ -93,7 +95,7 @@ def latlon_plot(args, ncfile, grd, variable):
           data = nc.variables[var][t,:]
           units = nc.variables[var].units
           #TODO: convert days to date
-          m6plot.xyplot( data , grd.geolon, grd.geolat, area=grd.Ah,
+          xyplot( data , grd.geolon, grd.geolat, area=grd.Ah,
             suptitle=case_name,
             title=r'%s, [%s] - Year: %5.1f'%(var,units,time[t]),
             extend='both',
