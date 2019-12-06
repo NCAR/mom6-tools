@@ -93,6 +93,9 @@ def HorizontalMeanRmse_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
       if len(weights.shape)!=3:
         raise ValueError("If basins is provided, weights must be a 3D array.")
 
+      if len(basins.shape)!=3:
+        raise ValueError("Regions must be a 3D array.")
+
       rmask_od = OrderedDict()
       for reg in basins.region:
         if debug: print('Region: ', reg)
@@ -176,6 +179,9 @@ def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
       if len(weights.shape)!=3:
         raise ValueError("If basins is provided, weights must be a 3D array.")
 
+      if len(basins.shape)!=3:
+        raise ValueError("Regions must be a 3D array.")
+
       for reg in basins.region:
         if debug: print('Region: ', reg)
         # construct a 3D region array
@@ -184,6 +190,7 @@ def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
                                 coords= {var.dims[1]: var.z_l,
                                          var.dims[2]: var.yh,
                                          var.dims[3]: var.xh})
+        if debug: print('region3d:', region3d)
         # select weights to where region3d is one
         tmp_weights = weights.where(region3d == 1.0)
         total_weights = tmp_weights.sum(dim=dims)
@@ -598,21 +605,15 @@ def xystats(fname, variables, grd, dcase, basins, args):
   if args.debug: print('RUNDIR:', RUNDIR)
 
   # initiate NCAR cluster
-  cluster = NCARCluster()
-  cluster.scale(4)
-  cluster
+  cluster = NCARCluster(project='P93300612')
+  cluster.scale(2)
 
   client = Client(cluster)
-  print(cluster.dashboard_link)
-  client
 
   # read forcing files
   if args.debug: startTime = datetime.now()
   ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', data_vars=variables, \
                              chunks={'time': 12}, parallel=True)
-  if args.debug:
-    print('Read dataset', ds)
-    print('\nTime elasped: ', datetime.now() - startTime)
 
   for var in variables:
     if args.savefig:
@@ -668,8 +669,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   if args.debug: print('RUNDIR:', RUNDIR)
 
   # initiate NCAR cluster
-  cluster = NCARCluster()
-  cluster.scale(8)
+  cluster = NCARCluster(project='P93300612')
+  cluster.scale(2)
 
   client = Client(cluster)
   print(cluster.dashboard_link)
@@ -677,17 +678,18 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   # read dataset
   if args.debug: startTime = datetime.now()
   # since we are loading 3D data, chunksize in time = 1
-  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', chunks={'time': 1})
+  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', chunks={'time': 1}, \
+                         parallel=True)
   if args.debug:
     print('Read dataset', ds)
     print('\nTime elasped: ', datetime.now() - startTime)
 
   # Compute climatologies
   thetao_model = ds.thetao.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
-                                    keep_attrs=True)
+                                    keep_attrs=True).persist()
 
   salt_model = ds.so.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
-                               keep_attrs=True)
+                               keep_attrs=True).persist()
 
   # load PHC2 data
   phc_path = '/glade/p/cesm/omwg/obs_data/phc/'
@@ -713,16 +715,21 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   area3d_masked = mask3d.where(temp_diff[0,:] == temp_diff[0,:])
 
   # Horizontal Mean difference (model - obs)
-  if args.debug: print('Computing Horizontal Mean difference...\n')
+  if args.debug: print('Computing Horizontal Mean difference for temperature...\n')
   if args.debug: startTime = datetime.now()
   temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basins)
+  if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
+  if args.debug: print('Computing Horizontal Mean difference for salt...\n')
+  if args.debug: startTime = datetime.now()
   salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basins)
   if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
 
   # Horizontal Mean rms (model - obs)
-  if args.debug: print('Computing Horizontal Mean rms...\n')
+  if args.debug: print('Computing Horizontal Mean rms for temperature...\n')
   if args.debug: startTime = datetime.now()
   temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basins)
+  if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
+  if args.debug: print('Computing Horizontal Mean rms for salt...\n')
   salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basins)
   if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
 
