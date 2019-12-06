@@ -26,3 +26,4 @@ dependencies:
   - netCDF4
   - pip:
     - sphinx_copybutton
+    - ncar_jobqueue
