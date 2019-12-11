@@ -426,7 +426,9 @@ def genBasinMasks(x,y,depth,verbose=False, xda=False):
   else:
     if verbose: print('All points assigned a basin code')
 
+  ################### IMPORTANT ############################
   # points from following regions are not "removed" from wet
+  code1 = code.copy()
   wet = ice9(x, y, depth, (0,-35)) # All ocean points seeded from South Atlantic
   if verbose: print('Processing Labrador Sea ...')
   tmp = wet*((southOf(x, y, (-65.,66.), (-45,66.)))
@@ -435,33 +437,35 @@ def genBasinMasks(x,y,depth,verbose=False, xda=False):
     *(1-southOf(x, y, (-65.,52.), (-45,52.))))
 
   tmp = ice9(x, y, tmp, (-50.,55.))
-  code[tmp>0] = 12
-  rmask_od['LabSea'] = xr.where(code == 12, 1.0, 0.0)
+  code1[tmp>0] = 12
+  rmask_od['LabSea'] = xr.where(code1 == 12, 1.0, 0.0)
 
-  wet = ice9(x, y, depth, (0,-35)) # All ocean points seeded from South Atlantic
+  wet1 = ice9(x, y, depth, (0,-35)) # All ocean points seeded from South Atlantic
   if verbose: print('Processing Baffin Bay ...')
-  tmp = wet*((southOf(x, y, (-94.,80.), (-50.,80.)))
+  tmp = wet1*((southOf(x, y, (-94.,80.), (-50.,80.)))
     *(southOf(x, y, (-94.,66.), (-94.,80.)))
     *(1-southOf(x, y, (-94.,66.), (-50,66.)))
     *(1-southOf(x, y, (-50.,66.), (-50.,80.))))
 
   tmp = ice9(x, y, tmp, (-70.,73.))
-  code[tmp>0] = 13
+  code1[tmp>0] = 13
   # remove Hudson Bay
-  code[rmask_od['HudsonBay']>0] = 0.
-  rmask_od['BaffinBay'] = xr.where(code == 13, 1.0, 0.0)
+  code1[rmask_od['HudsonBay']>0] = 0.
+  rmask_od['BaffinBay'] = xr.where(code1 == 13, 1.0, 0.0)
 
   if verbose:
     print("""
   Basin codes:
   -----------------------------------------------------------
-  (1) Southern Ocean      (7) Black Sea
-  (2) Atlantic Ocean      (8) Hudson Bay
-  (3) Pacific Ocean       (9) Baltic Sea
-  (4) Arctic Ocean        (10) Red Sea
-  (5) Indian Ocean        (11) Persian Gulf
-  (6) Mediterranean Sea   (12) Lab Sea
-                          (13) Baffin Bay
+  (0) Global              (7) Black Sea
+  (1) Southern Ocean      (8) Hudson Bay
+  (2) Atlantic Ocean      (9) Baltic Sea
+  (3) Pacific Ocean       (10) Red Sea
+  (4) Arctic Ocean        (11) Persian Gulf
+  (5) Indian Ocean        (12) Lab Sea
+  (6) Mediterranean Sea   (13) Baffin Bay
+
+  Important: basin codes overlap. Code 12 and 13 are only loaded if xda=True.
 
     """)
 
