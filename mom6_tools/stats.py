@@ -679,7 +679,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
 
   # initiate NCAR cluster
   cluster = NCARCluster(project='P93300612')
-  cluster.scale(2)
+  cluster.scale(4)
 
   client = Client(cluster)
   print(cluster.dashboard_link)
@@ -688,7 +688,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   if args.debug: startTime = datetime.now()
   # since we are loading 3D data, chunksize in time = 1
   ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', chunks={'time': 1}, \
-                         parallel=True)
+                         parallel=True, , data_vars='minimal', coords='minimal', \
+                         compat='override'))
   if args.debug:
     print('Read dataset', ds)
     print('\nTime elasped: ', datetime.now() - startTime)
