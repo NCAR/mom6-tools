@@ -19,6 +19,7 @@ def options():
   parser.add_argument('-o','--outdir',   type=str, default='.', help='''Directory in which to place plots.''')
   parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',  help='''Start year to plot (default=0001-01-01)''')
   parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31', help='''Final year to plot (default=0100-12-31)''')
+  parser.add_argument('-save_ncfile', help='''Save a netCDF file with transport data''', action="store_true")
   parser.add_argument('-debug', help='''Add priting statements for debugging purposes''', action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
@@ -115,6 +116,14 @@ def main(stream=False):
 
   # Get options
   cmdLineArgs = options()
+  if cmdLineArgs.save_ncfile:
+    if not os.path.isdir('ncfiles'):
+      print('Creating a directory to place figures (ncfiles)... \n')
+      os.system('mkdir ncfiles')
+
+  if not os.path.isdir('PNG'):
+    print('Creating a directory to place figures (PNG)... \n')
+    os.system('mkdir PNG')
 
   if cmdLineArgs.infile[-1] != '/': cmdLineArgs.infile = cmdLineArgs.infile+'/'
 
@@ -196,8 +205,21 @@ def main(stream=False):
   try: res = Transport(cmdLineArgs,'Windward_Passage','vmo',label='Windward Passage',ylim=(-10,10)); plotSections.append(res)
   except: print('WARNING: unable to process Windward_Passage')
 
+  if cmdLineArgs.save_ncfile:
+    print('Saving netCDF file with transports...\n')
+    # create a dataaray
+    labels = [];
+    for n in range(len(plotSections)): labels.append(plotSections[n].label)
+    var = numpy.zeros((len(plotSections),len(plotSections[0].time)))
+    ds = xr.Dataset(data_vars={ 'transport' : (('sections', 'time'), var)},
+                           coords={'sections': labels,
+                                   'time': plotSections[0].time})
+    for n in range(len(plotSections)):
+      ds.transport.values[n,:] = plotSections[n].data
 
-  print('plotSections',len(plotSections))
+    ds.to_netcdf('ncfiles/'+cmdLineArgs.case_name+'_section_transports.nc')
+
+  print('Plotting {} sections...\n'.format(len(plotSections)))
   imgbufs = []
 
   fig = plt.figure(figsize=(13,17))
@@ -209,7 +231,7 @@ def main(stream=False):
   plt.show(block=False)
 
   if stream is True: objOut = io.BytesIO()
-  else: objOut = cmdLineArgs.outdir+'/'+cmdLineArgs.case_name+'_section_flows.png'
+  else: objOut = cmdLineArgs.outdir+'/'+cmdLineArgs.case_name+'_section_transports.png'
   plt.savefig(objOut)
   if stream is True: imgbufs.append(objOut)
 
