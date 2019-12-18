@@ -1,27 +1,31 @@
 #!/usr/bin/env python
 
-import io
-import numpy
+import io, yaml, os
 import matplotlib.pyplot as plt
-import os
-import sys
+import warnings, dask, numpy, netCDF4
+from datetime import datetime, date
 import xarray as xr
-
+from mom6_tools.DiagsCase import DiagsCase
+from ncar_jobqueue import NCARCluster
+from dask.distributed import Client
 from mom6_tools import m6plot
-from mom6_tools import m6toolbox
+from mom6_tools  import m6toolbox
 from mom6_tools.MOM6grid import MOM6grid
 
 def options():
   try: import argparse
   except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
   parser = argparse.ArgumentParser(description='''Script for plotting meridional overturning circulation.''')
-  parser.add_argument('infile', type=str, help='''Path to the file(s) to be processed (i.e <some_path>/run/)''')
-  parser.add_argument('-l','--label', type=str, default='', help='''Label to add to the plot.''')
-  parser.add_argument('-n','--case_name', type=str, default='', help='''Case name.  Default is to read from netCDF file.''')
-  parser.add_argument('-savefigs', help='''Save figures in a PNG format.''', action="store_true")
+  parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
+    describing the run and diagnostics to be performed.''')
+  parser.add_argument('-v', '--var', nargs='+', default=['vmo'],
+                     help='''Variable to be processed (default=['vmo'])''')
   parser.add_argument('-start_date', type=str, default='0001-01-01', help='''Start year to compute averages. Default 0001-01-01''')
   parser.add_argument('-end_date', type=str, default='0100-12-31',  help='''End year to compute averages. Default 0100-12-31''')
-
+  parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
+                      help='''Number of workers to use (default=2).''')
+  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
+                      action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
   main(cmdLineArgs)
@@ -29,45 +33,96 @@ def options():
 def main():
   # Get options
   args = options()
-  # mom6 grid
-  grd = MOM6grid(args.infile+args.case_name+'.mom6.static.nc')
+
+  nw = args.number_of_workers
+  if not os.path.isdir('PNG'):
+    print('Creating a directory to place figures (PNG)... \n')
+    os.system('mkdir PNG')
+  if not os.path.isdir('ncfiles'):
+    print('Creating a directory to place figures (ncfiles)... \n')
+    os.system('mkdir ncfiles')
+
+  # Read in the yaml file
+  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+
+  # Create the case instance
+  dcase = DiagsCase(diag_config_yml['Case'])
+  args.case_name = dcase.casename
+  args.savefigs = True; args.outdir = 'PNG'
+  RUNDIR = dcase.get_value('RUNDIR')
+  print('Run directory is:', RUNDIR)
+  print('Casename is:', dcase.casename)
+  print('Variables to be processed:', args.var)
+  print('Number of workers to be used:', nw)
+
+  # read grid info
+  grd = MOM6grid(RUNDIR+'/'+dcase.casename+'.mom6.static.nc')
   depth = grd.depth_ocean
   # remote Nan's, otherwise genBasinMasks won't work
   depth[numpy.isnan(depth)] = 0.0
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
 
+  parallel, cluster, client = m6toolbox.request_workers(nw)
+
+  print('\n Reading monthly (hm_*) dataset...')
+  startTime = datetime.now()
   # load data
-  ds = xr.open_mfdataset(args.infile+args.case_name+'.mom6.hm_*.nc', combine='by_coords')
-  ti = args.start_date
-  tf = args.end_date
+  var = args.var
+  def preprocess(ds):
+    #if var not in ds.variables:
+    # raise ValueError("{} is not present in ds!".format(var))
+    # return
+    #else:
+    # receives a dataset; returns a dataset
+    return ds[var]
+
+  if parallel:
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', \
+                           chunks={'time': 12}, parallel=True, data_vars='minimal', \
+                           coords='minimal', compat='override', preprocess=preprocess)
+  else:
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', data_vars='minimal', \
+                           coords='minimal', compat='override', preprocess=preprocess)
+
+  print('Time elasped: ', datetime.now() - startTime)
+
+  print('\n Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  startTime = datetime.now()
+  ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
+  print('Time elasped: ', datetime.now() - startTime)
+
+  print('\n Computing yearly means...')
+  startTime = datetime.now()
+  ds_yr = ds_sel.resample(time="1Y", closed='left').mean('time').compute()
+  print('Time elasped: ', datetime.now() - startTime)
+
+  print('\n Computing time mean...')
+  startTime = datetime.now()
+  ds_mean = ds_yr.mean('time').compute()
+  print('Time elasped: ', datetime.now() - startTime)
+
+  if parallel:
+    print('\n Releasing workers ...')
+    client.close(); cluster.close()
 
   # create a ndarray subclass
   class C(numpy.ndarray): pass
 
-  if 'vmo' in ds.variables:
+  if 'vmo' in ds_mean.variables:
     varName = 'vmo'; conversion_factor = 1.e-9
-  elif 'vh' in ds.variables:
+  elif 'vh' in ds_mean.variables:
     varName = 'vh'; conversion_factor = 1.e-6
-    if 'zw' in ds.variables: conversion_factor = 1.e-9 # Backwards compatible for when we had wrong units for 'vh'
-  else: raise Exception('Could not find "vh" or "vmo" in file "%s"'%(args.infile+args.static))
+    if 'zw' in ds_mean.variables: conversion_factor = 1.e-9 # Backwards compatible for when we had wrong units for 'vh'
+  else: raise Exception('Could not find "vh" or "vmo" in file!')
 
-  # selected dates
-  ds_var = ds[varName].sel(time=slice(ti, tf))
-
-  # yearly means
-  ds_var_yr = ds_var.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', keep_attrs=True).load()
-
-  tmp = numpy.ma.masked_invalid(ds_var_yr.mean('time').values)
+  tmp = numpy.ma.masked_invalid(ds_mean[varName].values)
   tmp = tmp[:].filled(0.)
   VHmod = tmp.view(C)
-  VHmod.units = ds[varName].units
+  VHmod.units = ds[varName].units # using ds since it has the attrs.
+  Zmod = m6toolbox.get_z(ds, depth, varName) # same here
 
-  Zmod = m6toolbox.get_z(ds, depth, varName)
-
-  if args.case_name != '':  case_name = args.case_name + ' ' + args.label
-  else: case_name = ds.title + ' ' + args.label
-
-  imgbufs = []
+  if args.case_name != '':  case_name = args.case_name
+  else: case_name = ''
 
   # Global MOC
   m6plot.setFigureSize([16,9],576,debug=False)
@@ -78,14 +133,14 @@ def main():
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yy = grd.geolat_c[:,:].max(axis=-1)+0*z
   ci=m6plot.pmCI(0.,40.,5.)
-  plotPsi(yy, z, psiPlot, ci, 'Global MOC [Sv],' + 'averaged between '+ ti + 'and '+ tf )
+  plotPsi(yy, z, psiPlot, ci, 'Global MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(case_name)
   plt.gca().invert_yaxis()
   findExtrema(yy, z, psiPlot, max_lat=-30.)
   findExtrema(yy, z, psiPlot, min_lat=25.)
   findExtrema(yy, z, psiPlot, min_depth=2000., mult=-1.)
-  objOut = str(case_name)+'_MOC_global.png'
+  objOut = 'PNG/'+str(case_name)+'_MOC_global.png'
   plt.savefig(objOut)
 
   # Atlantic MOC
@@ -97,7 +152,7 @@ def main():
   psiPlot = MOCpsi(VHmod, vmsk=m*numpy.roll(m,-1,axis=-2))*conversion_factor
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yy = grd.geolat_c[:,:].max(axis=-1)+0*z
-  plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ ti + 'and '+ tf )
+  plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ args.start_date + 'and '+ args.end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(case_name)
   plt.gca().invert_yaxis()
@@ -105,22 +160,24 @@ def main():
   findExtrema(yy, z, psiPlot, max_lat=-33.)
   findExtrema(yy, z, psiPlot)
   findExtrema(yy, z, psiPlot, min_lat=5.)
-  objOut = str(case_name)+'_MOC_Atlantic.png'
+  objOut = 'PNG/'+str(case_name)+'_MOC_Atlantic.png'
   plt.savefig(objOut,format='png')
 
+  print('\n Computing time series...')
   # time-series
-  dtime = ds_var_yr.time.values
+  dtime = ds_yr.time
   amoc_26 = numpy.zeros(len(dtime))
   amoc_45 = numpy.zeros(len(dtime))
-
+  if args.debug: startTime = datetime.now()
   # loop in time
   for t in range(len(dtime)):
-    tmp = numpy.ma.masked_invalid(ds_var_yr.sel(time=dtime[t]).values)
+    tmp = numpy.ma.masked_invalid(ds_yr[varName][t,:].values)
     tmp = tmp[:].filled(0.)
     psi = MOCpsi(tmp, vmsk=m*numpy.roll(m,-1,axis=-2))*conversion_factor
     psi = 0.5 * (psi[0:-1,:]+psi[1::,:])
-    amoc_26[t] = findExtrema(yy, z, psi, min_lat=26.5, max_lat=27., plot=False)
+    amoc_26[t] = findExtrema(yy, z, psi, min_lat=26., max_lat=27., plot=False)
     amoc_45[t] = findExtrema(yy, z, psi, min_lat=44., max_lat=46., plot=False)
+  if args.debug: print('Time elasped: ', datetime.now() - startTime)
 
   # create dataarays
   amoc_26_da = xr.DataArray(amoc_26, dims=['time'],
@@ -128,6 +185,11 @@ def main():
   amoc_45_da = xr.DataArray(amoc_45, dims=['time'],
                            coords={'time': dtime})
 
+  print('Saving netCDF files...')
+  amoc_26_da.to_netcdf('ncfiles/'+str(case_name)+'_MOC_26N_time_series.nc')
+  amoc_45_da.to_netcdf('ncfiles/'+str(case_name)+'_MOC_45N_time_series.nc')
+
+  print('Plotting...')
   # load AMOC time series data (5th) cycle used in Danabasoglu et al., doi:10.1016/j.ocemod.2015.11.007
   path = '/glade/p/cesm/omwg/amoc/COREII_AMOC_papers/papers/COREII.variability/data.original/'
   amoc_core_26 = xr.open_dataset(path+'AMOCts.cyc5.26p5.nc')
@@ -141,9 +203,10 @@ def main():
   plt.fill_between(amoc_core_26.time, core_mean-core_std, core_mean+core_std,
       alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
   plt.title('AMOC @ 26 $^o$ N', fontsize=16)
+  plt.ylim(5,20)
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
-  objOut = str(case_name)+'_MOC_26N_time_series.png'
+  objOut = 'PNG/'+str(case_name)+'_MOC_26N_time_series.png'
   plt.savefig(objOut,format='png')
 
   amoc_core_45 = xr.open_dataset(path+'AMOCts.cyc5.45.nc')
@@ -157,9 +220,10 @@ def main():
   plt.fill_between(amoc_core_45.time, core_mean-core_std, core_mean+core_std,
       alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
   plt.title('AMOC @ 45 $^o$ N', fontsize=16)
+  plt.ylim(5,20)
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
-  objOut = str(case_name)+'_MOC_45N_time_series.png'
+  objOut = 'PNG/'+str(case_name)+'_MOC_45N_time_series.png'
   plt.savefig(objOut,format='png')
   return
 
