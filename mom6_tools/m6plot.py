@@ -278,7 +278,7 @@ def polarcomparison(field1, field2, grd, proj='SP', circle=True,
   #axis = None
 
   #  fig=setFigureSize(aspect, resolution, npanels=npanels, debug=debug)
-  fig = plt.figure(figsize=[16, 24])
+  fig = plt.figure(figsize=[8, 24])
   # panel 1
   ax = plt.subplot(npanels,1,1, projection=proj)
   ax.set_extent(extent, ccrs.PlateCarree())
@@ -590,10 +590,10 @@ def xyplot(field, x=None, y=None, area=None,
   if len(title)>0: plt.title(title)
   if len(suptitle)>0: plt.suptitle(suptitle)
 
-  if save is not None: plt.savefig(save)
+  if save is not None: plt.savefig(save); plt.close()
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
-
+  return
 
 def xycompare(field1, field2, x=None, y=None, area=None,
   xlabel=None, xunits=None, ylabel=None, yunits=None,
