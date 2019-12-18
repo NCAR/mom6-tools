@@ -6,6 +6,7 @@ import tarfile
 from scipy.io import netcdf
 import xarray as xr
 from collections import OrderedDict
+import warnings
 
 def check_time_interval(ti,tf,nc):
  ''' Checks if year_start and year_end are within the time interval of the dataset'''
@@ -14,6 +15,36 @@ def check_time_interval(ti,tf,nc):
     raise SyntaxError('Selected start/end years outside the range of the dataset. Please fix that and run again.')
 
  return
+
+def request_workers(nw):
+  '''
+  If nw > 0, load appropriate modules, requests nw workers, and returns parallel = True,
+  and objects for cluster and client. Otherwise, do nothing and returns parallel = False.
+  '''
+  if nw>0:
+    try:
+      from ncar_jobqueue import NCARCluster
+      import dask
+      from dask.distributed import Client
+    except:
+      nw = 0
+      warnings.warn("Unable to import the following: ncar_jobqueue, dask and dask.distributed. \
+             The script will run in serial. Please install these modules if you want \
+             to run in parallel.")
+
+  if nw>0:
+    print('Requesting {} workers... \n'.format(nw))
+    cluster = NCARCluster(project='P93300612')
+    cluster.scale(nw)
+    dask.config.set({'distributed.dashboard.link': '/proxy/{port}/status'})
+    client = Client(cluster)
+    print(cluster.dashboard_link)
+    parallel = True
+  else:
+    print('No workers requested... \n')
+    parallel = False
+    cluster = None; client = None
+  return parallel, cluster, client
 
 def section2quadmesh(x, z, q, representation='pcm'):
   """
