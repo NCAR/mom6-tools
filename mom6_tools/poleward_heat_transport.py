@@ -63,7 +63,7 @@ def main(stream=False):
   depth[numpy.isnan(depth)] = 0.0
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
   parallel, cluster, client = m6toolbox.request_workers(nw)
-  print('Reading surface dataset...')
+  print('Reading dataset...')
   startTime = datetime.now()
   variables = args.variables
   def preprocess(ds):
