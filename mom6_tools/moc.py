@@ -64,7 +64,7 @@ def main():
 
   parallel, cluster, client = m6toolbox.request_workers(nw)
 
-  print('\n Reading monthly (hm_*) dataset...')
+  print('\n Reading monthly (hm_*) dataset and computing yearly means...')
   startTime = datetime.now()
   # load data
   var = args.var
@@ -74,7 +74,8 @@ def main():
     # return
     #else:
     # receives a dataset; returns a dataset
-    return ds[var]
+    return ds[var].resample(time="1Y", closed='left',keep_attrs=True).mean('time', \
+                   keep_attrs=True).compute()
 
   if parallel:
     ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', \
@@ -91,14 +92,9 @@ def main():
   ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('\n Computing yearly means...')
-  startTime = datetime.now()
-  ds_yr = ds_sel.resample(time="1Y", closed='left').mean('time').compute()
-  print('Time elasped: ', datetime.now() - startTime)
-
   print('\n Computing time mean...')
   startTime = datetime.now()
-  ds_mean = ds_yr.mean('time').compute()
+  ds_mean = ds_sel.mean('time').compute()
   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
@@ -165,13 +161,13 @@ def main():
 
   print('\n Computing time series...')
   # time-series
-  dtime = ds_yr.time
+  dtime = ds.time
   amoc_26 = numpy.zeros(len(dtime))
   amoc_45 = numpy.zeros(len(dtime))
   if args.debug: startTime = datetime.now()
   # loop in time
   for t in range(len(dtime)):
-    tmp = numpy.ma.masked_invalid(ds_yr[varName][t,:].values)
+    tmp = numpy.ma.masked_invalid(ds[varName][t,:].values)
     tmp = tmp[:].filled(0.)
     psi = MOCpsi(tmp, vmsk=m*numpy.roll(m,-1,axis=-2))*conversion_factor
     psi = 0.5 * (psi[0:-1,:]+psi[1::,:])
