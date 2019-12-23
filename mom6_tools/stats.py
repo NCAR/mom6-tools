@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.ClimoGenerator import ClimoGenerator
-from mom6_tools.m6toolbox import genBasinMasks
+from mom6_tools.m6toolbox import genBasinMasks, request_workers
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from datetime import datetime
@@ -29,14 +29,17 @@ def options():
                       of forcing fields''', action="store_true")
   parser.add_argument('-surface', help='''Compute global time averages and regionally-averaged time-series \
                       of surface fields''', action="store_true")
+  parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
+                      help='''Number of workers to use. Default=0 (serial).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
-  parser.add_argument('-savefig', help='''Save figure (.png)''', action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
 
 def HorizontalMeanRmse_da(var, dims=('yh', 'xh'), weights=None, basins=None, debug=False):
   """
-  weighted horizontal root-mean-square error for DataArrays
+  Wrapper for computing weighted horizontal root-mean-square error for DataArrays.
+  This function includes the option to provide Basins masks, which returns RMSe
+  for each basin provided.
 
   Parameters
   ----------
@@ -125,7 +128,9 @@ def HorizontalMeanRmse_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
 
 def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, debug=False):
   """
-  weighted horizontal mean difference (model - obs) for DataArrays
+  Wrapper for computing weighted horizontal mean difference (model - obs) for DataArrays.
+  This function includes the option to provide Basins masks, which returns horizontal mean
+  difference for each basin provided.
 
   Parameters
   ----------
@@ -526,6 +531,9 @@ def main(stream=False):
   # Get options
   args = options()
 
+  if not args.diff_rms and not args.surface and not args.forcing:
+    raise ValueError("Please select -diff_rms, -surface and/or -forcing.")
+
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
@@ -533,6 +541,13 @@ def main(stream=False):
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
   print('Casename is:', dcase.casename)
   RUNDIR = dcase.get_value('RUNDIR')
+
+  if not os.path.isdir('PNG'):
+    print('Creating a directory to place figures (PNG)... \n')
+    os.system('mkdir PNG')
+  if not os.path.isdir('ncfiles'):
+    print('Creating a directory to place netCDF files (ncfiles)... \n')
+    os.system('mkdir ncfiles')
 
   # read grid
   grd = MOM6grid(RUNDIR+'/'+dcase.casename+'.mom6.static.nc', xrformat=True)
@@ -547,22 +562,20 @@ def main(stream=False):
   #select a few basins, namely, Global, PersianGulf, Arctic, Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
   basins = basin_code.isel(region=[0,1,7,8,9,10,11,12,13])
 
-  if not args.diff_rms and not args.surface and not args.forcing:
-    raise ValueError("Please select -diff_rms, -surface and/or -forcing.")
-
   if args.diff_rms:
     horizontal_mean_diff_rms(grd, dcase, basins, args)
 
   if args.surface:
-    variables = ['SSH','tos','sos','mlotst','oml']
-    fname = '.mom6.sfc_*.nc'
-    xystats(grd, dcase, basins, args)
+    #variables = ['SSH','tos','sos','mlotst','oml','speed', 'SSU', 'SSV']
+    variables = ['SSH','tos','sos','mlotst','oml','speed']
+    fname = '.mom6.hm_*.nc'
+    xystats(fname, variables, grd, dcase, basins, args)
 
   if args.forcing:
     variables = ['friver','ficeberg','fsitherm','hfsnthermds','sfdsi', 'hflso',
              'seaice_melt_heat', 'wfo', 'hfds', 'Heat_PmE']
     fname = '.mom6.hm_*.nc'
-    xystats(grd, dcase, basins, args)
+    xystats(fname, variables, grd, dcase, basins, args)
 
   return
 
@@ -598,52 +611,54 @@ def xystats(fname, variables, grd, dcase, basins, args):
     Plots min, max, mean, std and rms for variables provided and for different basins.
 
   '''
-  try:
-    from ncar_jobqueue import NCARCluster
-    from dask.distributed import Client
-    parallel = True
-  except:
-    parallel = False
+  parallel, cluster, client = request_workers(args.number_of_workers)
 
   RUNDIR = dcase.get_value('RUNDIR')
   area = grd.area_t.where(grd.wet > 0)
-  if args.debug: print('RUNDIR:', RUNDIR)
+  print('RUNDIR:', RUNDIR)
 
-  # initiate NCAR cluster
-  cluster = NCARCluster(project='P93300612')
-  cluster.scale(2)
-
-  client = Client(cluster)
+  def preprocess(ds):
+    ''' Compute montly averages and return the dataset with variables'''
+    return ds[variables].resample(time="1M", closed='left', \
+           keep_attrs=True).mean(dim='time', keep_attrs=True)
 
   # read forcing files
-  if args.debug: startTime = datetime.now()
+  startTime = datetime.now()
+  print('Reading dataset...')
   if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', data_vars=variables, \
-                               chunks={'time': 12}, parallel=True)
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, \
+                           chunks={'time': 365}, parallel=True,  data_vars='minimal',
+                           coords='minimal', preprocess=preprocess)
   else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', data_vars=variables)
-  if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, data_vars='minimal',
+                          compat='override', coords='minimal', preprocess=preprocess)
+
+  print('Time elasped: ', datetime.now() - startTime)
 
   for var in variables:
-    if args.savefig:
-      savefig1=str(var)+'_xymean.png'
-      savefig2=str(var)+'_stats.png'
-    else:
-      savefig1=None
-      savefig2=None
+    startTime = datetime.now()
+    print('\n Processing {}...'.format(var))
+    savefig1='PNG/'+dcase.casename+'_'+str(var)+'_xymean.png'
+    savefig2='PNG/'+dcase.casename+'_'+str(var)+'_stats.png'
 
     # yearly mean
-    ds_yr = ds[var].resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', keep_attrs=True).load()
-    stats = myStats_da(ds_yr, weights=area, basins=basins)
-    plot_stats_da(stats, var, ds[var].attrs['units'], save=savefig2)
-    dummy = np.ma.masked_invalid(ds_yr.mean(dim='time').values)
+    ds_var = ds[var]
+    stats = myStats_da(ds_var, dims=ds_var.dims[1::], weights=area, basins=basins)
+    stats.to_netcdf('ncfiles/'+dcase.casename+'_'+str(var)+'_stats.nc')
+    plot_stats_da(stats, var, ds_var.attrs['units'], save=savefig2)
+    ds_var_mean = ds_var.mean(dim='time')
+    ds_var_mean.to_netcdf('ncfiles/'+dcase.casename+'_'+str(var)+'_time_ave.nc')
+    dummy = np.ma.masked_invalid(ds_var_mean.values)
     xyplot(dummy, grd.geolon.values, grd.geolat.values, area.values, save=savefig1,
-           suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']',
-           title='Averaged between ' +str(ds_yr.time[0].values) + ' and '+ str(ds_yr.time[-1].values))
+           suptitle=ds_var.attrs['long_name'] +' ['+ ds_var.attrs['units']+']',
+           title='Averaged between ' +str(ds_var.time[0].values) + ' and '+ str(ds_var.time[-1].values))
 
-  # close processes
-  if args.debug: print('Close dask workers...\n')
-  client.close(); cluster.close()
+    print('Time elasped: ', datetime.now() - startTime)
+
+  if parallel:
+    # close processes
+    print('Releasing workers...\n')
+    client.close(); cluster.close()
 
   return
 
@@ -676,30 +691,24 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   RUNDIR = dcase.get_value('RUNDIR')
   area = grd.area_t.where(grd.wet > 0)
   if args.debug: print('RUNDIR:', RUNDIR)
-
-  # initiate NCAR cluster
-  cluster = NCARCluster(project='P93300612')
-  cluster.scale(4)
-
-  client = Client(cluster)
-  print(cluster.dashboard_link)
-
+  parallel, cluster, client = request_workers(args.number_of_workers)
   # read dataset
-  if args.debug: startTime = datetime.now()
+  startTime = datetime.now()
+  print('Reading dataset...')
   # since we are loading 3D data, chunksize in time = 1
-  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', chunks={'time': 1}, \
-                         parallel=True, , data_vars='minimal', coords='minimal', \
-                         compat='override'))
+  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', compat='override', \
+                         parallel=parallel, data_vars='minimal', coords='minimal')
   if args.debug:
-    print('Read dataset', ds)
-    print('\nTime elasped: ', datetime.now() - startTime)
+    print(ds)
+
+  print('Time elasped: ', datetime.now() - startTime)
 
   # Compute climatologies
   thetao_model = ds.thetao.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
-                                    keep_attrs=True).persist()
+                                    keep_attrs=True)
 
   salt_model = ds.so.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
-                               keep_attrs=True).persist()
+                               keep_attrs=True)
 
   # load PHC2 data
   phc_path = '/glade/p/cesm/omwg/obs_data/phc/'
@@ -725,79 +734,80 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   area3d_masked = mask3d.where(temp_diff[0,:] == temp_diff[0,:])
 
   # Horizontal Mean difference (model - obs)
-  if args.debug: print('Computing Horizontal Mean difference for temperature...\n')
-  if args.debug: startTime = datetime.now()
-  temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basins)
-  if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
-  if args.debug: print('Computing Horizontal Mean difference for salt...\n')
-  if args.debug: startTime = datetime.now()
-  salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basins)
-  if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
+  print('\n Computing Horizontal Mean difference for temperature...')
+  startTime = datetime.now()
+  temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  print('Time elasped: ', datetime.now() - startTime)
+  print('\n Computing Horizontal Mean difference for salt...')
+  startTime = datetime.now()
+  salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  print('Time elasped: ', datetime.now() - startTime)
 
   # Horizontal Mean rms (model - obs)
-  if args.debug: print('Computing Horizontal Mean rms for temperature...\n')
-  if args.debug: startTime = datetime.now()
-  temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basins)
-  if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
-  if args.debug: print('Computing Horizontal Mean rms for salt...\n')
-  salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basins)
-  if args.debug: print('\nTime elasped: ', datetime.now() - startTime)
+  print('\n Computing Horizontal Mean rms for temperature...')
+  startTime = datetime.now()
+  temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  print('Time elasped: ', datetime.now() - startTime)
+  print('\n Computing Horizontal Mean rms for salt...')
+  salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  print('Time elasped: ', datetime.now() - startTime)
 
-  # close processes
-  if args.debug: print('Close workers...\n')
-  client.close(); cluster.close()
+  if parallel:
+    print('Releasing workers...')
+    client.close(); cluster.close()
+
+  print('Saving netCDF files...')
+  temp_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_bias.nc')
+  salt_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_bias.nc')
+  temp_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_rms.nc')
+  salt_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_rms.nc')
 
   # temperature
   for reg in temp_bias.region:
-    if args.debug: print('Temperature bias for region:', str(reg.values))
+    print('Generating temperature plots for:', str(reg.values))
     # remove Nan's
-    diff_reg = temp_bias.sel(region=reg).dropna('z_l')
-    if diff_reg.z_l.max() <= 500.0:
+    temp_diff_reg = temp_bias.sel(region=reg).dropna('z_l')
+    temp_rms_reg = temp_rms.sel(region=reg).dropna('z_l')
+    if temp_diff_reg.z_l.max() <= 1000.0:
       splitscale = None
     else:
-      splitscale =  [0., -500., -diff_reg.z_l.max()]
-    if args.savefig:
-      savefig_diff=str(reg.values)+'temp_diff.png'
-      savefig_rms=str(reg.values)+'temp_rms.png'
-    else:
-      savefig_diff=None
-      savefig_rms=None
+      splitscale =  [0., -1000., -temp_diff_reg.z_l.max()]
 
-    ztplot(diff_reg.values, diff_reg.time.values, diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
+    savefig_diff='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_diff.png'
+    savefig_rms='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_rms.png'
+
+    ztplot(temp_diff_reg.values, temp_diff_reg.time.values, temp_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], diff (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=True,
+           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=True, clim=(-3,3),
            save=savefig_diff, interactive=True);
 
-    ztplot(diff_reg.values, diff_reg.time.values, diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
+    ztplot(temp_rms_reg.values, temp_rms_reg.time.values, temp_rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], rms (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True,
+           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True, clim=(0,6),
            save=savefig_rms, interactive=True);
 
   # salinity
   for reg in salt_bias.region:
-    if args.debug: print('Salinity bias for region:', str(reg.values))
+    print('Generating salinity plots for ', str(reg.values))
     # remove Nan's
-    diff_reg = salt_bias.sel(region=reg).dropna('z_l')
-    if diff_reg.z_l.max() <= 500.0:
+    salt_diff_reg = salt_bias.sel(region=reg).dropna('z_l')
+    salt_rms_reg = salt_rms.sel(region=reg).dropna('z_l')
+    if salt_diff_reg.z_l.max() <= 1000.0:
       splitscale = None
     else:
-      splitscale =  [0., -500., -diff_reg.z_l.max()]
+      splitscale =  [0., -1000., -salt_diff_reg.z_l.max()]
 
-    if args.savefig:
-      savefig_diff=str(reg.values)+'salt_diff.png'
-      savefig_rms=str(reg.values)+'salt_rms.png'
-    else:
-      savefig_diff=None
-      savefig_rms=None
+    savefig_diff='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_diff.png'
+    savefig_rms='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_rms.png'
 
-    ztplot(diff_reg.values, diff_reg.time.values, diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
+    ztplot(salt_diff_reg.values, salt_diff_reg.time.values, salt_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], diff (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=True,
+           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=True, clim=(-1.5, 1.5),
            save=savefig_diff, interactive=True);
 
-    ztplot(diff_reg.values, diff_reg.time.values, diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
+    ztplot(salt_rms_reg.values, salt_rms_reg.time.values, salt_rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], rms (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True,
+           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True, clim=(0,3),
            save=savefig_rms, interactive=True);
   return
 
