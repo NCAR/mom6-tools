@@ -653,6 +653,7 @@ def xystats(fname, variables, grd, dcase, basins, args):
            suptitle=ds_var.attrs['long_name'] +' ['+ ds_var.attrs['units']+']',
            title='Averaged between ' +str(ds_var.time[0].values) + ' and '+ str(ds_var.time[-1].values))
 
+    plt.close()
     print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
@@ -786,6 +787,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
            extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True, clim=(0,6),
            save=savefig_rms, interactive=True);
 
+    plt.close('all')
   # salinity
   for reg in salt_bias.region:
     print('Generating salinity plots for ', str(reg.values))
@@ -809,6 +811,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], rms (model - obs)',
            extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True, clim=(0,3),
            save=savefig_rms, interactive=True);
+
+    plt.close('all')
   return
 
 if __name__ == '__main__':
