@@ -148,7 +148,7 @@ def main():
   psiPlot = MOCpsi(VHmod, vmsk=m*numpy.roll(m,-1,axis=-2))*conversion_factor
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yy = grd.geolat_c[:,:].max(axis=-1)+0*z
-  plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ args.start_date + 'and '+ args.end_date )
+  plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ args.start_date + ' and '+ args.end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(case_name)
   plt.gca().invert_yaxis()
