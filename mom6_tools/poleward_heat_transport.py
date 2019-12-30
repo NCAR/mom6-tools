@@ -18,8 +18,8 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for plotting poleward heat transport.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-v', '--variables', nargs='+', default=['T_ady_2d', 'T_diffy_2d'],
-                     help='''Variables to be processed (default=['T_ady_2d', 'T_diffy_2d'])''')
+  parser.add_argument('-v', '--variables', nargs='+', default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d'],
+                     help='''Variables to be processed (default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d'])''')
   parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',
                      help='''Start year to plot (default=0001-01-01)''')
   parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31',
@@ -36,9 +36,9 @@ def main(stream=False):
   # Get options
   args = options()
   nw = args.number_of_workers
-  if not os.path.isdir('PNG'):
-    print('Creating a directory to place figures (PNG)... \n')
-    os.system('mkdir PNG')
+  if not os.path.isdir('PNG/HT'):
+    print('Creating a directory to place figures (PNG/HT)... \n')
+    os.system('mkdir -p PNG/HT')
   if not os.path.isdir('ncfiles'):
     print('Creating a directory to place figures (ncfiles)... \n')
     os.system('mkdir ncfiles')
@@ -49,7 +49,7 @@ def main(stream=False):
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
   args.case_name = dcase.casename
-  args.savefigs = True; args.outdir = 'PNG'
+  args.savefigs = True; args.outdir = 'PNG/HT'
   RUNDIR = dcase.get_value('RUNDIR')
   print('Run directory is:', RUNDIR)
   print('Casename is:', dcase.casename)
@@ -66,8 +66,19 @@ def main(stream=False):
   print('Reading dataset...')
   startTime = datetime.now()
   variables = args.variables
+
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
+    ds
+    for var in variables:
+      print('Processing {}'.format(var))
+      if var not in ds.variables:
+        print('WARNING: ds does not have variable {}. Creating dataarray with zeros'.format(var))
+        jm, im = grd.geolat.shape
+        tm = len(ds.time)
+        da = xr.DataArray(numpy.zeros((tm, jm, im)), dims=['time','yq','xh'], \
+             coords={'yq' : grd.yq, 'xh' : grd.xh, 'time' : ds.time}).rename(var)
+        ds = xr.merge([ds, da])
     return ds[variables].resample(time="1Y", closed='left', \
            keep_attrs=True).mean(dim='time', keep_attrs=True)
 
@@ -80,6 +91,8 @@ def main(stream=False):
          data_vars='minimal', coords='minimal', compat='override', \
          preprocess=preprocess)
   print('Time elasped: ', datetime.now() - startTime)
+
+  print(ds)
 
   print('\n Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   startTime = datetime.now()
@@ -119,18 +132,20 @@ def main(stream=False):
     diffusive = None
     warnings.warn('Diffusive temperature term not found. This will result in an underestimation of the heat transport.')
 
-  varName = 'T_lbm_diffy'
+  varName = 'T_lbd_diffy_2d'
   if varName in ds.variables:
-    tmp = numpy.ma.masked_invalid(ds_sel[varName].sum('z_l').values)
+    tmp = numpy.ma.masked_invalid(ds_sel[varName].values)
     tmp = tmp[:].filled(0.)
-    diffusive = diffusive + tmp.view(C)
+    lbd = tmp.view(C)
+    #lbd.units = ds[varName].units
   else:
+    lbd = None
     warnings.warn('Lateral boundary mixing term not found. This will result in an underestimation of the heat transport.')
 
-  plt_heat_transport_model_vs_obs(advective, diffusive, basin_code, grd, args)
+  plt_heat_transport_model_vs_obs(advective, diffusive, lbd, basin_code, grd, args)
   return
 
-def plt_heat_transport_model_vs_obs(advective, diffusive, basin_code, grd, args):
+def plt_heat_transport_model_vs_obs(advective, diffusive, lbd, basin_code, grd, args):
   """Plots model vs obs poleward heat transport for the global, Pacific and Atlantic basins"""
   # Load Observations
   fObs = netCDF4.Dataset('/glade/work/gmarques/cesm/datasets/Trenberth_and_Caron_Heat_Transport.nc')
@@ -167,7 +182,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, basin_code, grd, args)
 
   # Global Heat Transport
   plt.figure(figsize=(12,10))
-  HTplot = heatTrans(advective,diffusive)
+  HTplot = heatTrans(advective,diffusive,lbd)
   yy = grd.geolat_c[:,:].max(axis=-1)
   ave_title = ', averaged from {} to {}'.format(args.start_date, args.end_date)
   plotHeatTrans(yy,HTplot,title='Global Y-Direction Heat Transport [PW]'+ave_title)
@@ -179,6 +194,8 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, basin_code, grd, args)
   plt.legend(loc=0,fontsize=10)
   annotateObs()
   if diffusive is None: annotatePlot('Warning: Diffusive component of transport is missing.')
+  if lbd is None: annotatePlot('Warning: LBD component of transport is missing.')
+
   if args.savefigs:
     objOut = args.outdir+'/'+args.case_name+'_HeatTransport_global.png'
     plt.savefig(objOut); plt.close()
@@ -187,7 +204,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, basin_code, grd, args)
   # Atlantic Heat Transport
   m = 0*basin_code; m[(basin_code==2) | (basin_code==4) | (basin_code==6) | (basin_code==7) | (basin_code==8)] = 1
   plt.figure(figsize=(12,10))
-  HTplot = heatTrans(advective, diffusive, vmask=m*numpy.roll(m,-1,axis=-2))
+  HTplot = heatTrans(advective, diffusive, lbd, vmask=m*numpy.roll(m,-1,axis=-2))
   yy = grd.geolat_c[:,:].max(axis=-1)
   HTplot[yy<-34] = numpy.nan
   plotHeatTrans(yy,HTplot,title='Atlantic Y-Direction Heat Transport [PW]'+ave_title)
@@ -199,6 +216,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, basin_code, grd, args)
   plt.legend(loc=0,fontsize=10)
   annotateObs()
   if diffusive is None: annotatePlot('Warning: Diffusive component of transport is missing.')
+  if lbd is None: annotatePlot('Warning: LBD component of transport is missing.')
   if args.savefigs:
     objOut = args.outdir+'/'+args.case_name+'_HeatTransport_Atlantic.png'
     plt.savefig(objOut); plt.close()
@@ -207,7 +225,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, basin_code, grd, args)
   # Indo-Pacific Heat Transport
   m = 0*basin_code; m[(basin_code==3) | (basin_code==5)] = 1
   plt.figure(figsize=(12,10))
-  HTplot = heatTrans(advective, diffusive, vmask=m*numpy.roll(m,-1,axis=-2))
+  HTplot = heatTrans(advective, diffusive, lbd, vmask=m*numpy.roll(m,-1,axis=-2))
   yy = grd.geolat_c[:,:].max(axis=-1)
   HTplot[yy<-34] = numpy.nan
   plotHeatTrans(yy,HTplot,title='Indo-Pacific Y-Direction Heat Transport [PW]'+ave_title)
@@ -217,6 +235,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, basin_code, grd, args)
   plt.xlabel(r'Latitude [$\degree$N]',fontsize=10)
   annotateObs()
   if diffusive is None: annotatePlot('Warning: Diffusive component of transport is missing.')
+  if lbd is None: annotatePlot('Warning: LBD component of transport is missing.')
   plt.suptitle(suptitle)
   plt.legend(loc=0,fontsize=10)
   if args.savefigs:
@@ -226,12 +245,13 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, basin_code, grd, args)
     plt.show()
   return
 
-def heatTrans(advective, diffusive=None, vmask=None):
+def heatTrans(advective, diffusive=None, lbd=None, vmask=None):
   """Converts vertically integrated temperature advection into heat transport"""
+  HT = advective[:]
   if diffusive is not None:
-    HT = advective[:] + diffusive[:]
-  else:
-    HT = advective[:]
+    HT = HT + diffusive[:]
+  if lbd is not None:
+    HT = HT + lbd[:]
   if len(HT.shape) == 3:
     HT = HT.mean(axis=0)
   if advective.units == "Celsius meter3 second-1":
