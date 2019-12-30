@@ -573,21 +573,21 @@ def xyplot(field, x=None, y=None, area=None,
     setFigureSize(aspect, resolution, debug=debug)
     #plt.gcf().subplots_adjust(left=.08, right=.99, wspace=0, bottom=.09, top=.9, hspace=0)
     axis = plt.gca()
-  plt.pcolormesh(xCoord, yCoord, maskedField, cmap=cmap, norm=norm)
+  cs = axis.pcolormesh(xCoord, yCoord, maskedField, cmap=cmap, norm=norm)
   if interactive: addStatusBar(xCoord, yCoord, maskedField)
-  cb = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
+  cb = plt.colorbar(cs, ax=axis, fraction=.08, pad=0.02, extend=extend)
   if centerlabels and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
   elif clim is not None and len(clim)>2: cb.set_ticks( clim )
   axis.set_facecolor(landcolor)
-  plt.xlim( xLims )
-  plt.ylim( yLims )
+  axis.set_xlim( xLims )
+  axis.set_ylim( yLims )
   axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
   if area is not None:
     axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
     axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
-  if len(xlabel+xunits)>0: plt.xlabel(label(xlabel, xunits))
-  if len(ylabel+yunits)>0: plt.ylabel(label(ylabel, yunits))
-  if len(title)>0: plt.title(title)
+  if len(xlabel+xunits)>0: axis.set_xlabel(label(xlabel, xunits))
+  if len(ylabel+yunits)>0: axis.set_ylabel(label(ylabel, yunits))
+  if len(title)>0: axis.set_title(title)
   if len(suptitle)>0: plt.suptitle(suptitle)
 
   if save is not None: plt.savefig(save); plt.close()
@@ -870,9 +870,9 @@ def yzplot(field, y=None, z=None,
     setFigureSize(aspect, resolution, debug=debug)
     #plt.gcf().subplots_adjust(left=.10, right=.99, wspace=0, bottom=.09, top=.9, hspace=0)
     axis = plt.gca()
-  plt.pcolormesh(yCoord, zCoord, field2, cmap=cmap, norm=norm)
+  cs = axis.pcolormesh(yCoord, zCoord, field2, cmap=cmap, norm=norm)
   if interactive: addStatusBar(yCoord, zCoord, field2)
-  cb = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
+  cb = plt.colorbar(cs,ax=axis, fraction=.08, pad=0.02, extend=extend)
   if centerlabels and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
   axis.set_facecolor(landcolor)
   if splitscale is not None:
@@ -900,7 +900,7 @@ def yzcompare(field1, field2, y=None, z=None,
   clim=None, colormap=None, extend=None, centerlabels=False,
   dlim=None, dcolormap=None, dextend=None, centerdlabels=False,
   nbins=None, landcolor=[.5,.5,.5], sigma=2., webversion=False,
-  aspect=None, resolution=None, axis=None, npanels=3,
+  aspect=None, resolution=None, axis=None, npanels=3, contour=False,
   ignore=None, save=None, debug=False, show=False, interactive=False):
   """
   Renders n-panel plot of two scalar fields, field1(x,y) and field2(x,y).
@@ -937,6 +937,7 @@ def yzcompare(field1, field2, y=None, z=None,
   resolution    The vertical resolution of the figure given in pixels. Default 1280.
   axis          The axis handle to plot to. Default None.
   npanels       Number of panels to display (1, 2 or 3). Default 3.
+  contour       If true, draw and label contour lines. Default is False.
   ignore        A value to use as no-data (NaN). Default None.
   save          Name of file to save figure in. Default None.
   debug         If true, report stuff for debugging. Default False.
@@ -994,6 +995,14 @@ def yzcompare(field1, field2, y=None, z=None,
     cb1 = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
     if centerlabels and len(clim)>2: cb1.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
     axis.set_facecolor(landcolor)
+    if contour:
+      zz = 0.5 * ( z[:-1] + z[1:])
+      yy = 0.5 * ( y[:-1] + y[1:])
+      print(yy.shape, zz.shape, maskedField1.shape)
+      matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
+      cs = plt.contour(yy+0*zz, zz, maskedField1, colors='k')
+      plt.clabel(cs, fmt='%2.1f', fontsize=14)
+
     if splitscale is not None:
       for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
       axis.set_yscale('splitscale', zval=splitscale)
@@ -1007,6 +1016,10 @@ def yzcompare(field1, field2, y=None, z=None,
     plt.pcolormesh(yCoord, zCoord, field2, cmap=cmap, norm=norm)
     if interactive: addStatusBar(yCoord, zCoord, field2)
     cb2 = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
+    if contour:
+      cs = plt.contour(yy+0*zz, zz, maskedField2, colors='k')
+      plt.clabel(cs, fmt='%2.1f', fontsize=14)
+
     if centerlabels and len(clim)>2: cb2.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
     axis.set_facecolor(landcolor)
     if splitscale is not None:
@@ -1020,6 +1033,7 @@ def yzcompare(field1, field2, y=None, z=None,
 
   if npanels in [1, 3]:
     axis = plt.subplot(npanels,1,npanels)
+
     if dcolormap is None: dcolormap = chooseColorMap(dMin, dMax)
     if dlim is None and dStd>0:
       cmap, norm, dextend = chooseColorLevels(dMean-sigma*dStd, dMean+sigma*dStd, dcolormap, clim=dlim, nbins=nbins, extend='both', autocenter=True)
