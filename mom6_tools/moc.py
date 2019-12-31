@@ -20,8 +20,8 @@ def options():
     describing the run and diagnostics to be performed.''')
   parser.add_argument('-v', '--var', nargs='+', default=['vmo'],
                      help='''Variable to be processed (default=['vmo'])''')
-  parser.add_argument('-start_date', type=str, default='0001-01-01', help='''Start year to compute averages. Default 0001-01-01''')
-  parser.add_argument('-end_date', type=str, default='0100-12-31',  help='''End year to compute averages. Default 0100-12-31''')
+  parser.add_argument('-sd','--start_date', type=str, default='0001-01-01', help='''Start year to compute averages. Default 0001-01-01''')
+  parser.add_argument('-ed','--end_date', type=str, default='0100-12-31',  help='''End year to compute averages. Default 0100-12-31''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
@@ -35,9 +35,9 @@ def main():
   args = options()
 
   nw = args.number_of_workers
-  if not os.path.isdir('PNG'):
-    print('Creating a directory to place figures (PNG)... \n')
-    os.system('mkdir PNG')
+  if not os.path.isdir('PNG/MOC'):
+    print('Creating a directory to place figures (PNG/MOC)... \n')
+    os.system('mkdir -p PNG/MOC')
   if not os.path.isdir('ncfiles'):
     print('Creating a directory to place figures (ncfiles)... \n')
     os.system('mkdir ncfiles')
@@ -48,7 +48,7 @@ def main():
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
   args.case_name = dcase.casename
-  args.savefigs = True; args.outdir = 'PNG'
+  args.savefigs = True; args.outdir = 'PNG/MOC/'
   RUNDIR = dcase.get_value('RUNDIR')
   print('Run directory is:', RUNDIR)
   print('Casename is:', dcase.casename)
@@ -136,7 +136,7 @@ def main():
   findExtrema(yy, z, psiPlot, max_lat=-30.)
   findExtrema(yy, z, psiPlot, min_lat=25.)
   findExtrema(yy, z, psiPlot, min_depth=2000., mult=-1.)
-  objOut = 'PNG/'+str(case_name)+'_MOC_global.png'
+  objOut = args.outdir+str(case_name)+'_MOC_global.png'
   plt.savefig(objOut)
 
   # Atlantic MOC
@@ -156,7 +156,7 @@ def main():
   findExtrema(yy, z, psiPlot, max_lat=-33.)
   findExtrema(yy, z, psiPlot)
   findExtrema(yy, z, psiPlot, min_lat=5.)
-  objOut = 'PNG/'+str(case_name)+'_MOC_Atlantic.png'
+  objOut = args.outdir+str(case_name)+'_MOC_Atlantic.png'
   plt.savefig(objOut,format='png')
 
   print('\n Computing time series...')
@@ -202,7 +202,7 @@ def main():
   plt.ylim(5,20)
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
-  objOut = 'PNG/'+str(case_name)+'_MOC_26N_time_series.png'
+  objOut = args.outdir+str(case_name)+'_MOC_26N_time_series.png'
   plt.savefig(objOut,format='png')
 
   amoc_core_45 = xr.open_dataset(path+'AMOCts.cyc5.45.nc')
@@ -219,7 +219,7 @@ def main():
   plt.ylim(5,20)
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
-  objOut = 'PNG/'+str(case_name)+'_MOC_45N_time_series.png'
+  objOut = args.outdir+str(case_name)+'_MOC_45N_time_series.png'
   plt.savefig(objOut,format='png')
   return
 
