@@ -385,7 +385,9 @@ def get_circle():
 def polarplot(field, grd, proj='SP', contour=None, circle=True,
               clim = None, colormap = None, nbins = None, save=None,
               ignore = None, debug=False, show=False, extend = None,
-              sigma = 2.0, logscale = False, title = '', landcolor=[.5,.5,.5] ):
+              sigma = 2.0, logscale = False, title = '', aspect=[16,9],
+              landcolor=[.5,.5,.5], resolution=576, axis=None):
+
   """Renders plot of scalar field(x,y) using polar projections.
 
   Parameters
@@ -442,6 +444,15 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   landcolor : RGB tuple, optional
     An rgb tuple to use for the color of land (no data). Default [.5,.5,.5].
 
+  aspect  : tuple, optional
+     The aspect ratio of the figure, given as a tuple (W,H). Default [16,9].
+
+  resolution  : integet, optional
+     The vertical resolution of the figure given in pixels. Default 720.
+
+  axis :  matplotlib.axes._subplots.AxesSubplot
+     The axis handle to plot to. Default None.
+
   Returns
   -------
   """
@@ -474,33 +485,36 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   else:
     cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
 
-  fig = plt.figure(figsize=[10, 8])
-  ax = plt.subplot(1, 1, 1, projection=proj)
-  ax.set_extent(extent, ccrs.PlateCarree())
-  ax.add_feature(cartopy.feature.LAND)
-  ax.gridlines()
+  if axis is None:
+    setFigureSize(aspect, resolution, debug=debug)
+    #plt.gcf().subplots_adjust(left=.08, right=.99, wspace=0, bottom=.09, top=.9, hspace=0)
+    axis = plt.gca(projection=proj)
+
+  axis.set_extent(extent, ccrs.PlateCarree())
+  axis.add_feature(cartopy.feature.LAND)
+  axis.gridlines()
 
   if circle:
     circle_value = get_circle()
-    ax.set_boundary(circle_value, transform=ax.transAxes)
+    axis.set_boundary(circle_value, transform=axis.transAxes)
 
-  cs = ax.pcolormesh(xCoord,yCoord,maskedField,transform=ccrs.PlateCarree(),cmap=cmap,
-                     shading='flat', norm=norm)
-  fig.colorbar(cs)
+  cs = axis.pcolormesh(xCoord,yCoord,maskedField,transform=ccrs.PlateCarree(),cmap=cmap,
+                       shading='flat', norm=norm)
+  plt.colorbar(cs, ax=axis, fraction=.08, pad=0.02)
   # Add Land
-  ax.add_feature( cartopy.feature.LAND, zorder=1, edgecolor='none', facecolor=landcolor) #fae5c9')
+  axis.add_feature( cartopy.feature.LAND, zorder=1, edgecolor='none', facecolor=landcolor) #fae5c9')
   # add Ocean
-  ax.add_feature(cartopy.feature.OCEAN)
+  axis.add_feature(cartopy.feature.OCEAN)
   # Add coastline
-  ax.coastlines(color='black')
+  axis.coastlines(color='black')
   # Add lat lon rings
-  ax.gridlines(alpha='0.1',color='black')
+  #axis.gridlines(alpha='0.1',color='black')
   if contour is not None:
-    ax.contour(grd.geolon,grd.geolat,maskedField,[contour],colors='red', transform=ccrs.PlateCarree())
+    axis.contour(grd.geolon,grd.geolat,maskedField,[contour],colors='red', transform=ccrs.PlateCarree())
 
-  ax.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
-  ax.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction',verticalalignment='bottom', horizontalalignment='right', fontsize=10)
-  ax.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
+  axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
+  axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction',verticalalignment='bottom', horizontalalignment='right', fontsize=10)
+  axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
   if len(title)>0:  plt.title(title)
   if save is not None: plt.savefig(save)
   if show: plt.show(block=False)
@@ -1123,13 +1137,14 @@ def ztplot(field, t=None, z=None,
     setFigureSize(aspect, resolution, debug=debug)
     #plt.gcf().subplots_adjust(left=.10, right=.99, wspace=0, bottom=.09, top=.9, hspace=0)
     axis = plt.gca()
-  plt.pcolormesh(tCoord, zCoord, field2, cmap=cmap, norm=norm)
+
+  cs = axis.pcolormesh(tCoord, zCoord, field2, cmap=cmap, norm=norm)
   if interactive: addStatusBar(tCoord, zCoord, field2)
-  cb = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
+  cb = plt.colorbar(cs, ax=axis, fraction=.08, pad=0.02, extend=extend)
   if contour:
     matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-    cs = plt.contour(tCoord, zCoord,field2,colors='k',lw=0.50)
-    plt.clabel(cs, inline=1, fontsize=10)
+    cs = axis.contour(tCoord, zCoord,field2,colors='k',lw=0.50)
+    axis.clabel(cs,inline=1, fontsize=10)
 
   if centerlabels and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
   axis.set_facecolor(landcolor)
@@ -1137,17 +1152,17 @@ def ztplot(field, t=None, z=None,
     for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
     axis.set_yscale('splitscale', zval=splitscale)
 
-  plt.xlim( tLims ); plt.ylim( zLims )
+  axis.set_xlim( tLims ); axis.set_ylim( zLims )
   axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=12)
   if sMean is not None:
     axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=12)
     axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=12)
-  if len(tlabel+tunits)>0: plt.xlabel(label(tlabel, tunits), fontsize=16)
-  if len(zlabel+zunits)>0: plt.ylabel(label(zlabel, zunits), fontsize=16)
-  if len(title)>0: plt.title(title)
+  if len(tlabel+tunits)>0: axis.set_xlabel(label(tlabel, tunits), fontsize=16)
+  if len(zlabel+zunits)>0: axis.set_ylabel(label(zlabel, zunits), fontsize=16)
+  if len(title)>0: axis.set_title(title)
   if len(suptitle)>0: plt.suptitle(suptitle)
   if splitscale is not None:
-    plt.gca().invert_yaxis()
+    axis.invert_yaxis()
   if save is not None: plt.savefig(save)
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
