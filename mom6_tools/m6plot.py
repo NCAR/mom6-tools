@@ -526,8 +526,8 @@ def xyplot(field, x=None, y=None, area=None,
   xlabel=None, xunits=None, ylabel=None, yunits=None,
   title='', suptitle='',
   clim=None, colormap=None, extend=None, centerlabels=False,
-  nbins=None, landcolor=[.5,.5,.5],
-  aspect=[16,9], resolution=576, axis=None, sigma=2.,
+  nbins=None, landcolor=[.5,.5,.5], axis=None,
+  aspect=[16,9], resolution=576, sigma=2.,
   ignore=None, save=None, debug=False, show=False, interactive=False, logscale=False):
   """
   Renders plot of scalar field, field(x,y).
