@@ -39,9 +39,6 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  if not os.path.isdir('PNG/MLD'):
-    print('Creating a directory to place figures (PNG/MLD)... \n')
-    os.system('mkdir -p PNG/MLD')
   if not os.path.isdir('ncfiles'):
     print('Creating a directory to place netCDF files (ncfiles)... \n')
     os.system('mkdir ncfiles')
@@ -90,7 +87,7 @@ def driver(args):
   get_MLD(ds, 'mlotst', grd, args)
 
   # SSH
-  #get_SSH(ds, 'SSH', grd, args)
+  get_SSH(ds, 'SSH', grd, args)
 
   if parallel:
     print('\n Releasing workers...')
@@ -98,10 +95,71 @@ def driver(args):
 
   return
 
+def get_SSH(ds, var, grd, args):
+  '''
+  Compute a sea level anomaly climatology and compare against obs.
+  '''
+
+  if not os.path.isdir('PNG/SLA'):
+    print('Creating a directory to place figures (PNG/SLA)... \n')
+    os.system('mkdir -p PNG/SLA')
+
+  print('Computing meam sea level climatology...')
+  startTime = datetime.now()
+  mean_sl_model =ds[var].mean(dim='time').compute()
+  print('Time elasped: ', datetime.now() - startTime)
+
+  print('Computing monthly SLA climatology...')
+  startTime = datetime.now()
+  rms_sla_model = np.sqrt(((ds[var]-ds[var].mean(dim='time'))**2).mean(dim='time')).compute()
+  print('Time elasped: ', datetime.now() - startTime)
+
+  # fix month values using pandas. We just want something that xarray an understand
+  #mld_model['month'] = pd.date_range('2000-01-15', '2001-01-01',  freq='2SMS')
+
+  # read obs
+  filepath = '/glade/work/gmarques/cesm/datasets/Aviso/rms_sla_climatology_remaped_to_tx0.6v1.nc'
+  print('\n Reading climatology from: ', filepath)
+  rms_sla_aviso = xr.open_dataset(filepath)
+
+  print('\n Plotting...')
+  model = np.ma.masked_invalid(rms_sla_model.values)
+  aviso = np.ma.masked_invalid(rms_sla_aviso.rms_sla.values)
+
+  fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(14,24))
+  xyplot(model, grd.geolon, grd.geolat, area=grd.area_t,
+         axis=ax[0], suptitle='RMS of SSH anomaly [m]', clim=(0,0.4),
+         title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
+  xyplot(aviso, grd.geolon, grd.geolat, area=grd.area_t,
+         axis=ax[1], clim=(0,0.4), title='RMS of SSH anomaly (AVISO, 1993-2018)')
+  xyplot(model - aviso, grd.geolon, grd.geolat, area=grd.area_t,
+         axis=ax[2], title='model - AVISO', clim=(-0.2,0.2))
+
+  plt.savefig('PNG/SLA/'+str(args.casename)+'_RMS_SLA_vs_AVISO.png')
+  plt.close()
+
+  # create dataarays
+  model_rms_sla_da = xr.DataArray(model, dims=['yh','xh'],
+                           coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('rms_sla')
+
+  model_rms_sla_da.to_netcdf('ncfiles/'+str(args.casename)+'_RMS_SLA.nc')
+
+  model_mean_sl_da = xr.DataArray(mean_sl_model.values, dims=['yh','xh'],
+                           coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('mean_sl')
+
+  model_mean_sl_da.to_netcdf('ncfiles/'+str(args.casename)+'_mean_sea_level.nc')
+
+  return
+
 def get_MLD(ds, var, grd, args):
   '''
   Compute a MLD climatology and compare against obs.
   '''
+
+  if not os.path.isdir('PNG/MLD'):
+    print('Creating a directory to place figures (PNG/MLD)... \n')
+    os.system('mkdir -p PNG/MLD')
+
   print('Computing monthly MLD climatology...')
   startTime = datetime.now()
   mld_model = ds[var].groupby("time.month").mean('time').compute()
