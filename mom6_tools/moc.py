@@ -69,13 +69,12 @@ def main():
   # load data
   var = args.var
   def preprocess(ds):
-    #if var not in ds.variables:
-    # raise ValueError("{} is not present in ds!".format(var))
-    # return
-    #else:
-    # receives a dataset; returns a dataset
-    return ds[var].resample(time="1Y", closed='left',keep_attrs=True).mean('time', \
-                   keep_attrs=True).compute()
+    if 'vmo' not in ds.variables:
+        ds["vmo"] = xr.zeros_like(ds.vo)
+   # receives a dataset; returns a dataset
+   # return ds[var].resample(time="1Y", closed='left',keep_attrs=True).mean('time', \
+   #                keep_attrs=True).compute()
+    return ds
 
   if parallel:
     #ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', \
@@ -85,6 +84,7 @@ def main():
     parallel=True,
     combine="nested", # concatenate in order of files
     concat_dim="time", # concatenate along time
+    preprocess=preprocess,
     ).chunk({"time": 12})
 
   else:
