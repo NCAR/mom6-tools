@@ -527,7 +527,7 @@ def xyplot(field, x=None, y=None, area=None,
   title='', suptitle='',
   clim=None, colormap=None, extend=None, centerlabels=False,
   nbins=None, landcolor=[.5,.5,.5], axis=None,
-  aspect=[16,9], resolution=576, sigma=2.,
+  aspect=[16,9], resolution=576, sigma=2., annotate=True,
   ignore=None, save=None, debug=False, show=False, interactive=False, logscale=False):
   """
   Renders plot of scalar field, field(x,y).
@@ -546,7 +546,8 @@ def xyplot(field, x=None, y=None, area=None,
   title        The title to place at the top of the panel. Default ''.
   suptitle     The super-title to place at the top of the figure. Default ''.
   clim         A tuple of (min,max) color range OR a list of contour levels. Default None.
-  sigma         Sigma range for difference plot autocolor levels. Default is to span a 2. sigma range
+  sigma         Sigma range for difference plot autocolori levels. Default is to span a 2. sigma range
+  annotate     If True (default), annotates stats (mi, max, etc) in the plot.
   colormap     The name of the colormap to use. Default None.
   extend       Can be one of 'both', 'neither', 'max', 'min'. Default None.
   centerlabels If True, will move the colorbar labels to the middle of the interval. Default False.
@@ -595,10 +596,12 @@ def xyplot(field, x=None, y=None, area=None,
   axis.set_facecolor(landcolor)
   axis.set_xlim( xLims )
   axis.set_ylim( yLims )
-  axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
-  if area is not None:
-    axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
-    axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
+  if annotate:
+    axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
+    if area is not None:
+      axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
+      axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
+
   if len(xlabel+xunits)>0: axis.set_xlabel(label(xlabel, xunits))
   if len(ylabel+yunits)>0: axis.set_ylabel(label(ylabel, yunits))
   if len(title)>0: axis.set_title(title)
