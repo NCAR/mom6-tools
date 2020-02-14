@@ -64,7 +64,7 @@ def main():
 
   parallel, cluster, client = m6toolbox.request_workers(nw)
 
-  print('\n Reading monthly (hm_*) dataset and computing yearly means...')
+  print('\n Reading (hm_*) dataset...')
   startTime = datetime.now()
   # load data
   var = args.var
@@ -78,14 +78,28 @@ def main():
                    keep_attrs=True).compute()
 
   if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', \
-                           chunks={'time': 12}, parallel=True, data_vars='minimal', \
-                           coords='minimal', compat='override', preprocess=preprocess)
+    #ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', \
+    #                       chunks={'time': 12}, parallel=True, data_vars='minimal', \
+    #                       coords='minimal', compat='override', preprocess=preprocess)
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc',
+    parallel=True,
+    combine="nested", # concatenate in order of files
+    concat_dim="time", # concatenate along time
+    ).chunk({"time": 12})
+
   else:
     ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', data_vars='minimal', \
                            coords='minimal', compat='override', preprocess=preprocess)
 
   print('Time elasped: ', datetime.now() - startTime)
+
+  print('\n Computing yearly means...')
+  startTime = datetime.now()
+  vmo = ds['vmo'].resample(time="1Y", closed='left',keep_attrs=True).mean('time',keep_attrs=True).compute()
+  print('Time elasped: ', datetime.now() - startTime)
+
+  ds = xr.Dataset()
+  ds['vmo'] = vmo
 
   print('\n Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   startTime = datetime.now()
@@ -94,7 +108,7 @@ def main():
 
   print('\n Computing time mean...')
   startTime = datetime.now()
-  ds_mean = ds_sel.mean('time').compute()
+  ds_mean = ds_sel.mean('time', keep_attrs=True).compute()
   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
