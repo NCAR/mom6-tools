@@ -386,7 +386,8 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
               clim = None, colormap = None, nbins = None, save=None,
               ignore = None, debug=False, show=False, extend = None,
               sigma = 2.0, logscale = False, title = '', aspect=[16,9],
-              landcolor=[.5,.5,.5], resolution=576, axis=None):
+              landcolor=[.5,.5,.5], resolution=576, axis=None, grid=True,
+              annotate=True):
 
   """Renders plot of scalar field(x,y) using polar projections.
 
@@ -453,6 +454,13 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   axis :  matplotlib.axes._subplots.AxesSubplot
      The axis handle to plot to. Default None.
 
+  grid : boolean, optional
+     If True, plot grid. Default is True.
+
+  annotate : boolean, optional
+     If True, write stats in the figure. Default is True.
+
+
   Returns
   -------
   """
@@ -492,7 +500,8 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
 
   axis.set_extent(extent, ccrs.PlateCarree())
   axis.add_feature(cartopy.feature.LAND)
-  axis.gridlines()
+  if grid:
+    axis.gridlines()
 
   if circle:
     circle_value = get_circle()
@@ -512,9 +521,11 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   if contour is not None:
     axis.contour(grd.geolon,grd.geolat,maskedField,[contour],colors='red', transform=ccrs.PlateCarree())
 
-  axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
-  axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction',verticalalignment='bottom', horizontalalignment='right', fontsize=10)
-  axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
+  if annotate:
+    axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
+    axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction',verticalalignment='bottom', horizontalalignment='right', fontsize=10)
+    axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
+
   if len(title)>0:  plt.title(title)
   if save is not None: plt.savefig(save)
   if show: plt.show(block=False)
@@ -602,8 +613,8 @@ def xyplot(field, x=None, y=None, area=None,
       axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
       axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
 
-  if len(xlabel+xunits)>0: axis.set_xlabel(label(xlabel, xunits))
-  if len(ylabel+yunits)>0: axis.set_ylabel(label(ylabel, yunits))
+  if len(xlabel+xunits)>0: axis.set_xlabel(label(xlabel, xunits), fontsize=12)
+  if len(ylabel+yunits)>0: axis.set_ylabel(label(ylabel, yunits), fontsize=12)
   if len(title)>0: axis.set_title(title)
   if len(suptitle)>0: plt.suptitle(suptitle)
 
@@ -828,7 +839,7 @@ def yzplot(field, y=None, z=None,
   splitscale=None,
   title='', suptitle='',
   clim=None, colormap=None, extend=None, centerlabels=False,
-  nbins=None, landcolor=[.5,.5,.5],
+  nbins=None, landcolor=[.5,.5,.5], show_stats=True,
   aspect=[16,9], resolution=576, axis=None,
   ignore=None, save=None, debug=False, show=False, interactive=False):
   """
@@ -855,6 +866,7 @@ def yzplot(field, y=None, z=None,
   landcolor   An rgb tuple to use for the color of land (no data). Default [.5,.5,.5].
   aspect      The aspect ratio of the figure, given as a tuple (W,H). Default [16,9].
   resolution  The vertical resolution of the figure given in pixels. Default 720.
+  show_stats  If true (default), annotate mean, std and rms in the figure.
   axis         The axis handle to plot to. Default None.
   ignore      A value to use as no-data (NaN). Default None.
   save        Name of file to save figure in. Default None.
@@ -897,9 +909,11 @@ def yzplot(field, y=None, z=None,
     axis.set_yscale('splitscale', zval=splitscale)
   plt.xlim( yLims ); plt.ylim( zLims )
   axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
-  if sMean is not None:
-    axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
-    axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
+  if show_stats:
+    if sMean is not None:
+      axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
+      axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
+
   if len(ylabel+yunits)>0: plt.xlabel(label(ylabel, yunits))
   if len(zlabel+zunits)>0: plt.ylabel(label(zlabel, zunits))
   if len(title)>0: plt.title(title)
