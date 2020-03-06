@@ -128,7 +128,7 @@ def main():
   tmp = numpy.ma.masked_invalid(ds_mean[varName].values)
   tmp = tmp[:].filled(0.)
   VHmod = tmp.view(C)
-  VHmod.units = ds[varName].units # using ds since it has the attrs.
+  VHmod.units = ds[varName].units # using ds since it has the attrs. 'kg s-1'
   Zmod = m6toolbox.get_z(ds, depth, varName) # same here
 
   if args.case_name != '':  case_name = args.case_name

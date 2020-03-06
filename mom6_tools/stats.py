@@ -693,12 +693,25 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   area = grd.area_t.where(grd.wet > 0)
   if args.debug: print('RUNDIR:', RUNDIR)
   parallel, cluster, client = request_workers(args.number_of_workers)
+
+  def preprocess(ds):
+    if 'thetao' not in ds.variables:
+        ds["thetao"] = xr.zeros_like(ds.h)
+    if 'so' not in ds.variables:
+        ds["so"] = xr.zeros_like(ds.h)
+
+    return ds
+
   # read dataset
   startTime = datetime.now()
   print('Reading dataset...')
-  # since we are loading 3D data, chunksize in time = 1
-  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', compat='override', \
-                         parallel=parallel, data_vars='minimal', coords='minimal')
+  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc',
+    parallel=True,
+    combine="nested", # concatenate in order of files
+    concat_dim="time", # concatenate along time
+    preprocess=preprocess,
+    ).chunk({"time": 12})
+
   if args.debug:
     print(ds)
 

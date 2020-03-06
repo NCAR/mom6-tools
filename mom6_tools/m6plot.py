@@ -839,7 +839,7 @@ def yzplot(field, y=None, z=None,
   splitscale=None,
   title='', suptitle='',
   clim=None, colormap=None, extend=None, centerlabels=False,
-  nbins=None, landcolor=[.5,.5,.5], show_stats=True,
+  nbins=None, landcolor=[.5,.5,.5], show_stats=2,
   aspect=[16,9], resolution=576, axis=None,
   ignore=None, save=None, debug=False, show=False, interactive=False):
   """
@@ -866,7 +866,8 @@ def yzplot(field, y=None, z=None,
   landcolor   An rgb tuple to use for the color of land (no data). Default [.5,.5,.5].
   aspect      The aspect ratio of the figure, given as a tuple (W,H). Default [16,9].
   resolution  The vertical resolution of the figure given in pixels. Default 720.
-  show_stats  If true (default), annotate mean, std and rms in the figure.
+  show_stats  Integer. If = 2 (default), annotate min, max, mean, std and rms in the figure. If = 1, just min and max.
+              If = 0, no stats are annotated.
   axis         The axis handle to plot to. Default None.
   ignore      A value to use as no-data (NaN). Default None.
   save        Name of file to save figure in. Default None.
@@ -908,11 +909,12 @@ def yzplot(field, y=None, z=None,
     for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
     axis.set_yscale('splitscale', zval=splitscale)
   plt.xlim( yLims ); plt.ylim( zLims )
-  axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
-  if show_stats:
-    if sMean is not None:
-      axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
-      axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
+  if show_stats > 0:
+    axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
+    if show_stats > 1:
+      if sMean is not None:
+        axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
+        axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
 
   if len(ylabel+yunits)>0: plt.xlabel(label(ylabel, yunits))
   if len(zlabel+zunits)>0: plt.ylabel(label(zlabel, zunits))
