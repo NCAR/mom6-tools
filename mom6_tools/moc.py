@@ -18,10 +18,11 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for plotting meridional overturning circulation.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-v', '--var', nargs='+', default=['vmo'],
-                     help='''Variable to be processed (default=['vmo'])''')
+  #parser.add_argument('-v', '--var', nargs='+', default=['vmo'],
+  #                   help='''Variable to be processed (default=['vmo'])''')
   parser.add_argument('-sd','--start_date', type=str, default='0001-01-01', help='''Start year to compute averages. Default 0001-01-01''')
   parser.add_argument('-ed','--end_date', type=str, default='0100-12-31',  help='''End year to compute averages. Default 0100-12-31''')
+  parser.add_argument('-fname','--file_name', type=str, default='.mom6.hm_*.nc',  help='''File(s) where vmo should be read. Default .mom6.hm_*.nc''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
@@ -52,7 +53,6 @@ def main():
   RUNDIR = dcase.get_value('RUNDIR')
   print('Run directory is:', RUNDIR)
   print('Casename is:', dcase.casename)
-  print('Variables to be processed:', args.var)
   print('Number of workers to be used:', nw)
 
   # read grid info
@@ -64,23 +64,16 @@ def main():
 
   parallel, cluster, client = m6toolbox.request_workers(nw)
 
-  print('\n Reading (hm_*) dataset...')
+  print('\n Reading {} dataset...'.format(args.file_name))
   startTime = datetime.now()
   # load data
-  var = args.var
   def preprocess(ds):
     if 'vmo' not in ds.variables:
         ds["vmo"] = xr.zeros_like(ds.vo)
-   # receives a dataset; returns a dataset
-   # return ds[var].resample(time="1Y", closed='left',keep_attrs=True).mean('time', \
-   #                keep_attrs=True).compute()
     return ds
 
   if parallel:
-    #ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', \
-    #                       chunks={'time': 12}, parallel=True, data_vars='minimal', \
-    #                       coords='minimal', compat='override', preprocess=preprocess)
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc',
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+args.file_name,
     parallel=True,
     combine="nested", # concatenate in order of files
     concat_dim="time", # concatenate along time
@@ -88,18 +81,19 @@ def main():
     ).chunk({"time": 12})
 
   else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', data_vars='minimal', \
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+args.file_name, data_vars='minimal', \
                            coords='minimal', compat='override', preprocess=preprocess)
 
   print('Time elasped: ', datetime.now() - startTime)
 
   print('\n Computing yearly means...')
   startTime = datetime.now()
-  vmo = ds['vmo'].resample(time="1Y", closed='left',keep_attrs=True).mean('time',keep_attrs=True).compute()
+  varName = 'vmo'; conversion_factor = 1.e-9
+  vmo = ds[varName].resample(time="1Y", closed='left',keep_attrs=True).mean('time',keep_attrs=True).compute()
   print('Time elasped: ', datetime.now() - startTime)
 
   ds = xr.Dataset()
-  ds['vmo'] = vmo
+  ds[varName] = vmo
 
   print('\n Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   startTime = datetime.now()
@@ -118,17 +112,10 @@ def main():
   # create a ndarray subclass
   class C(numpy.ndarray): pass
 
-  if 'vmo' in ds_mean.variables:
-    varName = 'vmo'; conversion_factor = 1.e-9
-  elif 'vh' in ds_mean.variables:
-    varName = 'vh'; conversion_factor = 1.e-6
-    if 'zw' in ds_mean.variables: conversion_factor = 1.e-9 # Backwards compatible for when we had wrong units for 'vh'
-  else: raise Exception('Could not find "vh" or "vmo" in file!')
-
   tmp = numpy.ma.masked_invalid(ds_mean[varName].values)
   tmp = tmp[:].filled(0.)
   VHmod = tmp.view(C)
-  VHmod.units = ds[varName].units # using ds since it has the attrs. 'kg s-1'
+  VHmod.units = vmo.units # using ds since it has the attrs. 'kg s-1'
   Zmod = m6toolbox.get_z(ds, depth, varName) # same here
 
   if args.case_name != '':  case_name = args.case_name
