@@ -172,7 +172,7 @@ def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
       check_dims(weights,dims)
       total_weights = weights.sum(dim=dims)
       if debug: print('total weights is:', total_weights.values)
-      out = mean_da(var, weights=weights, weights_sum=total_weights)
+      out = mean_da(var, dims, weights=weights, weights_sum=total_weights)
       if debug: print('horizontal mean is:', out)
     else:
       # regional reduction
@@ -197,7 +197,7 @@ def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
         # select weights to where region3d is one
         tmp_weights = weights.where(region3d == 1.0)
         total_weights = tmp_weights.sum(dim=dims)
-        rmask_od[str(reg.values)] = mean_da(var, weights=tmp_weights, weights_sum=total_weights)
+        rmask_od[str(reg.values)] = mean_da(var, dims, weights=tmp_weights, weights_sum=total_weights)
         if debug: print('horizontal mean is:', rmask_od[str(reg.values)])
       # create dataArray to store rmask_od
       out = xr.DataArray(np.zeros((len(basins.region), var.shape[0], var.shape[1])),
@@ -363,8 +363,10 @@ def check_dims(da,dims):
     Dimension(s) over which to apply reduction.
   """
   if dims[0] not in da.dims:
+    print('dims[0], da.dims',dims[0], da.dims)
     raise ValueError("DataArray does not have dimensions given by dims[0]")
   if dims[1] not in da.dims:
+    print('dims[1], da.dims',dims[1], da.dims)
     raise ValueError("DataArray does not have dimensions given by dims[1]")
 
   return
