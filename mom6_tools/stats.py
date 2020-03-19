@@ -794,12 +794,12 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
 
     ztplot(temp_diff_reg.values, temp_diff_reg.time.values, temp_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], diff (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=True, clim=(-3,3),
+           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=False, clim=(-3,3),
            save=savefig_diff, interactive=True);
 
     ztplot(temp_rms_reg.values, temp_rms_reg.time.values, temp_rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], rms (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True, clim=(0,6),
+           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=False, clim=(0,6),
            save=savefig_rms, interactive=True);
 
     plt.close('all')
@@ -819,12 +819,12 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
 
     ztplot(salt_diff_reg.values, salt_diff_reg.time.values, salt_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], diff (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=True, clim=(-1.5, 1.5),
+           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=False, clim=(-1.5, 1.5),
            save=savefig_diff, interactive=True);
 
     ztplot(salt_rms_reg.values, salt_rms_reg.time.values, salt_rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], rms (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True, clim=(0,3),
+           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=False, clim=(0,3),
            save=savefig_rms, interactive=True);
 
     plt.close('all')
