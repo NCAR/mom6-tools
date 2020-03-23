@@ -97,6 +97,16 @@ def driver(args):
   salt = np.ma.masked_invalid(ds.so.mean('time').values)
   print('Time elasped: ', datetime.now() - startTime)
 
+  print('Saving netCDF files...')
+  startTime = datetime.now()
+  thetao = xr.DataArray(ds.thetao.mean('time'), dims=['z_l','yh','xh'],
+              coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('thetao')
+  thetao.to_netcdf('ncfiles/'+str(args.casename)+'_thetao_time_mean.nc')
+  so = xr.DataArray(ds.so.mean('time'), dims=['z_l','yh','xh'],
+              coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('so')
+  so.to_netcdf('ncfiles/'+str(args.casename)+'_so_time_mean.nc')
+  print('Time elasped: ', datetime.now() - startTime)
+
   if parallel:
     print('\n Releasing workers...')
     client.close(); cluster.close()
