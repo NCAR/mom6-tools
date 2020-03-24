@@ -20,10 +20,10 @@ def options():
     describing the run and diagnostics to be performed.''')
   parser.add_argument('-v', '--variables', nargs='+', default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d'],
                      help='''Variables to be processed (default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d'])''')
-  parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',
-                     help='''Start year to plot (default=0001-01-01)''')
-  parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31',
-                      help='''Final year to plot (default=0100-12-31)''')
+  parser.add_argument('-sd','--start_date', type=str, default='',
+                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-ed','--end_date', type=str, default='',
+                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
@@ -55,6 +55,11 @@ def main(stream=False):
   print('Casename is:', dcase.casename)
   print('Variables to be processed:', args.variables)
   print('Number of workers to be used:', nw)
+
+  # set avg dates
+  avg = diag_config_yml['Avg']
+  if not args.start_date : args.start_date = avg['start_date']
+  if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
   grd = MOM6grid(RUNDIR+'/'+dcase.casename+'.mom6.static.nc')

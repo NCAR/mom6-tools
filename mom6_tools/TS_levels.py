@@ -26,8 +26,10 @@ def parseCommandLine():
   epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',  help='''Start year to plot (default=0001-01-01)''')
-  parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31', help='''Final year to plot (default=0100-12-31)''')
+  parser.add_argument('-sd','--start_date', type=str, default='',
+                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-ed','--end_date', type=str, default='',
+                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
@@ -55,6 +57,11 @@ def driver(args):
   print('Run directory is:', RUNDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
+
+  # set avg dates
+  avg = diag_config_yml['Avg']
+  if not args.start_date : args.start_date = avg['start_date']
+  if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
   grd = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc')

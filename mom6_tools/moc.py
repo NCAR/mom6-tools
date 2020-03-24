@@ -20,8 +20,10 @@ def options():
     describing the run and diagnostics to be performed.''')
   #parser.add_argument('-v', '--var', nargs='+', default=['vmo'],
   #                   help='''Variable to be processed (default=['vmo'])''')
-  parser.add_argument('-sd','--start_date', type=str, default='0001-01-01', help='''Start year to compute averages. Default 0001-01-01''')
-  parser.add_argument('-ed','--end_date', type=str, default='0100-12-31',  help='''End year to compute averages. Default 0100-12-31''')
+  parser.add_argument('-sd','--start_date', type=str, default='',
+                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-ed','--end_date', type=str, default='',
+                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-fname','--file_name', type=str, default='.mom6.hm_*.nc',  help='''File(s) where vmo should be read. Default .mom6.hm_*.nc''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
@@ -54,6 +56,11 @@ def main():
   print('Run directory is:', RUNDIR)
   print('Casename is:', dcase.casename)
   print('Number of workers to be used:', nw)
+
+  # set avg dates
+  avg = diag_config_yml['Avg']
+  if not args.start_date : args.start_date = avg['start_date']
+  if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
   grd = MOM6grid(RUNDIR+'/'+dcase.casename+'.mom6.static.nc')
