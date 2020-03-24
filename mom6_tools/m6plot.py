@@ -387,7 +387,7 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
               ignore = None, debug=False, show=False, extend = None,
               sigma = 2.0, logscale = False, title = '', aspect=[16,9],
               landcolor=[.5,.5,.5], resolution=576, axis=None, grid=True,
-              annotate=True):
+              annotate=True, clabel = ''):
 
   """Renders plot of scalar field(x,y) using polar projections.
 
@@ -441,6 +441,9 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
 
   title  : str, optional
     The title to place at the top of the panel. Default ''
+
+  clabel  : str, optional
+    Colorbar label. Default ''
 
   landcolor : RGB tuple, optional
     An rgb tuple to use for the color of land (no data). Default [.5,.5,.5].
@@ -509,11 +512,13 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
 
   cs = axis.pcolormesh(xCoord,yCoord,maskedField,transform=ccrs.PlateCarree(),cmap=cmap,
                        shading='flat', norm=norm)
-  plt.colorbar(cs, ax=axis, fraction=.08, pad=0.02)
+  #plt.colorbar(cs, ax=axis, fraction=.08, pad=0.02, orientation='horizontal')
+  cb = plt.colorbar(cs, ax=axis, orientation='horizontal', pad=0.02)
+  cb.set_label(clabel, fontsize=14)
   # Add Land
   axis.add_feature( cartopy.feature.LAND, zorder=1, edgecolor='none', facecolor=landcolor) #fae5c9')
   # add Ocean
-  axis.add_feature(cartopy.feature.OCEAN)
+  #axis.add_feature(cartopy.feature.OCEAN)
   # Add coastline
   axis.coastlines(color='black')
   # Add lat lon rings
@@ -522,13 +527,14 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
     axis.contour(grd.geolon,grd.geolat,maskedField,[contour],colors='red', transform=ccrs.PlateCarree())
 
   if annotate:
-    axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
-    axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction',verticalalignment='bottom', horizontalalignment='right', fontsize=10)
-    axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
+    axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=12)
+    axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction',verticalalignment='bottom', horizontalalignment='right', fontsize=12)
+    axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=12)
 
-  if len(title)>0:  plt.title(title)
+  if len(title)>0:  axis.set_title(title, fontsize=12)
   if save is not None: plt.savefig(save)
   if show: plt.show(block=False)
+  plt.tight_layout()
 
   return
 
