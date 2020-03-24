@@ -45,16 +45,33 @@ def main():
     print('Creating {}... \n'.format(dcase.casename))
     os.system('mkdir -p {}'.format(dcase.casename))
     make_yaml(dcase.casename, case_config)
+    make_run_script(dcase.casename)
   else:
     print('Directory {} already exists. \n'.format(dcase.casename))
 
   return
 
+def make_run_script(casename):
+  """
+  Create an ascii file to run a set of diagnostics.
+  """
+  print('Writing run_mom6_tools.sh...')
+  f = open(casename+'/run_mom6_tools.sh', 'w')
+  f.write("moc.py diag_config.yml -nw 6 &\n")
+  f.write("poleward_heat_transport.py diag_config.yml -nw 6 &\n")
+  f.write("section_transports.py diag_config.yml -save_ncfile &\n")
+  f.write("surface.py diag_config.yml -nw 6 &\n")
+  f.write("equatorial_comparison.py diag_config.yml -nw 6 &\n")
+  f.write("stats.py diag_config.yml -nw 6 &\n")
+  f.write("TS_levels.py diag_config.yml -nw 6 &\n")
+  f.close()
+  os.system('chmod +x '+casename+'/run_mom6_tools.sh')
+  return
 def make_yaml(casename, case_config):
   """
   Create a yaml file with key info.
   """
-  print('Creating diag_config.yml...')
+  print('Writing diag_config.yml...')
   with open(casename+'/diag_config.yml', 'w') as file:
     documents = yaml.dump(case_config, file)
 
