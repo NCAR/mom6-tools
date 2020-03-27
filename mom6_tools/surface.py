@@ -111,7 +111,7 @@ def get_SSH(ds, var, grd, args):
     print('Creating a directory to place figures (PNG/SLA)... \n')
     os.system('mkdir -p PNG/SLA')
 
-  print('Computing meam sea level climatology...')
+  print('Computing mean sea level climatology...')
   startTime = datetime.now()
   mean_sl_model =ds[var].mean(dim='time').compute()
   print('Time elasped: ', datetime.now() - startTime)
