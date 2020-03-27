@@ -671,7 +671,7 @@ def xycompare(field1, field2, x=None, y=None, area=None,
   landcolor     An rgb tuple to use for the color of land (no data). Default [.5,.5,.5].
   aspect        The aspect ratio of the figure, given as a tuple (W,H). Default [16,9].
   resolution    The vertical resolution of the figure given in pixels. Default 1280.
-  axis          The axis handle to plot to. Default None.
+  axis          List with axis handles to plot to. Default None.
   npanels       Number of panels to display (1, 2 or 3). Default 3.
   ignore        A value to use as no-data (NaN). Default None.
   save          Name of file to save figure in. Default None.
@@ -724,53 +724,60 @@ def xycompare(field1, field2, x=None, y=None, area=None,
 
   if addplabel: preTitleA = 'A: '; preTitleB = 'B: '
   else: preTitleA = ''; preTitleB = ''
-
   if axis is None:
     setFigureSize(aspect, resolution, npanels=npanels, debug=debug)
 
   if npanels in [2,3]:
-    axis = plt.subplot(npanels,1,1)
+    if axis is not None:
+      axis1=axis[0]
+    else:
+      axis1 = plt.subplot(npanels,1,1)
     if sector == None or sector == 'global':
-      plt.pcolormesh(xCoord, yCoord, maskedField1, cmap=cmap, norm=norm)
+      cs = axis1.pcolormesh(xCoord, yCoord, maskedField1, cmap=cmap, norm=norm)
       if interactive: addStatusBar(xCoord, yCoord, maskedField1)
-      cb1 = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
-      plt.xlim( xLims ); plt.ylim( yLims )
-      axis.set_xticklabels([''])
+      cb1 = plt.colorbar(cs,ax=axis1, fraction=.08, pad=0.02, extend=extend)
+      axis1.set_xlim( xLims ); axis1.set_ylim( yLims )
+      axis1.set_xticklabels([''])
     else:
       plotBasemapPanel(maskedField1, sector, xCoord, yCoord, lonRange, latRange, \
                        cmap, norm, interactive, extend)
     if centerlabels and len(clim)>2: cb1.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
-    axis.set_facecolor(landcolor)
-    annotateStats(axis, s1Min, s1Max, s1Mean, s1Std, s1RMS, webversion=webversion)
-    if len(ylabel+yunits)>0: plt.ylabel(label(ylabel, yunits))
+    axis1.set_facecolor(landcolor)
+    annotateStats(axis1, s1Min, s1Max, s1Mean, s1Std, s1RMS, webversion=webversion)
+    if len(ylabel+yunits)>0: axis1.set_ylabel(label(ylabel, yunits))
     if len(title1)>0:
-      if webversion == True: axis.annotate(preTitleA+title1, xy=(0.5,1.14), xycoords='axes fraction', \
+      if webversion == True: axis1.annotate(preTitleA+title1, xy=(0.5,1.14), xycoords='axes fraction', \
                                            verticalalignment='bottom', horizontalalignment='center', fontsize=12)
       else:
-        plt.title(preTitleA+title1)
-
-    axis = plt.subplot(npanels,1,2)
+        axis1.set_title(preTitleA+title1)
+    if axis is not None:
+      axis2=axis[1]
+    else:
+      axis2 = plt.subplot(npanels,1,2)
     if sector == None or sector == 'global':
-      plt.pcolormesh(xCoord, yCoord, maskedField2, cmap=cmap, norm=norm)
+      cs = axis2.pcolormesh(xCoord, yCoord, maskedField2, cmap=cmap, norm=norm)
       if interactive: addStatusBar(xCoord, yCoord, maskedField2)
-      cb2 = plt.colorbar(fraction=.08, pad=0.02, extend=extend)
-      plt.xlim( xLims ); plt.ylim( yLims )
-      if npanels>2: axis.set_xticklabels([''])
+      cb2 = plt.colorbar(cs,ax=axis2,fraction=.08, pad=0.02, extend=extend)
+      axis2.set_xlim( xLims ); axis2.set_ylim( yLims )
+      if npanels>2: axis2.set_xticklabels([''])
     else:
       plotBasemapPanel(maskedField2, sector, xCoord, yCoord, lonRange, latRange, \
                        cmap, norm, interactive, extend)
     if centerlabels and len(clim)>2: cb2.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
-    axis.set_facecolor(landcolor)
-    annotateStats(axis, s2Min, s2Max, s2Mean, s2Std, s2RMS, webversion=webversion)
-    if len(ylabel+yunits)>0: plt.ylabel(label(ylabel, yunits))
+    axis2.set_facecolor(landcolor)
+    annotateStats(axis2, s2Min, s2Max, s2Mean, s2Std, s2RMS, webversion=webversion)
+    if len(ylabel+yunits)>0: axis2.set_ylabel(label(ylabel, yunits))
     if len(title2)>0:
-      if webversion == True: axis.annotate(preTitleB+title2, xy=(0.5,titleOffset), xycoords='axes fraction', \
+      if webversion == True: axis2.annotate(preTitleB+title2, xy=(0.5,titleOffset), xycoords='axes fraction', \
                                            verticalalignment='bottom', horizontalalignment='center', fontsize=12)
       else:
-        plt.title(preTitleB+title2)
+        axis2.set_title(preTitleB+title2)
 
   if npanels in [1,3]:
-    axis = plt.subplot(npanels,1,npanels)
+    if axis is not None:
+      axis3=axis[-1]
+    else:
+      axis3 = plt.subplot(npanels,1,npanels)
     if sector == None or sector == 'global':
       if dcolormap is None: dcolormap = chooseColorMap(dMin, dMax)
       if dlim is None and dStd is not None:
@@ -778,16 +785,16 @@ def xycompare(field1, field2, x=None, y=None, area=None,
                                                 extend=dextend, autocenter=True)
       else:
         cmap, norm, dextend = chooseColorLevels(dMin, dMax, dcolormap, clim=dlim, nbins=nbins, extend=dextend, autocenter=True)
-      plt.pcolormesh(xCoord, yCoord, maskedField1 - maskedField2, cmap=cmap, norm=norm)
+      cs = axis3.pcolormesh(xCoord, yCoord, maskedField1 - maskedField2, cmap=cmap, norm=norm)
       if interactive: addStatusBar(xCoord, yCoord, maskedField1 - maskedField2)
       if dextend is None: dextend = extend
-      cb3 = plt.colorbar(fraction=.08, pad=0.02, extend=dextend) # was extend!
+      cb3 = plt.colorbar(cs, ax=axis3,fraction=.08, pad=0.02, extend=dextend) # was extend!
       if centerdlabels and len(dlim)>2: cb3.set_ticks(  0.5*(dlim[:-1]+dlim[1:]) )
-      axis.set_facecolor(landcolor)
-      plt.xlim( xLims ); plt.ylim( yLims )
-      annotateStats(axis, dMin, dMax, dMean, dStd, dRMS, webversion=webversion)
-      if len(ylabel+yunits)>0: plt.ylabel(label(ylabel, yunits))
-      if len(title3)>0: plt.title(title3)
+      axis3.set_facecolor(landcolor)
+      axis3.set_xlim( xLims ); axis3.set_ylim( yLims )
+      annotateStats(axis3, dMin, dMax, dMean, dStd, dRMS, webversion=webversion)
+      if len(ylabel+yunits)>0: axis3.set_ylabel(label(ylabel, yunits))
+      if len(title3)>0: axis3.set_title(title3)
     elif sector != None:
       # Copy data array, mask, and compute stats / color levels
       maskedDiffField = numpy.ma.array(maskedField1 - maskedField2)
@@ -801,13 +808,13 @@ def xycompare(field1, field2, x=None, y=None, area=None,
       # Set up Basemap projection
       plotBasemapPanel(maskedField1 - maskedField2, sector, xCoord, yCoord, lonRange, latRange, \
                        cmap, norm, interactive, dextend)
-      annotateStats(axis, dMin, dMax, dMean, dStd, dRMS, webversion=webversion)
-      if len(ylabel+yunits)>0: plt.ylabel(label(ylabel, yunits))
+      annotateStats(axis3, dMin, dMax, dMean, dStd, dRMS, webversion=webversion)
+      if len(ylabel+yunits)>0: axis3.set_ylabel(label(ylabel, yunits))
       if len(title3)>0:
-        if webversion == True: axis.annotate(title3, xy=(0.5,titleOffset), xycoords='axes fraction', verticalalignment='bottom',
+        if webversion == True: axis3.annotate(title3, xy=(0.5,titleOffset), xycoords='axes fraction', verticalalignment='bottom',
                                              horizontalalignment='center', fontsize=12)
         else:
-          plt.title(title3)
+          axis3.set_title(title3)
     else:
       raise ValueError('Invalid sector specified')
 
