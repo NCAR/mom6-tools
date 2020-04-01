@@ -921,7 +921,7 @@ def yzplot(field, y=None, z=None,
   if splitscale is not None:
     for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
     axis.set_yscale('splitscale', zval=splitscale)
-  plt.xlim( yLims ); plt.ylim( zLims )
+  axis.set_xlim( yLims ); axis.set_ylim( zLims )
   if show_stats > 0:
     axis.annotate('max=%.5g\nmin=%.5g'%(sMax,sMin), xy=(0.0,1.01), xycoords='axes fraction', verticalalignment='bottom', fontsize=10)
     if show_stats > 1:
@@ -929,15 +929,14 @@ def yzplot(field, y=None, z=None,
         axis.annotate('mean=%.5g\nrms=%.5g'%(sMean,sRMS), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='right', fontsize=10)
         axis.annotate(' sd=%.5g\n'%(sStd), xy=(1.0,1.01), xycoords='axes fraction', verticalalignment='bottom', horizontalalignment='left', fontsize=10)
 
-  if len(ylabel+yunits)>0: plt.xlabel(label(ylabel, yunits))
-  if len(zlabel+zunits)>0: plt.ylabel(label(zlabel, zunits))
-  if len(title)>0: plt.title(title)
+  if len(ylabel+yunits)>0: axis.set_xlabel(label(ylabel, yunits))
+  if len(zlabel+zunits)>0: axis.set_ylabel(label(zlabel, zunits))
+  if len(title)>0: axis.set_title(title)
   if len(suptitle)>0: plt.suptitle(suptitle)
 
   if save is not None: plt.savefig(save)
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
-
 
 def yzcompare(field1, field2, y=None, z=None,
   ylabel=None, yunits=None, zlabel=None, zunits=None,
