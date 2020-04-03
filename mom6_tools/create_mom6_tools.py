@@ -62,7 +62,7 @@ def make_run_script(casename):
   f.write("section_transports.py diag_config.yml -save_ncfile &\n")
   f.write("surface.py diag_config.yml -nw 6 &\n")
   f.write("equatorial_comparison.py diag_config.yml -nw 6 &\n")
-  f.write("stats.py diag_config.yml -nw 6 &\n")
+  f.write("stats.py diag_config.yml -diff_rms -nw 6 &\n")
   f.write("TS_levels.py diag_config.yml -nw 6 &\n")
   f.close()
   os.system('chmod +x '+casename+'/run_mom6_tools.sh')
