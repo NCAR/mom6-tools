@@ -11,7 +11,7 @@ def options():
   except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
   parser = argparse.ArgumentParser(description='''Create a new case to be processed using mom6_tools.''')
   parser.add_argument('caseroot', type=str, help='''Path to the CASEROOT''')
-  parser.add_argument('--cimeroot', type=str, default='/glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04b_mom6/cime',
+  parser.add_argument('--cimeroot', type=str, default='/glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04d_mom6/cime',
                      help='''Path to the CIME root used in this experiment. Default is
                      /glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04b_mom6/cime''')
   parser.add_argument('-sd','--start_date', type=str, default='0038-01-01',
