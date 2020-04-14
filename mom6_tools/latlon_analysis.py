@@ -121,38 +121,40 @@ def plot_area_ave_stats(ds, var, args, aspect=[16,9], resolution=576, debug=Fals
 
 # -- time-average 2D latlon fields and call plotting function
 def time_mean_latlon(args, grd, variables=[]):
-  xr_mfopen_args = {'decode_times':False,
-                  'decode_coords':False}
 
-  nc = xr.open_mfdataset(args.infile, **xr_mfopen_args)
+  def preprocess(ds):
+    ''' Compute montly averages and return the dataset with variables'''
+    return ds.resample(time="1Y", closed='left', \
+           keep_attrs=True).mean(dim='time', keep_attrs=True)
 
-  if not nc.time.attrs['calendar'] == 'NOLEAP':
-    raise NameError('Only noleap calendars are supported at this moment!')
+  if args.nw>1:
+    from mom6_tools.m6toolbox import request_workers
+    parallel, cluster, client = request_workers(args.nw)
 
-  # TODO: assign a new variable called time_years
-  # convert time in years
-  nc['time'] = nc.time/365.
-
-  ti = args.year_start
-  tf = args.year_end
-
-  # check if data includes years between ti and tf
-  m6toolbox.check_time_interval(ti,tf,nc)
+    ds = xr.open_mfdataset(args.infile, \
+         parallel=True, data_vars='minimal', chunks={'time': 12},\
+         coords='minimal', compat='override', preprocess=preprocess)
+  else:
+    ds = xr.open_mfdataset(args.infile, \
+         data_vars='minimal', chunks={'time': 12},\
+         coords='minimal', compat='override', preprocess=preprocess)
 
   if len(variables) == 0:
     # plot all 2D varialbles in the dataset
-    variables = nc.variables
+    variables = ds.variables
+
+  ds1 = ds.sel(time=slice(args.start_date,args.end_date)).mean('time')
 
   for var in variables:
-    dim = len(nc[var].shape)
-    if dim == 3:
+    dim = len(ds1[var].shape)
+    if dim == 2:
       filename = str('PNG/%s.png' % (var))
       if os.path.isfile(filename):
         print (' \n' + '==> ' + '{} has been saved, moving to the next one ...\n' + ''.format(var))
       else:
-        print("About to plot time-average for {} ({})... \n".format(nc[var].long_name, var))
-        data = np.ma.masked_invalid(nc[var].sel(time=slice(ti,tf)).mean('time').values)
-        units = nc[var].attrs['units']
+        print("About to plot time-average for {} ({})... \n".format(ds[var].long_name, var))
+        data = np.ma.masked_invalid(ds1[var].values)
+        units = ds[var].attrs['units']
 
         if args.savefigs:
           m6plot.xyplot( data , grd.geolon, grd.geolat, area=grd.area_t,
@@ -167,26 +169,28 @@ def time_mean_latlon(args, grd, variables=[]):
             extend='both',
             show=True)
 
-        if args.time_series:
-          # create Dataset
-          dtime = nc.time.sel(time=slice(ti,tf)).values
-          data = np.ma.masked_invalid(nc[var].sel(time=slice(ti,tf)).values)
-          ds = create_xarray_dataset(var,units,dtime)
-          # loop in time
-          for t in range(0,len(dtime)):
-            #print ("==> ' + 'step # {} out of {}  ...\n".format(t+1,tm))
-            # get stats
-            sMin, sMax, mean, std, rms = m6plot.myStats(data[t], grd.area_t)
-            # update Dataset
-            ds[var][0,t] = sMin; ds[var][1,t] = sMax; ds[var][2,t] = mean
-            ds[var][3,t] = std; ds[var][4,t] = rms
+    if args.time_series:
+      # create Dataset
+      dtime = ds1.time.values
+      data = np.ma.masked_invalid(ds1[var].values)
+      ds_new = create_xarray_dataset(var,units,dtime)
+      # loop in time
+      for t in range(0,len(dtime)):
+        #print ("==> ' + 'step # {} out of {}  ...\n".format(t+1,tm))
+        # get stats
+        sMin, sMax, mean, std, rms = m6plot.myStats(data[t], grd.area_t)
+        # update Dataset
+        ds_new[var][0,t] = sMin; ds_new[var][1,t] = sMax; ds_new[var][2,t] = mean
+        ds_new[var][3,t] = std; ds_new[var][4,t] = rms
 
-          # plot
-          plot_area_ave_stats(ds, var, args)
-          #if args.to_netcdf:
-            # save in a netcdf file
-            #ds.to_netcdf('ncfiles/'+args.case_name+'_stats.nc')
-  nc.close()
+      # plot
+      plot_area_ave_stats(ds_new, var, args)
+      #if args.to_netcdf:
+      # save in a netcdf file
+      #ds.to_netcdf('ncfiles/'+args.case_name+'_stats.nc')
+  if args.nw>1:
+    client.close(); cluster.close()
+
   return
 
 # -- create a xarray Dataset given variable, unit and time
