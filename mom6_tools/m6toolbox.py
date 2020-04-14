@@ -200,6 +200,7 @@ def get_z(rg, depth, var_name):
   except:
     if 'zw' in rg.variables: zvar = 'zw'
     elif 'zl' in rg.variables: zvar = 'zl'
+    elif 'z_l' in rg.variables: zvar = 'z_l'
     else: raise Exception('Cannot figure out vertical coordinate from variable "'+var_name+'"')
 
   if not len(rg.variables[zvar].shape)==1: raise Exception('Variable "'+zvar+'" was expected to be 1d')

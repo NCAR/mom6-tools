@@ -27,8 +27,10 @@ def parseCommandLine():
   epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',  help='''Start year to plot (default=0001-01-01)''')
-  parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31', help='''Final year to plot (default=0100-12-31)''')
+  parser.add_argument('-sd','--start_date', type=str, default='',
+                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-ed','--end_date', type=str, default='',
+                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
@@ -57,6 +59,11 @@ def driver(args):
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
+  # set avg dates
+  avg = diag_config_yml['Avg']
+  if not args.start_date : args.start_date = avg['start_date']
+  if not args.end_date : args.end_date = avg['end_date']
+
   # read grid info
   grd = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc', xrformat=True)
   # select Equatorial region
@@ -76,19 +83,24 @@ def driver(args):
 
   print('Reading surface dataset...')
   startTime = datetime.now()
-  variables = ['thetao', 'so', 'uo', 'time', 'time_bnds', 'e']
+  #variables = ['thetao', 'so', 'uo', 'time', 'time_bnds', 'e']
 
+  #def preprocess(ds):
+  #  ''' Compute yearly averages and return the dataset with variables'''
+  #  return ds[variables].resample(time="1Y", closed='left', \
+  #         keep_attrs=True).mean(dim='time', keep_attrs=True)
+
+  # load data
   def preprocess(ds):
-    ''' Compute yearly averages and return the dataset with variables'''
-    return ds[variables].resample(time="1Y", closed='left', \
-           keep_attrs=True).mean(dim='time', keep_attrs=True)
+    variables = ['thetao', 'so', 'uo', 'time', 'time_bnds', 'e']
+    return ds[variables]
 
   if parallel:
     ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', \
          parallel=True, data_vars='minimal', \
          coords='minimal', compat='override', preprocess=preprocess)
   else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', \
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.monthly_*.nc', concat_dim=['time'],\
          data_vars='minimal', coords='minimal', compat='override', preprocess=preprocess)
 
   print('Time elasped: ', datetime.now() - startTime)
@@ -101,6 +113,12 @@ def driver(args):
         args.end_date))
   startTime = datetime.now()
   ds = ds.sel(time=slice(args.start_date, args.end_date)).sel(yh=slice(-10,10)).isel(z_i=slice(0,15)).isel(z_l=slice(0,14))
+  print('Time elasped: ', datetime.now() - startTime)
+
+
+  print('Yearly mean...')
+  startTime = datetime.now()
+  ds = ds.resample(time="1Y", closed='left',keep_attrs=True).mean('time',keep_attrs=True).compute()
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Time averaging...')
@@ -132,14 +150,14 @@ def driver(args):
 
   figname = 'PNG/Equatorial/'+str(dcase.casename)+'_'
   yzcompare(temp_eq , thetao_obs_eq, x, -Z,
-            title1 = 'model temperature',
+            title1 = 'model temperature', ylabel='Longitude', yunits='',
             title2 = 'observed temperature (PHC/Levitus)', #contour=True,
             suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
             extend='neither', dextend='neither', clim=(6,31.), dlim=(-5,5), dcolormap=plt.cm.bwr,
             save=figname+'Equatorial_Global_temperature.png')
 
   yzcompare(salt_eq , salt_obs_eq, x, -Z,
-        title1 = 'model salinity',
+        title1 = 'model salinity', ylabel='Longitude', yunits='',
         title2 = 'observed salinity (PHC/Levitus)', #contour=True,
         suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
         extend='neither', dextend='neither', clim=(33.5,37.), dlim=(-1,1), dcolormap=plt.cm.bwr,
@@ -235,7 +253,7 @@ def driver(args):
   yzplot(dummy_model, x_model, -Z_model, clim=(-0.6,1.2), axis=ax1, landcolor=[0., 0., 0.], title=str(dcase.casename))
   cs1 = ax1.contour( x_model + 0*z_model, -z_model, dummy_model, levels=np.arange(-1.2,1.2,0.1),  colors='k'); plt.clabel(cs1,fmt='%2.1f', fontsize=14)
   ax1.set_xlim(143,265); ax1.set_ylim(-400,0)
-  yzplot(dummy_obs, x_obs, -Z_obs, clim=(-0.4,1.2), axis=ax2, title='Johnson et al (2002)')
+  yzplot(dummy_obs, x_obs, -Z_obs, clim=(-0.4,1.2), ylabel='Longitude', yunits='',  axis=ax2, title='Johnson et al (2002)')
   cs1 = ax2.contour( x_obs + 0*z_obs, -z_obs, dummy_obs,  levels=np.arange(-1.2,1.2,0.1), colors='k'); plt.clabel(cs1,fmt='%2.1f', fontsize=14)
   ax2.set_xlim(143,265); ax2.set_ylim(-400,0)
   plt.suptitle('Eastward velocity [m/s] along the Equatorial Pacific, averaged between '+str(args.start_date)+' and '+str(args.end_date))

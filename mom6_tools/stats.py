@@ -172,7 +172,7 @@ def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
       check_dims(weights,dims)
       total_weights = weights.sum(dim=dims)
       if debug: print('total weights is:', total_weights.values)
-      out = mean_da(var, weights=weights, weights_sum=total_weights)
+      out = mean_da(var, dims, weights=weights, weights_sum=total_weights)
       if debug: print('horizontal mean is:', out)
     else:
       # regional reduction
@@ -197,7 +197,7 @@ def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
         # select weights to where region3d is one
         tmp_weights = weights.where(region3d == 1.0)
         total_weights = tmp_weights.sum(dim=dims)
-        rmask_od[str(reg.values)] = mean_da(var, weights=tmp_weights, weights_sum=total_weights)
+        rmask_od[str(reg.values)] = mean_da(var, dims, weights=tmp_weights, weights_sum=total_weights)
         if debug: print('horizontal mean is:', rmask_od[str(reg.values)])
       # create dataArray to store rmask_od
       out = xr.DataArray(np.zeros((len(basins.region), var.shape[0], var.shape[1])),
@@ -363,8 +363,10 @@ def check_dims(da,dims):
     Dimension(s) over which to apply reduction.
   """
   if dims[0] not in da.dims:
+    print('dims[0], da.dims',dims[0], da.dims)
     raise ValueError("DataArray does not have dimensions given by dims[0]")
   if dims[1] not in da.dims:
+    print('dims[1], da.dims',dims[1], da.dims)
     raise ValueError("DataArray does not have dimensions given by dims[1]")
 
   return
@@ -693,12 +695,25 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   area = grd.area_t.where(grd.wet > 0)
   if args.debug: print('RUNDIR:', RUNDIR)
   parallel, cluster, client = request_workers(args.number_of_workers)
+
+  def preprocess(ds):
+    if 'thetao' not in ds.variables:
+        ds["thetao"] = xr.zeros_like(ds.h)
+    if 'so' not in ds.variables:
+        ds["so"] = xr.zeros_like(ds.h)
+
+    return ds
+
   # read dataset
   startTime = datetime.now()
   print('Reading dataset...')
-  # since we are loading 3D data, chunksize in time = 1
-  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', compat='override', \
-                         parallel=parallel, data_vars='minimal', coords='minimal')
+  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc',
+    parallel=True,
+    combine="nested", # concatenate in order of files
+    concat_dim="time", # concatenate along time
+    preprocess=preprocess,
+    ).chunk({"time": 12})
+
   if args.debug:
     print(ds)
 
@@ -779,12 +794,12 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
 
     ztplot(temp_diff_reg.values, temp_diff_reg.time.values, temp_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], diff (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=True, clim=(-3,3),
+           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=False, clim=(-3,3),
            save=savefig_diff, interactive=True);
 
     ztplot(temp_rms_reg.values, temp_rms_reg.time.values, temp_rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], rms (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True, clim=(0,6),
+           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=False, clim=(0,6),
            save=savefig_rms, interactive=True);
 
     plt.close('all')
@@ -804,12 +819,12 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
 
     ztplot(salt_diff_reg.values, salt_diff_reg.time.values, salt_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], diff (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=True, clim=(-1.5, 1.5),
+           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=False, clim=(-1.5, 1.5),
            save=savefig_diff, interactive=True);
 
     ztplot(salt_rms_reg.values, salt_rms_reg.time.values, salt_rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], rms (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=True, clim=(0,3),
+           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=False, clim=(0,3),
            save=savefig_rms, interactive=True);
 
     plt.close('all')
