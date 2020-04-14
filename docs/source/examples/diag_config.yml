@@ -1,26 +1,8 @@
 Case:
-  CIMEROOT: "/glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04b_mom6/cime"
-  CASEROOT: "/glade/work/gmarques/cesm.cases/G/g.c2b6.GJRA.TL319_t061.long_JRA_mct.007"
-  RUNDIR: "/glade/scratch/gmarques/g.c2b6.GJRA.TL319_t061.long_JRA_mct.007/run"
-  HIST_FILE_PREFIX: "g.c2b6.GJRA.TL319_t061.long_JRA_mct.007.mom6.h%4yr"
+  CIMEROOT: "/glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04d_mom6/cime"
+  CASEROOT: "/glade/work/gmarques/cesm.cases/G/g.c2b6.GJRA.TL319_t061.long_JRA_mct.025"
+  RUNDIR: "/glade/scratch/gmarques/g.c2b6.GJRA.TL319_t061.long_JRA_mct.025/run"
 
-Climo:
-  type: "avg"             # "climo" or "avg"
-  date0: "0069-01-01"
-  date1: "0116-12-31"
-  fields: ["thetao","so"]
-  freqs: ["1Y"]  # 1-yearly averages
-
-Climo1:
-  type: "avg"             # "climo" or "avg"
-  date0: "0030-01-01"
-  date1: "0060-12-31"
-  fields: ["thetao","so"]
-  freqs: ["20Y"]  # 1-yearly averages
-
-Climo2:
-  type: "avg"             # "climo" or "avg"
-  date0: "0097-01-01"
-  date1: "0116-12-31"
-  fields: ["T_ady_2d","T_diffy_2d"]
-  freqs: ["20Y"]  # 1-yearly averages
+Avg:
+  end_date: '0059-01-01'
+  start_date: '0029-01-01'
