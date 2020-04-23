@@ -142,7 +142,7 @@ def main():
   plt.suptitle(case_name)
   plt.gca().invert_yaxis()
   findExtrema(yy, z, psiPlot, max_lat=-30.)
-  findExtrema(yy, z, psiPlot, min_lat=25.)
+  findExtrema(yy, z, psiPlot, min_lat=25., min_depth=250.)
   findExtrema(yy, z, psiPlot, min_depth=2000., mult=-1.)
   objOut = args.outdir+str(case_name)+'_MOC_global.png'
   plt.savefig(objOut)
@@ -160,7 +160,7 @@ def main():
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(case_name)
   plt.gca().invert_yaxis()
-  findExtrema(yy, z, psiPlot, min_lat=26.5, max_lat=27.) # RAPID
+  findExtrema(yy, z, psiPlot, min_lat=26.5, max_lat=27., min_depth=250.) # RAPID
   findExtrema(yy, z, psiPlot, max_lat=-33.)
   findExtrema(yy, z, psiPlot)
   findExtrema(yy, z, psiPlot, min_lat=5.)
@@ -179,8 +179,8 @@ def main():
     tmp = tmp[:].filled(0.)
     psi = MOCpsi(tmp, vmsk=m*numpy.roll(m,-1,axis=-2))*conversion_factor
     psi = 0.5 * (psi[0:-1,:]+psi[1::,:])
-    amoc_26[t] = findExtrema(yy, z, psi, min_lat=26., max_lat=27., plot=False)
-    amoc_45[t] = findExtrema(yy, z, psi, min_lat=44., max_lat=46., plot=False)
+    amoc_26[t] = findExtrema(yy, z, psi, min_lat=26., max_lat=27., plot=False, min_depth=250.)
+    amoc_45[t] = findExtrema(yy, z, psi, min_lat=44., max_lat=46., plot=False, min_depth=250.)
   if args.debug: print('Time elasped: ', datetime.now() - startTime)
 
   # create dataarays
@@ -197,6 +197,10 @@ def main():
   # load AMOC time series data (5th) cycle used in Danabasoglu et al., doi:10.1016/j.ocemod.2015.11.007
   path = '/glade/p/cesm/omwg/amoc/COREII_AMOC_papers/papers/COREII.variability/data.original/'
   amoc_core_26 = xr.open_dataset(path+'AMOCts.cyc5.26p5.nc')
+  # load AMOC from POP JRA-55
+  amoc_pop_26 = xr.open_dataset('/glade/u/home/bryan/MOM6-modeloutputanalysis/'
+                              'AMOC_series_26n.g210.GIAF_JRA.v13.gx1v7.01.nc')
+
   # plot
   fig = plt.figure(figsize=(12, 6))
   plt.plot(numpy.arange(len(amoc_26_da.time))+1948.5 ,amoc_26_da.values, color='k', label=case_name, lw=2)
@@ -206,14 +210,19 @@ def main():
   plt.plot(amoc_core_26.time,core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=2)
   plt.fill_between(amoc_core_26.time, core_mean-core_std, core_mean+core_std,
       alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
+  # pop data
+  plt.plot(numpy.arange(len(amoc_pop_26.time))+1948. ,amoc_pop_26.AMOC_26n.values, color='r', label='POP', lw=2)
   plt.title('AMOC @ 26 $^o$ N', fontsize=16)
   plt.ylim(5,20)
+  plt.xlim(1948,1948+len(amoc_26_da.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
   objOut = args.outdir+str(case_name)+'_MOC_26N_time_series.png'
   plt.savefig(objOut,format='png')
 
   amoc_core_45 = xr.open_dataset(path+'AMOCts.cyc5.45.nc')
+  amoc_pop_45 = xr.open_dataset('/glade/u/home/bryan/MOM6-modeloutputanalysis/'
+                              'AMOC_series_45n.g210.GIAF_JRA.v13.gx1v7.01.nc')
   # plot
   fig = plt.figure(figsize=(12, 6))
   plt.plot(numpy.arange(len(amoc_45_da.time))+1948.5 ,amoc_45_da.values, color='k', label=case_name, lw=2)
@@ -223,8 +232,11 @@ def main():
   plt.plot(amoc_core_45.time,core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=2)
   plt.fill_between(amoc_core_45.time, core_mean-core_std, core_mean+core_std,
       alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
+  # pop data
+  plt.plot(numpy.arange(len(amoc_pop_45.time))+1948. ,amoc_pop_45.AMOC_45n.values, color='r', label='POP', lw=2)
   plt.title('AMOC @ 45 $^o$ N', fontsize=16)
   plt.ylim(5,20)
+  plt.xlim(1948,1948+len(amoc_45_da.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
   objOut = args.outdir+str(case_name)+'_MOC_45N_time_series.png'
