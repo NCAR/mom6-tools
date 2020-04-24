@@ -561,8 +561,9 @@ def main(stream=False):
   depth[np.isnan(depth)] = 0.0
   basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
 
-  #select a few basins, namely, Global, PersianGulf, Arctic, Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
-  basins = basin_code.isel(region=[0,1,7,8,9,10,11,12,13])
+  #select a few basins, namely, Global, MedSea,BalticSea,HudsonBay Arctic,
+  # Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
+  basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
 
   if args.diff_rms:
     horizontal_mean_diff_rms(grd, dcase, basins, args)
