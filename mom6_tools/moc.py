@@ -167,6 +167,23 @@ def main():
   objOut = args.outdir+str(case_name)+'_MOC_Atlantic.png'
   plt.savefig(objOut,format='png')
 
+  print('\n Plotting AMOC profile at 26N...')
+  rapid_vertical = xr.open_dataset('/glade/work/gmarques/cesm/datasets/RAPID/moc_vertical.nc')
+  # create DataArray
+  amoc_mom = xr.DataArray(psiPlot, dims=('zl', 'yq'), coords={'zl':ds.zl, 'yq': ds.yq})
+
+  fig, ax = plt.subplots(nrows=1, ncols=1)
+  ax.plot(rapid_vertical.stream_function_mar.mean('time').values, rapid_vertical.depth, 'k', label='RAPID')
+  ax.plot(amoc_mom.sel(yq=26, method='nearest').values, amoc_mom.zl, label=case_name)
+  ax.legend()
+  plt.gca().invert_yaxis()
+  plt.grid()
+  ax.set_xlabel('AMOC @ 26N [Sv]')
+  ax.set_ylabel('Depth [m]')
+  objOut = args.outdir+str(case_name)+'_MOC_profile_26N.png'
+  plt.savefig(objOut,format='png')
+
+
   print('\n Computing time series...')
   # time-series
   dtime = ds.time
@@ -199,24 +216,29 @@ def main():
   amoc_core_26 = xr.open_dataset(path+'AMOCts.cyc5.26p5.nc')
   # load AMOC from POP JRA-55
   amoc_pop_26 = xr.open_dataset('/glade/u/home/bryan/MOM6-modeloutputanalysis/'
-                              'AMOC_series_26n.g210.GIAF_JRA.v13.gx1v7.01.nc')
-
+                                'AMOC_series_26n.g210.GIAF_JRA.v13.gx1v7.01.nc')
+  # load RAPID time series
+  rapid = xr.open_dataset('/glade/work/gmarques/cesm/datasets/RAPID/moc_transports.nc').resample(time="1Y",
+                              closed='left',keep_attrs=True).mean('time',keep_attrs=True)
   # plot
   fig = plt.figure(figsize=(12, 6))
-  plt.plot(numpy.arange(len(amoc_26_da.time))+1948.5 ,amoc_26_da.values, color='k', label=case_name, lw=2)
+  plt.plot(numpy.arange(len(amoc_26_da.time))+1958.5 ,amoc_26_da.values, color='k', label=case_name, lw=2)
   # core data
   core_mean = amoc_core_26['MOC'].mean(axis=0).data
   core_std = amoc_core_26['MOC'].std(axis=0).data
-  plt.plot(amoc_core_26.time,core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=2)
+  plt.plot(amoc_core_26.time,core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=1)
   plt.fill_between(amoc_core_26.time, core_mean-core_std, core_mean+core_std,
-      alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
+    alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
   # pop data
-  plt.plot(numpy.arange(len(amoc_pop_26.time))+1948. ,amoc_pop_26.AMOC_26n.values, color='r', label='POP', lw=2)
+  plt.plot(numpy.arange(len(amoc_pop_26.time))+1958.5 ,amoc_pop_26.AMOC_26n.values, color='r', label='POP', lw=1)
+  # rapid
+  plt.plot(numpy.arange(len(rapid.time))+2004.5 ,rapid.moc_mar_hc10.values, color='green', label='RAPID', lw=1)
+
   plt.title('AMOC @ 26 $^o$ N', fontsize=16)
   plt.ylim(5,20)
-  plt.xlim(1948,1948+len(amoc_26_da.time))
+  plt.xlim(1948,1958.5+len(amoc_26_da.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
-  plt.legend(fontsize=14)
+  plt.legend(fontsize=13, ncol=2)
   objOut = args.outdir+str(case_name)+'_MOC_26N_time_series.png'
   plt.savefig(objOut,format='png')
 
@@ -225,18 +247,19 @@ def main():
                               'AMOC_series_45n.g210.GIAF_JRA.v13.gx1v7.01.nc')
   # plot
   fig = plt.figure(figsize=(12, 6))
-  plt.plot(numpy.arange(len(amoc_45_da.time))+1948.5 ,amoc_45_da.values, color='k', label=case_name, lw=2)
+  plt.plot(numpy.arange(len(amoc_45_da.time))+1958.5 ,amoc_45_da.values, color='k', label=case_name, lw=2)
   # core data
   core_mean = amoc_core_45['MOC'].mean(axis=0).data
   core_std = amoc_core_45['MOC'].std(axis=0).data
   plt.plot(amoc_core_45.time,core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=2)
   plt.fill_between(amoc_core_45.time, core_mean-core_std, core_mean+core_std,
-      alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
+    alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
   # pop data
-  plt.plot(numpy.arange(len(amoc_pop_45.time))+1948. ,amoc_pop_45.AMOC_45n.values, color='r', label='POP', lw=2)
+  plt.plot(numpy.arange(len(amoc_pop_45.time))+1958.5 ,amoc_pop_45.AMOC_45n.values, color='r', label='POP', lw=2)
+
   plt.title('AMOC @ 45 $^o$ N', fontsize=16)
   plt.ylim(5,20)
-  plt.xlim(1948,1948+len(amoc_45_da.time))
+  plt.xlim(1948,1958+len(amoc_45_da.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
   objOut = args.outdir+str(case_name)+'_MOC_45N_time_series.png'
