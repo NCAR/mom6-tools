@@ -79,8 +79,8 @@ def driver(args):
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
-    return ds[variables].resample(time="1Y", closed='left', \
-           keep_attrs=True).mean(dim='time', keep_attrs=True)
+    return ds[variables]#.resample(time="1Y", closed='left', \
+           #keep_attrs=True).mean(dim='time', keep_attrs=True)
 
   if parallel:
     ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', \
@@ -97,6 +97,10 @@ def driver(args):
   ds = ds.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
+  print('\n Computing yearly means...')
+  startTime = datetime.now()
+  ds = ds.resample(time="1Y", closed='left',keep_attrs=True).mean('time',keep_attrs=True)
+  print('Time elasped: ', datetime.now() - startTime)
 
   print('Time averaging...')
   startTime = datetime.now()
@@ -121,7 +125,7 @@ def driver(args):
   print('Global plots...')
   km = len(phc_temp['depth'])
   for k in range(km):
-    if ds['z_l'][k].values < 100.0:
+    if ds['z_l'][k].values < 1200.0:
       figname = 'PNG/TS_levels/'+str(dcase.casename)+'_'+str(ds['z_l'][k].values)+'_'
       temp_obs = np.ma.masked_invalid(phc_temp['TEMP'][k,:].values)
       xycompare(temp[k,:] , temp_obs, grd.geolon, grd.geolat, area=grd.area_t,
@@ -140,7 +144,7 @@ def driver(args):
 
   print('Antarctic plots...')
   for k in range(km):
-    if (ds['z_l'][k].values < 100.):
+    if (ds['z_l'][k].values < 1200.):
       temp_obs = np.ma.masked_invalid(phc_temp['TEMP'][k,:].values)
       polarcomparison(temp[k,:] , temp_obs, grd,
               title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
