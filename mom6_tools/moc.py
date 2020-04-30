@@ -75,9 +75,11 @@ def main():
   startTime = datetime.now()
   # load data
   def preprocess(ds):
-    if 'vmo' not in ds.variables:
-        ds["vmo"] = xr.zeros_like(ds.vo)
-    return ds
+    variables = ['vmo','vhml','vhGM']
+    for v in variables:
+      if v not in ds.variables:
+        ds[v] = xr.zeros_like(ds.vo)
+    return ds[variables]
 
   if parallel:
     ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+args.file_name,
@@ -93,36 +95,29 @@ def main():
 
   print('Time elasped: ', datetime.now() - startTime)
 
+  # compute yearly means first since this will be used in the time series
   print('\n Computing yearly means...')
   startTime = datetime.now()
-  varName = 'vmo'; conversion_factor = 1.e-9
-  vmo = ds[varName].resample(time="1Y", closed='left',keep_attrs=True).mean('time',keep_attrs=True).compute()
+  ds_yr = ds.resample(time="1Y", closed='left').mean('time')
   print('Time elasped: ', datetime.now() - startTime)
-
-  ds = xr.Dataset()
-  ds[varName] = vmo
 
   print('\n Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   startTime = datetime.now()
-  ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
+  ds_sel = ds_yr.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('\n Computing time mean...')
   startTime = datetime.now()
-  ds_mean = ds_sel.mean('time', keep_attrs=True).compute()
+  ds_mean = ds_sel.mean('time').compute()
   print('Time elasped: ', datetime.now() - startTime)
-
-  if parallel:
-    print('\n Releasing workers ...')
-    client.close(); cluster.close()
 
   # create a ndarray subclass
   class C(numpy.ndarray): pass
-
+  varName = 'vmo'; conversion_factor = 1.e-9
   tmp = numpy.ma.masked_invalid(ds_mean[varName].values)
   tmp = tmp[:].filled(0.)
   VHmod = tmp.view(C)
-  VHmod.units = vmo.units # using ds since it has the attrs. 'kg s-1'
+  VHmod.units = ds[varName].units
   Zmod = m6toolbox.get_z(ds, depth, varName) # same here
 
   if args.case_name != '':  case_name = args.case_name
@@ -132,20 +127,21 @@ def main():
   m6plot.setFigureSize([16,9],576,debug=False)
   axis = plt.gca()
   cmap = plt.get_cmap('dunnePM')
-  z = Zmod.min(axis=-1)
+  zg = Zmod.min(axis=-1)
   psiPlot = MOCpsi(VHmod)*conversion_factor
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
-  yy = grd.geolat_c[:,:].max(axis=-1)+0*z
+  yyg = grd.geolat_c[:,:].max(axis=-1)+0*zg
   ci=m6plot.pmCI(0.,40.,5.)
-  plotPsi(yy, z, psiPlot, ci, 'Global MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date )
+  plotPsi(yyg, zg, psiPlot, ci, 'Global MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(case_name)
   plt.gca().invert_yaxis()
-  findExtrema(yy, z, psiPlot, max_lat=-30.)
-  findExtrema(yy, z, psiPlot, min_lat=25., min_depth=250.)
-  findExtrema(yy, z, psiPlot, min_depth=2000., mult=-1.)
+  findExtrema(yyg, zg, psiPlot, max_lat=-30.)
+  findExtrema(yyg, zg, psiPlot, min_lat=25., min_depth=250.)
+  findExtrema(yyg, zg, psiPlot, min_depth=2000., mult=-1.)
   objOut = args.outdir+str(case_name)+'_MOC_global.png'
   plt.savefig(objOut)
+
 
   # Atlantic MOC
   m6plot.setFigureSize([16,9],576,debug=False)
@@ -167,10 +163,18 @@ def main():
   objOut = args.outdir+str(case_name)+'_MOC_Atlantic.png'
   plt.savefig(objOut,format='png')
 
+
   print('\n Plotting AMOC profile at 26N...')
   rapid_vertical = xr.open_dataset('/glade/work/gmarques/cesm/datasets/RAPID/moc_vertical.nc')
+  if 'zl' in ds:
+    zl=ds.zl.values
+  elif 'z_l' in ds:
+    zl=ds.z_l.values
+  else:
+    raise ValueError("Dataset does not have vertical coordinate zl or z_l")
+
   # create DataArray
-  amoc_mom = xr.DataArray(psiPlot, dims=('zl', 'yq'), coords={'zl':ds.zl, 'yq': ds.yq})
+  amoc_mom = xr.DataArray(psiPlot, dims=('zl', 'yq'), coords={'zl':zl, 'yq': ds.yq})
 
   fig, ax = plt.subplots(nrows=1, ncols=1)
   ax.plot(rapid_vertical.stream_function_mar.mean('time').values, rapid_vertical.depth, 'k', label='RAPID')
@@ -183,21 +187,27 @@ def main():
   objOut = args.outdir+str(case_name)+'_MOC_profile_26N.png'
   plt.savefig(objOut,format='png')
 
-
   print('\n Computing time series...')
   # time-series
-  dtime = ds.time
+  dtime = ds_yr.time
   amoc_26 = numpy.zeros(len(dtime))
   amoc_45 = numpy.zeros(len(dtime))
+  moc_GM = numpy.zeros(len(dtime))
   if args.debug: startTime = datetime.now()
   # loop in time
   for t in range(len(dtime)):
-    tmp = numpy.ma.masked_invalid(ds[varName][t,:].values)
+    tmp = numpy.ma.masked_invalid(ds_yr[varName][t,:].values)
     tmp = tmp[:].filled(0.)
+    # m is still Atlantic ocean
     psi = MOCpsi(tmp, vmsk=m*numpy.roll(m,-1,axis=-2))*conversion_factor
     psi = 0.5 * (psi[0:-1,:]+psi[1::,:])
     amoc_26[t] = findExtrema(yy, z, psi, min_lat=26., max_lat=27., plot=False, min_depth=250.)
     amoc_45[t] = findExtrema(yy, z, psi, min_lat=44., max_lat=46., plot=False, min_depth=250.)
+    tmp_GM = numpy.ma.masked_invalid(ds_yr['vhGM'][t,:].values)
+    tmp_GM = tmp_GM[:].filled(0.)
+    psiGM = MOCpsi(tmp_GM)*conversion_factor
+    psiGM = 0.5 * (psiGM[0:-1,:]+psiGM[1::,:])
+    moc_GM[t] = findExtrema(yyg, zg, psiGM, min_lat=-65., max_lat=-30, mult=-1., plot=False)
   if args.debug: print('Time elasped: ', datetime.now() - startTime)
 
   # create dataarays
@@ -205,10 +215,17 @@ def main():
                            coords={'time': dtime})
   amoc_45_da = xr.DataArray(amoc_45, dims=['time'],
                            coords={'time': dtime})
+  moc_GM_da = xr.DataArray(moc_GM, dims=['time'],
+                           coords={'time': dtime})
 
   print('Saving netCDF files...')
   amoc_26_da.to_netcdf('ncfiles/'+str(case_name)+'_MOC_26N_time_series.nc')
   amoc_45_da.to_netcdf('ncfiles/'+str(case_name)+'_MOC_45N_time_series.nc')
+  moc_GM_da.to_netcdf('ncfiles/'+str(case_name)+'_MOC_GM_time_series.nc')
+
+  if parallel:
+    print('\n Releasing workers ...')
+    client.close(); cluster.close()
 
   print('Plotting...')
   # load AMOC time series data (5th) cycle used in Danabasoglu et al., doi:10.1016/j.ocemod.2015.11.007
@@ -264,6 +281,52 @@ def main():
   plt.legend(fontsize=14)
   objOut = args.outdir+str(case_name)+'_MOC_45N_time_series.png'
   plt.savefig(objOut,format='png')
+
+  # Submesoscale-induced Global MOC
+  class C(numpy.ndarray): pass
+  varName = 'vhml'; conversion_factor = 1.e-9
+  tmp = numpy.ma.masked_invalid(ds_mean[varName].values)
+  tmp = tmp[:].filled(0.)
+  VHml = tmp.view(C)
+  VHml.units = ds[varName].units
+  Zmod = m6toolbox.get_z(ds, depth, varName) # same here
+  m6plot.setFigureSize([16,9],576,debug=False)
+  axis = plt.gca()
+  cmap = plt.get_cmap('dunnePM')
+  z = Zmod.min(axis=-1); psiPlot = MOCpsi(VHml)*conversion_factor
+  psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
+  yy = grd.geolat_c[:,:].max(axis=-1)+0*z
+  ci=m6plot.pmCI(0.,20.,2.)
+  plotPsi(yy, z, psiPlot, ci, 'Global FFH MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date,
+          zval=[0.,-400.,-1000.])
+  plt.xlabel(r'Latitude [$\degree$N]')
+  plt.suptitle(case_name)
+  plt.gca().invert_yaxis()
+  objOut = args.outdir+str(case_name)+'_FFH_MOC_global.png'
+  plt.savefig(objOut)
+
+  # GM-induced Global MOC
+  class C(numpy.ndarray): pass
+  varName = 'vhGM'; conversion_factor = 1.e-9
+  tmp = numpy.ma.masked_invalid(ds_mean[varName].values)
+  tmp = tmp[:].filled(0.)
+  VHGM = tmp.view(C)
+  VHGM.units = ds[varName].units
+  Zmod = m6toolbox.get_z(ds, depth, varName) # same here
+  m6plot.setFigureSize([16,9],576,debug=False)
+  axis = plt.gca()
+  cmap = plt.get_cmap('dunnePM')
+  z = Zmod.min(axis=-1); psiPlot = MOCpsi(VHGM)*conversion_factor
+  psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
+  yy = grd.geolat_c[:,:].max(axis=-1)+0*z
+  ci=m6plot.pmCI(0.,20.,2.)
+  plotPsi(yy, z, psiPlot, ci, 'Global GM MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date)
+  plt.xlabel(r'Latitude [$\degree$N]')
+  plt.suptitle(case_name)
+  plt.gca().invert_yaxis()
+  findExtrema(yy, z, psiPlot, min_lat=-65., max_lat=-30, mult=-1.)
+  objOut = args.outdir+str(case_name)+'_GM_MOC_global.png'
+  plt.savefig(objOut)
   return
 
 def MOCpsi(vh, vmsk=None):
@@ -324,7 +387,7 @@ def findExtrema(y, z, psi, min_lat=-90., max_lat=90., min_depth=0., mult=1., plo
   if plot:
     #plt.plot(y[j,i],z[j,i],'kx',hold=True)
     plt.plot(y[j,i],z[j,i],'kx')
-    plt.text(y[j,i],z[j,i],'%.1f'%(psi[j,i]))
+    plt.text(y[j,i],z[j,i],'%.1f'%(psi[j,i]),color='red', fontsize=12)
   else:
     return psi[j,i]
 if __name__ == '__main__':
