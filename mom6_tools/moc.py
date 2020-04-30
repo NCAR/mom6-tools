@@ -272,7 +272,7 @@ def main():
   plt.fill_between(amoc_core_45.time, core_mean-core_std, core_mean+core_std,
     alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
   # pop data
-  plt.plot(numpy.arange(len(amoc_pop_45.time))+1958.5 ,amoc_pop_45.AMOC_45n.values, color='r', label='POP', lw=2)
+  plt.plot(numpy.arange(len(amoc_pop_45.time))+1958.5 ,amoc_pop_45.AMOC_45n.values, color='r', label='POP', lw=1)
 
   plt.title('AMOC @ 45 $^o$ N', fontsize=16)
   plt.ylim(5,20)
