@@ -74,7 +74,6 @@ def main(stream=False):
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
-    ds
     for var in variables:
       print('Processing {}'.format(var))
       if var not in ds.variables:
@@ -84,8 +83,9 @@ def main(stream=False):
         da = xr.DataArray(numpy.zeros((tm, jm, im)), dims=['time','yq','xh'], \
              coords={'yq' : grd.yq, 'xh' : grd.xh, 'time' : ds.time}).rename(var)
         ds = xr.merge([ds, da])
-    return ds[variables].resample(time="1Y", closed='left', \
-           keep_attrs=True).mean(dim='time', keep_attrs=True)
+    #return ds[variables].resample(time="1Y", closed='left', \
+    #       keep_attrs=True).mean(dim='time', keep_attrs=True)
+    return ds[variables]
 
   if parallel:
     ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', \
@@ -102,6 +102,11 @@ def main(stream=False):
   print('\n Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   startTime = datetime.now()
   ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
+  print('Time elasped: ', datetime.now() - startTime)
+
+  print('\n Computing yearly means...')
+  startTime = datetime.now()
+  ds_sel = ds_sel.resample(time="1Y", closed='left',keep_attrs=True).mean('time',keep_attrs=True)
   print('Time elasped: ', datetime.now() - startTime)
 
   print('\n Computing time mean...')
@@ -154,6 +159,11 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, lbd, basin_code, grd, 
   """Plots model vs obs poleward heat transport for the global, Pacific and Atlantic basins"""
   # Load Observations
   fObs = netCDF4.Dataset('/glade/work/gmarques/cesm/datasets/Trenberth_and_Caron_Heat_Transport.nc')
+  # POP JRA-55, 31 year (years 29-59)
+  pop = xr.open_dataset('/glade/u/home/bryan/MOM6-modeloutputanalysis/MHT_mean.g210.GIAF_JRA.v13.gx1v7.01.nc')
+  # Estimate based on the JRA-55 v1.3 forcing (Tsujino et al, 2019)
+  # basin = 0 is Global; basin = 1 is Atlantic and basin = 2 is IndoPacific
+  jra = xr.open_dataset('/glade/work/gmarques/cesm/datasets/Heat_transport/jra55fcst_v1_3_annual_1x1/nht_jra55do_v1_3.nc')
   #Trenberth and Caron
   yobs = fObs.variables['ylat'][:]
   NCEP = {}; NCEP['Global'] = fObs.variables['OTn']
@@ -191,6 +201,12 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, lbd, basin_code, grd, 
   yy = grd.geolat_c[:,:].max(axis=-1)
   ave_title = ', averaged from {} to {}'.format(args.start_date, args.end_date)
   plotHeatTrans(yy,HTplot,title='Global Y-Direction Heat Transport [PW]'+ave_title)
+  plt.plot(pop.lat_aux_grid.values,pop.MHT_global.values,'orange',linewidth=1,label='POP')
+  jra_mean_global = jra.nht[:,0,:].mean('time').values
+  jra_std_global = jra.nht[:,0,:].std('time').values
+  plt.plot(jra.lat, jra_mean_global,'k', label='JRA-55 v1.3', color='#1B2ACC', lw=1)
+  plt.fill_between(jra.lat, jra_mean_global-jra_std_global, jra_mean_global+jra_std_global,
+    alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
   plt.plot(yobs,NCEP['Global'],'k--',linewidth=0.5,label='NCEP')
   plt.plot(yobs,ECMWF['Global'],'k.',linewidth=0.5,label='ECMWF')
   plotGandW(GandW['Global']['lat'],GandW['Global']['trans'],GandW['Global']['err'])
@@ -213,6 +229,12 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, lbd, basin_code, grd, 
   yy = grd.geolat_c[:,:].max(axis=-1)
   HTplot[yy<-34] = numpy.nan
   plotHeatTrans(yy,HTplot,title='Atlantic Y-Direction Heat Transport [PW]'+ave_title)
+  plt.plot(pop.lat_aux_grid.values,pop.MHT_atl.values,'orange',linewidth=1,label='POP')
+  jra_mean_atl = jra.nht[:,1,:].mean('time').values
+  jra_std_atl = jra.nht[:,1,:].std('time').values
+  plt.plot(jra.lat, jra_mean_atl,'k', label='JRA-55 v1.3', color='#1B2ACC', lw=1)
+  plt.fill_between(jra.lat, jra_mean_atl-jra_std_atl, jra_mean_atl+jra_std_atl,
+    alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
   plt.plot(yobs,NCEP['Atlantic'],'k--',linewidth=0.5,label='NCEP')
   plt.plot(yobs,ECMWF['Atlantic'],'k.',linewidth=0.5,label='ECMWF')
   plotGandW(GandW['Atlantic']['lat'],GandW['Atlantic']['trans'],GandW['Atlantic']['err'])
@@ -234,6 +256,12 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, lbd, basin_code, grd, 
   yy = grd.geolat_c[:,:].max(axis=-1)
   HTplot[yy<-34] = numpy.nan
   plotHeatTrans(yy,HTplot,title='Indo-Pacific Y-Direction Heat Transport [PW]'+ave_title)
+  plt.plot(pop.lat_aux_grid.values,(pop.MHT_global-pop.MHT_atl).values,'orange',linewidth=1,label='POP')
+  jra_mean_indo = jra.nht[:,2,:].mean('time').values
+  jra_std_indo = jra.nht[:,2,:].std('time').values
+  plt.plot(jra.lat, jra_mean_indo,'k', label='JRA-55 v1.3', color='#1B2ACC', lw=1)
+  plt.fill_between(jra.lat, jra_mean_indo-jra_std_indo, jra_mean_indo+jra_std_indo,
+    alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
   plt.plot(yobs,NCEP['IndoPac'],'k--',linewidth=0.5,label='NCEP')
   plt.plot(yobs,ECMWF['IndoPac'],'k.',linewidth=0.5,label='ECMWF')
   plotGandW(GandW['IndoPac']['lat'],GandW['IndoPac']['trans'],GandW['IndoPac']['err'])
