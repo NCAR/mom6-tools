@@ -2,7 +2,8 @@
 
 import io, yaml, os
 import matplotlib.pyplot as plt
-import warnings, dask, numpy, netCDF4
+import numpy as np
+import warnings, dask, netCDF4
 from datetime import datetime, date
 import xarray as xr
 from mom6_tools.DiagsCase import DiagsCase
@@ -65,7 +66,7 @@ def main(stream=False):
   grd = MOM6grid(RUNDIR+'/'+dcase.casename+'.mom6.static.nc')
   depth = grd.depth_ocean
   # remote Nan's, otherwise genBasinMasks won't work
-  depth[numpy.isnan(depth)] = 0.0
+  depth[np.isnan(depth)] = 0.0
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
   parallel, cluster, client = m6toolbox.request_workers(nw)
   print('Reading dataset...')
@@ -80,7 +81,7 @@ def main(stream=False):
         print('WARNING: ds does not have variable {}. Creating dataarray with zeros'.format(var))
         jm, im = grd.geolat.shape
         tm = len(ds.time)
-        da = xr.DataArray(numpy.zeros((tm, jm, im)), dims=['time','yq','xh'], \
+        da = xr.DataArray(np.zeros((tm, jm, im)), dims=['time','yq','xh'], \
              coords={'yq' : grd.yq, 'xh' : grd.xh, 'time' : ds.time}).rename(var)
         ds = xr.merge([ds, da])
     #return ds[variables].resample(time="1Y", closed='left', \
@@ -97,35 +98,37 @@ def main(stream=False):
          preprocess=preprocess)
   print('Time elasped: ', datetime.now() - startTime)
 
-  print(ds)
-
-  print('\n Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   startTime = datetime.now()
   ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('\n Computing yearly means...')
+  print('Computing yearly means...')
   startTime = datetime.now()
   ds_sel = ds_sel.resample(time="1Y", closed='left',keep_attrs=True).mean('time',keep_attrs=True)
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('\n Computing time mean...')
+  print('Computing time mean...')
   startTime = datetime.now()
   ds_sel = ds_sel.mean('time').load()
   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
-    print('\n Releasing workers...')
+    print('Releasing workers...')
     client.close(); cluster.close()
 
+  varName = 'T_ady_2d'
   print('Saving netCDF files...')
+  attrs = {'description': 'Time-mean poleward heat transport by components ', 'units': ds[varName].units,
+       'start_date': args.start_date, 'end_date': args.end_date, 'casename': dcase.casename}
+  m6toolbox.add_global_attrs(ds_sel,attrs)
+
   ds_sel.to_netcdf('ncfiles/'+dcase.casename+'_heat_transport.nc')
   # create a ndarray subclass
-  class C(numpy.ndarray): pass
+  class C(np.ndarray): pass
 
-  varName = 'T_ady_2d'
   if varName in ds.variables:
-    tmp = numpy.ma.masked_invalid(ds_sel[varName].values)
+    tmp = np.ma.masked_invalid(ds_sel[varName].values)
     tmp = tmp[:].filled(0.)
     advective = tmp.view(C)
     advective.units = ds[varName].units
@@ -134,7 +137,7 @@ def main(stream=False):
 
   varName = 'T_diffy_2d'
   if varName in ds.variables:
-    tmp = numpy.ma.masked_invalid(ds_sel[varName].values)
+    tmp = np.ma.masked_invalid(ds_sel[varName].values)
     tmp = tmp[:].filled(0.)
     diffusive = tmp.view(C)
     diffusive.units = ds[varName].units
@@ -144,7 +147,7 @@ def main(stream=False):
 
   varName = 'T_lbd_diffy_2d'
   if varName in ds.variables:
-    tmp = numpy.ma.masked_invalid(ds_sel[varName].values)
+    tmp = np.ma.masked_invalid(ds_sel[varName].values)
     tmp = tmp[:].filled(0.)
     lbd = tmp.view(C)
     #lbd.units = ds[varName].units
@@ -173,19 +176,19 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, lbd, basin_code, grd, 
 
   #G and W
   Global = {}
-  Global['lat'] = numpy.array([-30., -19., 24., 47.])
-  Global['trans'] = numpy.array([-0.6, -0.8, 1.8, 0.6])
-  Global['err'] = numpy.array([0.3, 0.6, 0.3, 0.1])
+  Global['lat'] = np.array([-30., -19., 24., 47.])
+  Global['trans'] = np.array([-0.6, -0.8, 1.8, 0.6])
+  Global['err'] = np.array([0.3, 0.6, 0.3, 0.1])
 
   Atlantic = {}
-  Atlantic['lat'] = numpy.array([-45., -30., -19., -11., -4.5, 7.5, 24., 47.])
-  Atlantic['trans'] = numpy.array([0.66, 0.35, 0.77, 0.9, 1., 1.26, 1.27, 0.6])
-  Atlantic['err'] = numpy.array([0.12, 0.15, 0.2, 0.4, 0.55, 0.31, 0.15, 0.09])
+  Atlantic['lat'] = np.array([-45., -30., -19., -11., -4.5, 7.5, 24., 47.])
+  Atlantic['trans'] = np.array([0.66, 0.35, 0.77, 0.9, 1., 1.26, 1.27, 0.6])
+  Atlantic['err'] = np.array([0.12, 0.15, 0.2, 0.4, 0.55, 0.31, 0.15, 0.09])
 
   IndoPac = {}
-  IndoPac['lat'] = numpy.array([-30., -18., 24., 47.])
-  IndoPac['trans'] = numpy.array([-0.9, -1.6, 0.52, 0.])
-  IndoPac['err'] = numpy.array([0.3, 0.6, 0.2, 0.05,])
+  IndoPac['lat'] = np.array([-30., -18., 24., 47.])
+  IndoPac['trans'] = np.array([-0.9, -1.6, 0.52, 0.])
+  IndoPac['err'] = np.array([0.3, 0.6, 0.2, 0.05,])
 
   GandW = {}
   GandW['Global'] = Global
@@ -225,9 +228,9 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, lbd, basin_code, grd, 
   # Atlantic Heat Transport
   m = 0*basin_code; m[(basin_code==2) | (basin_code==4) | (basin_code==6) | (basin_code==7) | (basin_code==8)] = 1
   plt.figure(figsize=(12,10))
-  HTplot = heatTrans(advective, diffusive, lbd, vmask=m*numpy.roll(m,-1,axis=-2))
+  HTplot = heatTrans(advective, diffusive, lbd, vmask=m*np.roll(m,-1,axis=-2))
   yy = grd.geolat_c[:,:].max(axis=-1)
-  HTplot[yy<-34] = numpy.nan
+  HTplot[yy<-34] = np.nan
   plotHeatTrans(yy,HTplot,title='Atlantic Y-Direction Heat Transport [PW]'+ave_title)
   plt.plot(pop.lat_aux_grid.values,pop.MHT_atl.values,'orange',linewidth=1,label='POP')
   jra_mean_atl = jra.nht[:,1,:].mean('time').values
@@ -252,9 +255,9 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, lbd, basin_code, grd, 
   # Indo-Pacific Heat Transport
   m = 0*basin_code; m[(basin_code==3) | (basin_code==5)] = 1
   plt.figure(figsize=(12,10))
-  HTplot = heatTrans(advective, diffusive, lbd, vmask=m*numpy.roll(m,-1,axis=-2))
+  HTplot = heatTrans(advective, diffusive, lbd, vmask=m*np.roll(m,-1,axis=-2))
   yy = grd.geolat_c[:,:].max(axis=-1)
-  HTplot[yy<-34] = numpy.nan
+  HTplot[yy<-34] = np.nan
   plotHeatTrans(yy,HTplot,title='Indo-Pacific Y-Direction Heat Transport [PW]'+ave_title)
   plt.plot(pop.lat_aux_grid.values,(pop.MHT_global-pop.MHT_atl).values,'orange',linewidth=1,label='POP')
   jra_mean_indo = jra.nht[:,2,:].mean('time').values
