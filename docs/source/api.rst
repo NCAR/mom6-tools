@@ -7,9 +7,6 @@ For more details and examples, refer to the relevant chapters in the main part o
 
 .. currentmodule:: mom6_tools
 
-Grid
-~~~~~~
-
 Transports across vertical sections
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -42,6 +39,4 @@ Plotting tools
 
 
 .. currentmodule:: mom6_tools
-
-.. autofunction:: MOM6grid
 
