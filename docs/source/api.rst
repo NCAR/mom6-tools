@@ -10,9 +10,6 @@ For more details and examples, refer to the relevant chapters in the main part o
 Grid
 ~~~~~~
 
-.. autosummary::
-   MOM6grid
-
 Transports across vertical sections
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
