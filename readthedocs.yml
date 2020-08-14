@@ -1,5 +1,8 @@
-conda:
-  file: ci/docs.yml
+build:
+  image: latest
 python:
  version: 3
  setup_py_install: true
+ system_packages: true
+ install:
+  - requirements: requirements.txt

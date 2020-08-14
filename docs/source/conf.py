@@ -85,7 +85,7 @@ master_doc = 'index'
 current_year = datetime.datetime.now().year
 project = u'mom6-tools'
 copyright = u'2018-{}, University Corporation for Atmospheric Research'.format(current_year)
-author = u'pop-tools developers'
+author = u'mom6-tools developers'
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
