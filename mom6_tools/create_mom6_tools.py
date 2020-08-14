@@ -57,7 +57,7 @@ def make_run_script(casename):
   """
   print('Writing run_mom6_tools.sh...')
   f = open(casename+'/run_mom6_tools.sh', 'w')
-  f.write("moc.py diag_config.yml -nw 6 &\n")
+  f.write("moc.py diag_config.yml -nw 6 -fname .mom6.h_*.nc &\n")
   f.write("poleward_heat_transport.py diag_config.yml -nw 6 &\n")
   f.write("section_transports.py diag_config.yml -save_ncfile &\n")
   f.write("surface.py diag_config.yml -nw 6 &\n")
