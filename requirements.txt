@@ -2,6 +2,7 @@ sphinx
 sphinx_rtd_theme
 nbsphinx
 jinja2
+cartopy
 numpy
 numba
 pyyaml
@@ -11,7 +12,6 @@ pytest
 netCDF4
 matplotlib
 cftime
-cartopy
 scipy
 jupyter
 cmocean
