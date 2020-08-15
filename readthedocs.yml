@@ -5,4 +5,4 @@ python:
  setup_py_install: true
  system_packages: true
  install:
-  - requirements: ci/requirements.txt
+  - requirements: requirements.txt
