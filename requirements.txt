@@ -2,8 +2,7 @@ sphinx
 sphinx_rtd_theme
 nbsphinx
 jinja2
-numpy>=1.10
-cartopy
+numpy
 numba
 pyyaml
 xarray
