@@ -43,6 +43,7 @@ extensions = [
     'IPython.sphinxext.ipython_directive',
     'sphinx.ext.mathjax',  # for math equations
     'sphinx.ext.napoleon',
+    'nbsphinx',
 ]
 
 # Enable notebook execution
