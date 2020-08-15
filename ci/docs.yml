@@ -1,4 +1,3 @@
-name: mom6-tools-dev
 channels:
   - conda-forge
 dependencies:
@@ -11,7 +10,7 @@ dependencies:
   - python=3.7
   - recommonmark
   - sphinx_rtd_theme=0.4.2
-  - sphinx=1.8.2
+  - sphinx=1.8.5
   - sphinx-gallery=0.2.0
   - xarray
   - netcdf4
