@@ -250,7 +250,7 @@ def driver(args):
   fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(16,8))
   dummy_obs = np.ma.masked_invalid(johnson.UM.sel(YLAT11_101=0).values)
   dummy_model = np.ma.masked_invalid(uo.sel(yh=0, method='nearest').values)
-  yzplot(dummy_model, x_model, -Z_model, clim=(-0.6,1.2), axis=ax1, landcolor=[0., 0., 0.], title=str(dcase.casename))
+  yzplot(dummy_model, x_model, -Z_model, clim=(-0.6,1.2), axis=ax1, landcolor=[0., 0., 0.], title=str(dcase.casename), ylabel='Longitude')
   cs1 = ax1.contour( x_model + 0*z_model, -z_model, dummy_model, levels=np.arange(-1.2,1.2,0.1),  colors='k'); plt.clabel(cs1,fmt='%2.1f', fontsize=14)
   ax1.set_xlim(143,265); ax1.set_ylim(-400,0)
   yzplot(dummy_obs, x_obs, -Z_obs, clim=(-0.4,1.2), ylabel='Longitude', yunits='',  axis=ax2, title='Johnson et al (2002)')
