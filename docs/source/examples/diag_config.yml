@@ -1,7 +1,7 @@
 Case:
   CIMEROOT: "/glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04d_mom6/cime"
-  CASEROOT: "/glade/work/gmarques/cesm.cases/G/g.c2b6.GJRA.TL319_t061.long_JRA_mct.025"
-  RUNDIR: "/glade/scratch/gmarques/g.c2b6.GJRA.TL319_t061.long_JRA_mct.025/run"
+  CASEROOT: "/glade/work/gmarques/cesm.cases/G/g.c2b6.GJRA.TL319_t061.long_JRA_mct.076"
+  RUNDIR: "/glade/scratch/gmarques/g.c2b6.GJRA.TL319_t061.long_JRA_mct.076/run"
 
 Avg:
   end_date: '0059-01-01'
