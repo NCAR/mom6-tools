@@ -544,9 +544,9 @@ def main(stream=False):
   print('Casename is:', dcase.casename)
   RUNDIR = dcase.get_value('RUNDIR')
 
-  if not os.path.isdir('PNG'):
+  if not os.path.isdir('PNG/Horizontal_mean_biases'):
     print('Creating a directory to place figures (PNG)... \n')
-    os.system('mkdir PNG')
+    os.system('mkdir -p PNG/Horizontal_mean_biases')
   if not os.path.isdir('ncfiles'):
     print('Creating a directory to place netCDF files (ncfiles)... \n')
     os.system('mkdir ncfiles')
@@ -790,8 +790,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     else:
       splitscale =  [0., -1000., -temp_diff_reg.z_l.max()]
 
-    savefig_diff='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_diff.png'
-    savefig_rms='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_rms.png'
+    savefig_diff='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_diff.png'
+    savefig_rms='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_rms.png'
 
     ztplot(temp_diff_reg.values, temp_diff_reg.time.values, temp_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], diff (model - obs)',
@@ -815,8 +815,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     else:
       splitscale =  [0., -1000., -salt_diff_reg.z_l.max()]
 
-    savefig_diff='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_diff.png'
-    savefig_rms='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_rms.png'
+    savefig_diff='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_diff.png'
+    savefig_rms='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_rms.png'
 
     ztplot(salt_diff_reg.values, salt_diff_reg.time.values, salt_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], diff (model - obs)',
