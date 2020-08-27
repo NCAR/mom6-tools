@@ -17,7 +17,7 @@ def options():
     describing the run and diagnostics to be performed.''')
 
   parser.add_argument('-l','--label',    type=str, default='', help='''Label to add to the plot.''')
-  parser.add_argument('-o','--outdir',   type=str, default='PNG/transports', help='''Directory in which to place plots.''')
+  parser.add_argument('-o','--outdir',   type=str, default='PNG/Transports', help='''Directory in which to place plots.''')
   parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',  help='''Start year to plot (default=0001-01-01)''')
   parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31', help='''Final year to plot (default=0100-12-31)''')
   parser.add_argument('-save_ncfile', help='''Save a netCDF file with transport data''', action="store_true")
