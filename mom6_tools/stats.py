@@ -800,8 +800,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     client.close(); cluster.close()
 
   print('Saving netCDF files...')
-  attrs = { 'start_date': avg['start_date'],
-           'end_date': avg['end_date'],
+  attrs = { 'start_date': args.start_date,
+           'end_date': args.end_date,
            'casename': dcase.casename,
            'obs': args.obs,
            'module': os.path.basename(__file__)}
