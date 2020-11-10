@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.ClimoGenerator import ClimoGenerator
-from mom6_tools.m6toolbox import genBasinMasks, request_workers
+from mom6_tools.m6toolbox import genBasinMasks, request_workers, add_global_attrs
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from datetime import datetime
@@ -744,16 +744,16 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   if args.obs == 'PHC2':
     # load PHC2 data
     obs_path = '/glade/p/cesm/omwg/obs_data/phc/'
-    obs_temp = xr.open_mfdataset(obs_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-    obs_salt = xr.open_mfdataset(obs_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    obs_temp = xr.open_dataset(obs_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    obs_salt = xr.open_dataset(obs_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
     # get theta and salt and rename coordinates to be the same as the model's
     thetao_obs = obs_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
     salt_obs = obs_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
   elif args.obs == 'WOA18':
-    # load PHC2 data
+    # load WOA18 data
     obs_path = '/glade/u/home/gmarques/Notebooks/CESM_MOM6/WOA18_remapping/'
-    obs_temp = xr.open_mfdataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-    obs_salt = xr.open_mfdataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
     # get theta and salt and rename coordinates to be the same as the model's
     thetao_obs = obs_temp.theta0.rename({'depth': 'z_l'});
     salt_obs = obs_salt.s_an.rename({'depth': 'z_l'});
@@ -800,13 +800,18 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     client.close(); cluster.close()
 
   print('Saving netCDF files...')
-  add_attrs(temp_bias, args)
+  attrs = { 'start_date': avg['start_date'],
+           'end_date': avg['end_date'],
+           'casename': dcase.casename,
+           'obs': args.obs,
+           'module': os.path.basename(__file__)}
+  add_global_attrs(temp_bias,attrs)
   temp_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_bias.nc')
-  add_attrs(salt_bias, args)
+  add_global_attrs(salt_bias,attrs)
   salt_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_bias.nc')
-  add_attrs(temp_rms, args)
+  add_global_attrs(temp_rms,attrs)
   temp_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_rms.nc')
-  add_attrs(salt_rms, args)
+  add_global_attrs(salt_rms,attrs)
   salt_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_rms.nc')
 
   # temperature
@@ -861,11 +866,5 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     plt.close('all')
   return
 
-def add_attrs(ds, args):
-  ds.attrs['created_using'] = os.path.basename(__file__)
-  ds.attrs['git_hash'] = str(subprocess.check_output(["git", "describe","--always"]).strip())
-  ds.attrs['date'] = datetime.now().isoformat()
-  ds.attrs['obs'] = args.obs
-  return
 if __name__ == '__main__':
   main()
