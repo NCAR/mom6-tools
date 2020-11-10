@@ -33,7 +33,8 @@ class Transport():
     # List all section* files in args.infile
     full_path = args.infile+args.case_name+'.mom6.'+section+'*'
     if debug: print('Full path ', full_path)
-    files = [f for f in glob.glob(full_path, recursive=True)]
+    files = [f for f in glob.glob(full_path)]
+    #files = [f for f in glob.glob(full_path, recursive=True)]
     tiles = [] # list with 'tiles' numbers. These change depending on the total # of PE
     for f in files:
       tiles.append(f[-4::])
