@@ -23,6 +23,10 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for computing and plotting statistics.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
+  parser.add_argument('-sd','--start_date', type=str, default='',
+                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-ed','--end_date', type=str, default='',
+                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-diff_rms', help='''Compute horizontal mean difference and RMS: model versus \
                       observations''', action="store_true")
   parser.add_argument('-forcing', help='''Compute global time averages and regionally-averaged time-series \
@@ -31,6 +35,8 @@ def options():
                       of surface fields''', action="store_true")
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
+  parser.add_argument('-o','--obs', type=str, default='WOA18', help='''Observational product to compare agaist.  \
+    Valid options are: WOA18 (default) or PHC2''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
@@ -538,6 +544,10 @@ def main(stream=False):
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  # set avg dates
+  avg = diag_config_yml['Avg']
+  if not args.start_date : args.start_date = avg['start_date']
+  if not args.end_date : args.end_date = avg['end_date']
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
@@ -720,6 +730,9 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
 
   print('Time elasped: ', datetime.now() - startTime)
 
+  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  ds = ds.sel(time=slice(args.start_date, args.end_date))
+
   # Compute climatologies
   thetao_model = ds.thetao.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
                                     keep_attrs=True)
@@ -727,14 +740,27 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   salt_model = ds.so.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
                                keep_attrs=True)
 
-  # load PHC2 data
-  phc_path = '/glade/p/cesm/omwg/obs_data/phc/'
-  phc_temp = xr.open_mfdataset(phc_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-  phc_salt = xr.open_mfdataset(phc_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+  # TODO: improve how obs are selected
+  if args.obs == 'PHC2':
+    # load PHC2 data
+    obs_path = '/glade/p/cesm/omwg/obs_data/phc/'
+    obs_temp = xr.open_mfdataset(obs_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    obs_salt = xr.open_mfdataset(obs_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    # get theta and salt and rename coordinates to be the same as the model's
+    thetao_obs = obs_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+    salt_obs = obs_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+  elif args.obs == 'WOA18':
+    # load PHC2 data
+    obs_path = '/glade/u/home/gmarques/Notebooks/CESM_MOM6/WOA18_remapping/'
+    obs_temp = xr.open_mfdataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    obs_salt = xr.open_mfdataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    # get theta and salt and rename coordinates to be the same as the model's
+    thetao_obs = obs_temp.theta0.rename({'depth': 'z_l'});
+    salt_obs = obs_salt.s_an.rename({'depth': 'z_l'});
 
-  # get theta and salt and rename coordinates to be the same as the model's
-  thetao_obs = phc_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
-  salt_obs = phc_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+  else:
+    raise ValueError("The obs selected is not available.")
+
   # set coordinates to the same as the model's
   thetao_obs['xh'] = thetao_model.xh; thetao_obs['yh'] = thetao_model.yh;
   salt_obs['xh'] = salt_model.xh; salt_obs['yh'] = salt_model.yh;
@@ -753,20 +779,20 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   # Horizontal Mean difference (model - obs)
   print('\n Computing Horizontal Mean difference for temperature...')
   startTime = datetime.now()
-  temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('temp_bias')
   print('Time elasped: ', datetime.now() - startTime)
   print('\n Computing Horizontal Mean difference for salt...')
   startTime = datetime.now()
-  salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('salt_bias')
   print('Time elasped: ', datetime.now() - startTime)
 
   # Horizontal Mean rms (model - obs)
   print('\n Computing Horizontal Mean rms for temperature...')
   startTime = datetime.now()
-  temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('temp_rms')
   print('Time elasped: ', datetime.now() - startTime)
   print('\n Computing Horizontal Mean rms for salt...')
-  salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('salt_rms')
   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
@@ -774,9 +800,13 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     client.close(); cluster.close()
 
   print('Saving netCDF files...')
+  add_attrs(temp_bias, args)
   temp_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_bias.nc')
+  add_attrs(salt_bias, args)
   salt_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_bias.nc')
+  add_attrs(temp_rms, args)
   temp_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_rms.nc')
+  add_attrs(salt_rms, args)
   salt_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_rms.nc')
 
   # temperature
@@ -831,5 +861,11 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     plt.close('all')
   return
 
+def add_attrs(ds, args):
+  ds.attrs['created_using'] = os.path.basename(__file__)
+  ds.attrs['git_hash'] = str(subprocess.check_output(["git", "describe","--always"]).strip())
+  ds.attrs['date'] = datetime.now().isoformat()
+  ds.attrs['obs'] = args.obs
+  return
 if __name__ == '__main__':
   main()
