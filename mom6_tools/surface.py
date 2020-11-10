@@ -72,6 +72,9 @@ def driver(args):
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
+    for v in variables:
+      if v not in ds.variables:
+        ds[v] = xr.zeros_like(ds.SSH)
     return ds[variables].resample(time="1M", closed='left', \
            keep_attrs=True).mean(dim='time', keep_attrs=True)
 
