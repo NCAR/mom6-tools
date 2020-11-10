@@ -10,7 +10,7 @@ from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import request_workers
+from mom6_tools.m6toolbox import request_workers, add_global_attrs
 from mom6_tools.m6plot import xycompare, polarcomparison
 from mom6_tools.MOM6grid import MOM6grid
 
@@ -32,6 +32,8 @@ def parseCommandLine():
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
+  parser.add_argument('-o','--obs', type=str, default='WOA18', help='''Observational product to compare agaist.  \
+    Valid options are: WOA18 (default) or PHC2''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   optCmdLineArgs = parser.parse_args()
   driver(optCmdLineArgs)
@@ -66,10 +68,19 @@ def driver(args):
   # read grid info
   grd = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc')
 
-  # load PHC2 data
-  phc_path = '/glade/p/cesm/omwg/obs_data/phc/'
-  phc_temp = xr.open_mfdataset(phc_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_coords=False, decode_times=False)
-  phc_salt = xr.open_mfdataset(phc_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_coords=False, decode_times=False)
+  # TODO: improve how obs are selected
+  if args.obs == 'PHC2':
+    # load PHC2 data
+    obs_path = '/glade/p/cesm/omwg/obs_data/phc/'
+    obs_temp = xr.open_mfdataset(obs_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_coords=False, decode_times=False)
+    obs_salt = xr.open_mfdataset(obs_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_coords=False, decode_times=False)
+  elif args.obs == 'WOA18':
+    # load WOA18 data
+    obs_path = '/glade/u/home/gmarques/Notebooks/CESM_MOM6/WOA18_remapping/'
+    obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False).rename({'theta0': 'TEMP'});
+    obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False).rename({'s_an': 'SALT'});
+  else:
+    raise ValueError("The obs selected is not available.")
 
   parallel, cluster, client = request_workers(nw)
 
@@ -110,12 +121,30 @@ def driver(args):
 
   print('Saving netCDF files...')
   startTime = datetime.now()
+  attrs = {'description': 'model - obs at depth levels',
+           'start_date': args.start_date,
+           'end_date': args.end_date,
+           'casename': dcase.casename,
+           'obs': args.obs,
+           'module': os.path.basename(__file__)}
+  # create dataset to store results
   thetao = xr.DataArray(ds.thetao.mean('time'), dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('thetao')
-  thetao.to_netcdf('ncfiles/'+str(args.casename)+'_thetao_time_mean.nc')
+  temp_bias = np.ma.masked_invalid(thetao.values - obs_temp['TEMP'].values)
+  ds_thetao = xr.Dataset(data_vars={ 'thetao' : (('z_l','yh','xh'), thetao),
+                            'thetao_bias' :     (('z_l','yh','xh'), temp_bias)},
+                            coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
+  add_global_attrs(ds_thetao,attrs)
+
+  ds_thetao.to_netcdf('ncfiles/'+str(args.casename)+'_thetao_time_mean.nc')
   so = xr.DataArray(ds.so.mean('time'), dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('so')
-  so.to_netcdf('ncfiles/'+str(args.casename)+'_so_time_mean.nc')
+  salt_bias = np.ma.masked_invalid(so.values - obs_salt['SALT'].values)
+  ds_so = xr.Dataset(data_vars={ 'so' : (('z_l','yh','xh'), so),
+                            'so_bias' :     (('z_l','yh','xh'), salt_bias)},
+                            coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
+  add_global_attrs(ds_so,attrs)
+  ds_so.to_netcdf('ncfiles/'+str(args.casename)+'_so_time_mean.nc')
   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
@@ -123,21 +152,21 @@ def driver(args):
     client.close(); cluster.close()
 
   print('Global plots...')
-  km = len(phc_temp['depth'])
+  km = len(obs_temp['depth'])
   for k in range(km):
     if ds['z_l'][k].values < 1200.0:
       figname = 'PNG/TS_levels/'+str(dcase.casename)+'_'+str(ds['z_l'][k].values)+'_'
-      temp_obs = np.ma.masked_invalid(phc_temp['TEMP'][k,:].values)
+      temp_obs = np.ma.masked_invalid(obs_temp['TEMP'][k,:].values)
       xycompare(temp[k,:] , temp_obs, grd.geolon, grd.geolat, area=grd.area_t,
               title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
-              title2 = 'observed temperature, depth ='+str(phc_temp['depth'][k].values)+ 'm',
+              title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
               suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               extend='both', dextend='neither', clim=(-1.9,30.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               save=figname+'global_temp.png')
-      salt_obs = np.ma.masked_invalid(phc_salt['SALT'][k,:].values)
+      salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
       xycompare( salt[k,:] , salt_obs, grd.geolon, grd.geolat, area=grd.area_t,
               title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
-              title2 = 'observed salinity, depth ='+str(phc_temp['depth'][k].values)+ 'm',
+              title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
               suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               extend='both', dextend='neither', clim=(30.,39.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               save=figname+'global_salt.png')
@@ -145,17 +174,17 @@ def driver(args):
   print('Antarctic plots...')
   for k in range(km):
     if (ds['z_l'][k].values < 1200.):
-      temp_obs = np.ma.masked_invalid(phc_temp['TEMP'][k,:].values)
+      temp_obs = np.ma.masked_invalid(obs_temp['TEMP'][k,:].values)
       polarcomparison(temp[k,:] , temp_obs, grd,
               title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
-              title2 = 'observed temperature, depth ='+str(phc_temp['depth'][k].values)+ 'm',
+              title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
               extend='both', dextend='neither', clim=(-1.9,10.5), dlim=(-2,2), dcolormap=plt.cm.bwr,
               suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               proj='SP', save=figname+'antarctic_temp.png')
-      salt_obs = np.ma.masked_invalid(phc_salt['SALT'][k,:].values)
+      salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
       polarcomparison( salt[k,:] , salt_obs, grd,
               title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
-              title2 = 'observed salinity, depth ='+str(phc_temp['depth'][k].values)+ 'm',
+              title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
               extend='both', dextend='neither', clim=(33.,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               proj='SP', save=figname+'antarctic_salt.png')
@@ -163,17 +192,17 @@ def driver(args):
   print('Arctic plots...')
   for k in range(km):
     if (ds['z_l'][k].values < 100.):
-      temp_obs = np.ma.masked_invalid(phc_temp['TEMP'][k,:].values)
+      temp_obs = np.ma.masked_invalid(obs_temp['TEMP'][k,:].values)
       polarcomparison(temp[k,:] , temp_obs, grd,
               title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
-              title2 = 'observed temperature, depth ='+str(phc_temp['depth'][k].values)+ 'm',
+              title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
               extend='both', dextend='neither', clim=(-1.9,11.5), dlim=(-2,2), dcolormap=plt.cm.bwr,
               suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               proj='NP', save=figname+'arctic_temp.png')
-      salt_obs = np.ma.masked_invalid(phc_salt['SALT'][k,:].values)
+      salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
       polarcomparison( salt[k,:] , salt_obs, grd,
               title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
-              title2 = 'observed salinity, depth ='+str(phc_temp['depth'][k].values)+ 'm',
+              title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
               extend='both', dextend='neither', clim=(31.5,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               proj='NP', save=figname+'arctic_salt.png')
