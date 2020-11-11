@@ -29,6 +29,8 @@ def options():
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-diff_rms', help='''Compute horizontal mean difference and RMS: model versus \
                       observations''', action="store_true")
+  parser.add_argument('-time_series', help='''Extract time-series for thetaoga and soga and saves \
+                       annual means in a netCDF file''', action="store_true")
   parser.add_argument('-forcing', help='''Compute global time averages and regionally-averaged time-series \
                       of forcing fields''', action="store_true")
   parser.add_argument('-surface', help='''Compute global time averages and regionally-averaged time-series \
@@ -547,8 +549,8 @@ def main(stream=False):
   # Get options
   args = options()
 
-  if not args.diff_rms and not args.surface and not args.forcing:
-    raise ValueError("Please select -diff_rms, -surface and/or -forcing.")
+  if not args.diff_rms and not args.surface and not args.forcing and not args.time_series:
+    raise ValueError("Please select -diff_rms, -time_series, -surface and/or -forcing.")
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
@@ -598,8 +600,71 @@ def main(stream=False):
     fname = '.mom6.hm_*.nc'
     xystats(fname, variables, grd, dcase, basins, args)
 
+  if args.time_series:
+    variables = ['thetaoga','soga']
+    fname = '.mom6.hm_*.nc'
+    extract_time_series(fname, variables, grd, dcase, args)
   return
 
+def extract_time_series(fname, variables, grd, dcase, args):
+  '''
+   Extract time-series and saves annual means.
+
+   Parameters
+  ----------
+
+  fname : str
+    Name of the file to be processed.
+
+  variables : str
+    List of variables to be processed.
+
+  grd : OrderedDict
+    Dictionary with statistics computed using function myStats_da
+
+  dcase : case object
+    Object created using mom6_tools.DiagsCase.
+
+  args : object
+    Object with command line options.
+
+  Returns
+  -------
+    NetCDF file with annual means.
+
+  '''
+  parallel, cluster, client = request_workers(args.number_of_workers)
+
+  RUNDIR = dcase.get_value('RUNDIR')
+
+  def preprocess(ds):
+    ''' Compute montly averages and return the dataset with variables'''
+    return ds[variables].resample(time="1M", closed='left', \
+           keep_attrs=True).mean(dim='time', keep_attrs=True)
+
+  # read forcing files
+  startTime = datetime.now()
+  print('Reading dataset...')
+  if parallel:
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, \
+                           chunks={'time': 365}, parallel=True,  data_vars='minimal',
+                           coords='minimal', preprocess=preprocess)
+  else:
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, data_vars='minimal',
+                          compat='override', coords='minimal', preprocess=preprocess)
+
+  print('Time elasped: ', datetime.now() - startTime)
+
+  # add attrs and save
+  attrs = {'description': 'Annual averages of global mean ocean properties.'}
+  add_global_attrs(ds,attrs)
+  ds.to_netcdf('ncfiles/'+str(dcase.casename)+'_ann_ave_global_means.nc')
+  if parallel:
+    # close processes
+    print('Releasing workers...\n')
+    client.close(); cluster.close()
+
+  return
 
 def xystats(fname, variables, grd, dcase, basins, args):
   '''
@@ -636,7 +701,6 @@ def xystats(fname, variables, grd, dcase, basins, args):
 
   RUNDIR = dcase.get_value('RUNDIR')
   area = grd.area_t.where(grd.wet > 0)
-  print('RUNDIR:', RUNDIR)
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
