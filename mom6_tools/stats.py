@@ -487,17 +487,25 @@ def stats_to_ds(da_min, da_max, da_mean, da_std, da_rms):
       xarray.Dataset with min, max, mean, standard deviation and
       root-mean-square.
   """
-  var = np.zeros(len(da_min.time))
+  dim0 = da_min.dims[0]
+  dim0_val = da_min[dim0]
+  #if 'time' in da_min:
+  #  var = np.zeros(len(da_min.time))
+  #  time = da_mean['time']
+  #else:
+  #  var = np.zeros(1)
+  #  time = np.array([0.])
+
   # create dataset with zeros
-  ds = xr.Dataset(data_vars={ 'da_min' : (('time'), var),
-                              'da_max' : (('time'), var),
-                              'da_std' : (('time'), var),
-                              'da_rms' : (('time'), var),
-                              'da_mean': (('time'), var)},
-                   coords={'time': da_mean['time']})
+  ds = xr.Dataset(data_vars={ 'da_min' : ((dim0), da_min),
+                              'da_max' : ((dim0), da_max),
+                              'da_std' : ((dim0), da_std),
+                              'da_rms' : ((dim0), da_rms),
+                              'da_mean': ((dim0), da_mean)},
+                   coords={dim0: dim0_val})
   # fill dataset with correct values
-  ds['da_mean'] = da_mean; ds['da_std'] = da_std; ds['da_rms'] = da_rms
-  ds['da_min'] = da_min; ds['da_max'] = da_max
+  #ds['da_mean'] = da_mean; ds['da_std'] = da_std; ds['da_rms'] = da_rms
+  #ds['da_min'] = da_min; ds['da_max'] = da_max
   return ds
 
 def dict_to_da(stats_dict):
