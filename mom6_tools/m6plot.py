@@ -1111,7 +1111,7 @@ def ztplot(field, t=None, z=None,
   splitscale=None,
   title='', suptitle='', autocenter=False,
   clim=None, colormap=None, extend=None, centerlabels=False,
-  nbins=None, landcolor=[.5,.5,.5], contour=False,
+  nbins=None, landcolor=[.5,.5,.5], contour=False, clevs=[],
   aspect=[16,9], resolution=576, axis=None,
   ignore=None, save=None, debug=False, show=False, interactive=False):
   """
@@ -1136,6 +1136,7 @@ def ztplot(field, t=None, z=None,
   nbins       The number of colors levels (used is clim is missing or only specifies the color range).
   landcolor   An rgb tuple to use for the color of land (no data). Default [.5,.5,.5].
   contour     If true, draw and label contour lines. Default is False.
+  clevs       If contour=True, these are the levels to be contoured. Default is [].
   aspect      The aspect ratio of the figure, given as a tuple (W,H). Default [16,9].
   resolution  The vertical resolution of the figure given in pixels. Default 720.
   axis         The axis handle to plot to. Default None.
@@ -1175,7 +1176,10 @@ def ztplot(field, t=None, z=None,
   cb = plt.colorbar(cs, ax=axis, fraction=.08, pad=0.02, extend=extend)
   if contour:
     matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
-    cs = axis.contour(tCoord, zCoord,field2,colors='k',lw=0.50)
+    if len(clevs) > 0:
+      cs = axis.contour(tCoord, zCoord,field2,clevs,colors='k',lw=0.50)
+    else:
+      cs = axis.contour(tCoord, zCoord,field2,colors='k',lw=0.50)
     axis.clabel(cs,inline=1, fontsize=10)
 
   if centerlabels and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
