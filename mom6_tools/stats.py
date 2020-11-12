@@ -656,9 +656,9 @@ def extract_time_series(fname, variables, grd, dcase, args):
   print('Time elasped: ', datetime.now() - startTime)
 
   # add attrs and save
-  attrs = {'description': 'Annual averages of global mean ocean properties.'}
+  attrs = {'description': 'Monthly averages of global mean ocean properties.'}
   add_global_attrs(ds,attrs)
-  ds.to_netcdf('ncfiles/'+str(dcase.casename)+'_ann_ave_global_means.nc')
+  ds.to_netcdf('ncfiles/'+str(dcase.casename)+'_mon_ave_global_means.nc')
   if parallel:
     # close processes
     print('Releasing workers...\n')
@@ -802,8 +802,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
-  ds = ds.sel(time=slice(args.start_date, args.end_date))
+  #print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  #ds = ds.sel(time=slice(args.start_date, args.end_date))
 
   # Compute climatologies
   thetao_model = ds.thetao.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
@@ -872,9 +872,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     client.close(); cluster.close()
 
   print('Saving netCDF files...')
-  attrs = { 'start_date': args.start_date,
-           'end_date': args.end_date,
-           'casename': dcase.casename,
+  attrs = {'casename': dcase.casename,
            'obs': args.obs,
            'module': os.path.basename(__file__)}
   add_global_attrs(temp_bias,attrs)
