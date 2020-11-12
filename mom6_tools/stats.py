@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.ClimoGenerator import ClimoGenerator
-from mom6_tools.m6toolbox import genBasinMasks, request_workers
+from mom6_tools.m6toolbox import genBasinMasks, request_workers, add_global_attrs
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from datetime import datetime
@@ -23,14 +23,22 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for computing and plotting statistics.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
+  parser.add_argument('-sd','--start_date', type=str, default='',
+                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-ed','--end_date', type=str, default='',
+                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-diff_rms', help='''Compute horizontal mean difference and RMS: model versus \
                       observations''', action="store_true")
+  parser.add_argument('-time_series', help='''Extract time-series for thetaoga and soga and saves \
+                       annual means in a netCDF file''', action="store_true")
   parser.add_argument('-forcing', help='''Compute global time averages and regionally-averaged time-series \
                       of forcing fields''', action="store_true")
   parser.add_argument('-surface', help='''Compute global time averages and regionally-averaged time-series \
                       of surface fields''', action="store_true")
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
+  parser.add_argument('-o','--obs', type=str, default='WOA18', help='''Observational product to compare agaist.  \
+    Valid options are: WOA18 (default) or PHC2''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
@@ -481,17 +489,25 @@ def stats_to_ds(da_min, da_max, da_mean, da_std, da_rms):
       xarray.Dataset with min, max, mean, standard deviation and
       root-mean-square.
   """
-  var = np.zeros(len(da_min.time))
+  dim0 = da_min.dims[0]
+  dim0_val = da_min[dim0]
+  #if 'time' in da_min:
+  #  var = np.zeros(len(da_min.time))
+  #  time = da_mean['time']
+  #else:
+  #  var = np.zeros(1)
+  #  time = np.array([0.])
+
   # create dataset with zeros
-  ds = xr.Dataset(data_vars={ 'da_min' : (('time'), var),
-                              'da_max' : (('time'), var),
-                              'da_std' : (('time'), var),
-                              'da_rms' : (('time'), var),
-                              'da_mean': (('time'), var)},
-                   coords={'time': da_mean['time']})
+  ds = xr.Dataset(data_vars={ 'da_min' : ((dim0), da_min),
+                              'da_max' : ((dim0), da_max),
+                              'da_std' : ((dim0), da_std),
+                              'da_rms' : ((dim0), da_rms),
+                              'da_mean': ((dim0), da_mean)},
+                   coords={dim0: dim0_val})
   # fill dataset with correct values
-  ds['da_mean'] = da_mean; ds['da_std'] = da_std; ds['da_rms'] = da_rms
-  ds['da_min'] = da_min; ds['da_max'] = da_max
+  #ds['da_mean'] = da_mean; ds['da_std'] = da_std; ds['da_rms'] = da_rms
+  #ds['da_min'] = da_min; ds['da_max'] = da_max
   return ds
 
 def dict_to_da(stats_dict):
@@ -533,20 +549,24 @@ def main(stream=False):
   # Get options
   args = options()
 
-  if not args.diff_rms and not args.surface and not args.forcing:
-    raise ValueError("Please select -diff_rms, -surface and/or -forcing.")
+  if not args.diff_rms and not args.surface and not args.forcing and not args.time_series:
+    raise ValueError("Please select -diff_rms, -time_series, -surface and/or -forcing.")
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  # set avg dates
+  avg = diag_config_yml['Avg']
+  if not args.start_date : args.start_date = avg['start_date']
+  if not args.end_date : args.end_date = avg['end_date']
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
   print('Casename is:', dcase.casename)
   RUNDIR = dcase.get_value('RUNDIR')
 
-  if not os.path.isdir('PNG'):
+  if not os.path.isdir('PNG/Horizontal_mean_biases'):
     print('Creating a directory to place figures (PNG)... \n')
-    os.system('mkdir PNG')
+    os.system('mkdir -p PNG/Horizontal_mean_biases')
   if not os.path.isdir('ncfiles'):
     print('Creating a directory to place netCDF files (ncfiles)... \n')
     os.system('mkdir ncfiles')
@@ -580,8 +600,71 @@ def main(stream=False):
     fname = '.mom6.hm_*.nc'
     xystats(fname, variables, grd, dcase, basins, args)
 
+  if args.time_series:
+    variables = ['thetaoga','soga']
+    fname = '.mom6.hm_*.nc'
+    extract_time_series(fname, variables, grd, dcase, args)
   return
 
+def extract_time_series(fname, variables, grd, dcase, args):
+  '''
+   Extract time-series and saves annual means.
+
+   Parameters
+  ----------
+
+  fname : str
+    Name of the file to be processed.
+
+  variables : str
+    List of variables to be processed.
+
+  grd : OrderedDict
+    Dictionary with statistics computed using function myStats_da
+
+  dcase : case object
+    Object created using mom6_tools.DiagsCase.
+
+  args : object
+    Object with command line options.
+
+  Returns
+  -------
+    NetCDF file with annual means.
+
+  '''
+  parallel, cluster, client = request_workers(args.number_of_workers)
+
+  RUNDIR = dcase.get_value('RUNDIR')
+
+  def preprocess(ds):
+    ''' Compute montly averages and return the dataset with variables'''
+    return ds[variables].resample(time="1M", closed='left', \
+           keep_attrs=True).mean(dim='time', keep_attrs=True)
+
+  # read forcing files
+  startTime = datetime.now()
+  print('Reading dataset...')
+  if parallel:
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, \
+                           chunks={'time': 365}, parallel=True,  data_vars='minimal',
+                           coords='minimal', preprocess=preprocess)
+  else:
+    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, data_vars='minimal',
+                          compat='override', coords='minimal', preprocess=preprocess)
+
+  print('Time elasped: ', datetime.now() - startTime)
+
+  # add attrs and save
+  attrs = {'description': 'Annual averages of global mean ocean properties.'}
+  add_global_attrs(ds,attrs)
+  ds.to_netcdf('ncfiles/'+str(dcase.casename)+'_ann_ave_global_means.nc')
+  if parallel:
+    # close processes
+    print('Releasing workers...\n')
+    client.close(); cluster.close()
+
+  return
 
 def xystats(fname, variables, grd, dcase, basins, args):
   '''
@@ -618,7 +701,6 @@ def xystats(fname, variables, grd, dcase, basins, args):
 
   RUNDIR = dcase.get_value('RUNDIR')
   area = grd.area_t.where(grd.wet > 0)
-  print('RUNDIR:', RUNDIR)
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
@@ -720,6 +802,9 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
 
   print('Time elasped: ', datetime.now() - startTime)
 
+  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  ds = ds.sel(time=slice(args.start_date, args.end_date))
+
   # Compute climatologies
   thetao_model = ds.thetao.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
                                     keep_attrs=True)
@@ -727,14 +812,27 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   salt_model = ds.so.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
                                keep_attrs=True)
 
-  # load PHC2 data
-  phc_path = '/glade/p/cesm/omwg/obs_data/phc/'
-  phc_temp = xr.open_mfdataset(phc_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-  phc_salt = xr.open_mfdataset(phc_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+  # TODO: improve how obs are selected
+  if args.obs == 'PHC2':
+    # load PHC2 data
+    obs_path = '/glade/p/cesm/omwg/obs_data/phc/'
+    obs_temp = xr.open_dataset(obs_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    obs_salt = xr.open_dataset(obs_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    # get theta and salt and rename coordinates to be the same as the model's
+    thetao_obs = obs_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+    salt_obs = obs_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+  elif args.obs == 'WOA18':
+    # load WOA18 data
+    obs_path = '/glade/u/home/gmarques/Notebooks/CESM_MOM6/WOA18_remapping/'
+    obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    # get theta and salt and rename coordinates to be the same as the model's
+    thetao_obs = obs_temp.theta0.rename({'depth': 'z_l'});
+    salt_obs = obs_salt.s_an.rename({'depth': 'z_l'});
 
-  # get theta and salt and rename coordinates to be the same as the model's
-  thetao_obs = phc_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
-  salt_obs = phc_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+  else:
+    raise ValueError("The obs selected is not available.")
+
   # set coordinates to the same as the model's
   thetao_obs['xh'] = thetao_model.xh; thetao_obs['yh'] = thetao_model.yh;
   salt_obs['xh'] = salt_model.xh; salt_obs['yh'] = salt_model.yh;
@@ -753,20 +851,20 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   # Horizontal Mean difference (model - obs)
   print('\n Computing Horizontal Mean difference for temperature...')
   startTime = datetime.now()
-  temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('temp_bias')
   print('Time elasped: ', datetime.now() - startTime)
   print('\n Computing Horizontal Mean difference for salt...')
   startTime = datetime.now()
-  salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('salt_bias')
   print('Time elasped: ', datetime.now() - startTime)
 
   # Horizontal Mean rms (model - obs)
   print('\n Computing Horizontal Mean rms for temperature...')
   startTime = datetime.now()
-  temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('temp_rms')
   print('Time elasped: ', datetime.now() - startTime)
   print('\n Computing Horizontal Mean rms for salt...')
-  salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug)
+  salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('salt_rms')
   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
@@ -774,9 +872,18 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     client.close(); cluster.close()
 
   print('Saving netCDF files...')
+  attrs = { 'start_date': args.start_date,
+           'end_date': args.end_date,
+           'casename': dcase.casename,
+           'obs': args.obs,
+           'module': os.path.basename(__file__)}
+  add_global_attrs(temp_bias,attrs)
   temp_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_bias.nc')
+  add_global_attrs(salt_bias,attrs)
   salt_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_bias.nc')
+  add_global_attrs(temp_rms,attrs)
   temp_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_rms.nc')
+  add_global_attrs(salt_rms,attrs)
   salt_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_rms.nc')
 
   # temperature
@@ -790,8 +897,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     else:
       splitscale =  [0., -1000., -temp_diff_reg.z_l.max()]
 
-    savefig_diff='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_diff.png'
-    savefig_rms='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_rms.png'
+    savefig_diff='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_diff.png'
+    savefig_rms='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_rms.png'
 
     ztplot(temp_diff_reg.values, temp_diff_reg.time.values, temp_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], diff (model - obs)',
@@ -815,8 +922,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
     else:
       splitscale =  [0., -1000., -salt_diff_reg.z_l.max()]
 
-    savefig_diff='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_diff.png'
-    savefig_rms='PNG/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_rms.png'
+    savefig_diff='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_diff.png'
+    savefig_rms='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_rms.png'
 
     ztplot(salt_diff_reg.values, salt_diff_reg.time.values, salt_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], diff (model - obs)',

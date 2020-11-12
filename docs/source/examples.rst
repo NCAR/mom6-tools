@@ -5,6 +5,7 @@ Examples
     :maxdepth: 1
 
     examples/diags_case.ipynb
+    examples/region_masks.ipynb
     examples/ocean_stats.ipynb
     examples/surface.ipynb
     examples/forcing.ipynb
