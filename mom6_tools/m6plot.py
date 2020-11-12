@@ -1181,7 +1181,7 @@ def ztplot(field, t=None, z=None,
   if centerlabels and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
   axis.set_facecolor(landcolor)
   if splitscale is not None:
-    for zzz in splitscale[1:-1]: plt.axhline(zzz,color='k',linestyle='--')
+    for zzz in splitscale[1:-1]: axis.axhline(zzz,color='k',linestyle='--')
     axis.set_yscale('splitscale', zval=splitscale)
 
   axis.set_xlim( tLims ); axis.set_ylim( zLims )
