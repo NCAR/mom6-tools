@@ -10,7 +10,7 @@ from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import request_workers
+from mom6_tools.m6toolbox import request_workers, add_global_attrs
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 
@@ -298,7 +298,6 @@ def get_BLD(ds, var, grd, args):
   Compute and save a surface BLD climatology.
   TODO: compare against obs
   '''
-
   if not os.path.isdir('PNG/BLD'):
     print('Creating a directory to place figures (PNG/BLD)... \n')
     os.system('mkdir -p PNG/BLD')
@@ -314,7 +313,6 @@ def get_BLD(ds, var, grd, args):
   # read obs
   #filepath = '/glade/work/gmarques/cesm/datasets/Mimoc/MIMOC_ML_v2.2_PT_S_MLP_remapped_to_tx06v1.nc'
   #filepath = '/glade/work/gmarques/cesm/datasets/MLD/ARGO_MLD_remapped_to_tx06v1.nc'
-
   print('\n Plotting...')
   # March and Sep, noticed starting from 0
   months = [2,8]
@@ -345,7 +343,11 @@ def get_BLD(ds, var, grd, args):
                            coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('BLD_winter')
 
   month = 'winter'
-  attrs['description'] = 'Winter BLD (m)'
+  attrs = {'start_date': args.start_date,
+           'end_date': args.end_date,
+           'casename': args.casename,
+           'description': 'Winter MLD (m)',
+           'module': os.path.basename(__file__)}
   add_global_attrs(model_winter_da,attrs)
   model_winter_da.to_netcdf('ncfiles/'+str(args.casename)+'_BLD_'+month+'.nc')
 
