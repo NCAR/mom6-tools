@@ -302,7 +302,7 @@ def polarcomparison(field1, field2, grd, proj='SP', circle=True,
     # Add coastline
     ax.coastlines(color='black')
     # Add lat lon rings
-    ax.gridlines(alpha='0.1',color='black')
+    ax.gridlines(alpha=0.1,color='black')
     return
 
   add_features(fig, ax, cs, extend, landcolor)
@@ -1864,8 +1864,8 @@ c = brownblue_cmap()
 c = parula_cmap()
 
 # Register cmocean colormaps
-if 'cmocean' in modules.keys():
-  cmoceanRegisterColormaps()
+#if 'cmocean' in modules.keys():
+#  cmoceanRegisterColormaps()
 
 # Test
 if __name__ == '__main__':
