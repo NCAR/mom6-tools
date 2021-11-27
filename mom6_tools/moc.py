@@ -70,7 +70,12 @@ def main():
   depth[np.isnan(depth)] = 0.0
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
 
-  parallel, cluster, client = m6toolbox.request_workers(nw)
+  parallel = False
+  if nw > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(nw)
+    client = Client(cluster)
 
   print('Reading {} dataset...'.format(args.file_name))
   startTime = datetime.now()
@@ -82,17 +87,12 @@ def main():
         ds[v] = xr.zeros_like(ds.vo)
     return ds[variables]
 
-  if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+args.file_name,
-    parallel=True,
-    combine="nested", # concatenate in order of files
-    concat_dim="time", # concatenate along time
-    preprocess=preprocess,
-    ).chunk({"time": 12})
+  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+args.file_name, parallel=parallel)
 
-  else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+args.file_name, data_vars='minimal', \
-                           coords='minimal', compat='override', preprocess=preprocess)
+  # use datetime
+  ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+
+  ds = preprocess(ds1)
 
   print('Time elasped: ', datetime.now() - startTime)
 

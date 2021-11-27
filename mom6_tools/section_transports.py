@@ -55,6 +55,7 @@ class Transport():
       inFileName = '{}.mom6.{}_*.nc.{}'.format(args.infile+args.case_name, section, str(tiles[t]))
       if debug: print('inFileName {}, variable {}'.format(inFileName,var))
       rootGroup = xr.open_mfdataset(inFileName, combine='by_coords')
+      rootGroup['time'] = rootGroup.indexes['time'].to_datetimeindex()
       if debug: print(rootGroup)
       # select time range requested
       rootGroup = rootGroup.sel(time=slice(args.start_date, args.end_date))

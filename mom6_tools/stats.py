@@ -9,10 +9,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.ClimoGenerator import ClimoGenerator
-from mom6_tools.m6toolbox import genBasinMasks, request_workers, add_global_attrs
+from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from datetime import datetime
+from distributed import Client
+from ncar_jobqueue import NCARCluster
 from collections import OrderedDict
 import yaml, os
 
@@ -499,11 +501,11 @@ def stats_to_ds(da_min, da_max, da_mean, da_std, da_rms):
   #  time = np.array([0.])
 
   # create dataset with zeros
-  ds = xr.Dataset(data_vars={ 'da_min' : ((dim0), da_min),
-                              'da_max' : ((dim0), da_max),
-                              'da_std' : ((dim0), da_std),
-                              'da_rms' : ((dim0), da_rms),
-                              'da_mean': ((dim0), da_mean)},
+  ds = xr.Dataset(data_vars={ 'da_min' : ((dim0), da_min.data),
+                              'da_max' : ((dim0), da_max.data),
+                              'da_std' : ((dim0), da_std.data),
+                              'da_rms' : ((dim0), da_rms.data),
+                              'da_mean': ((dim0), da_mean.data)},
                    coords={dim0: dim0_val})
   # fill dataset with correct values
   #ds['da_mean'] = da_mean; ds['da_std'] = da_std; ds['da_rms'] = da_rms
@@ -633,7 +635,12 @@ def extract_time_series(fname, variables, grd, dcase, args):
     NetCDF file with annual means.
 
   '''
-  parallel, cluster, client = request_workers(args.number_of_workers)
+  parallel = False
+  if args.number_of_workers > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(args.number_of_workers)
+    client = Client(cluster)
 
   RUNDIR = dcase.get_value('RUNDIR')
 
@@ -645,13 +652,11 @@ def extract_time_series(fname, variables, grd, dcase, args):
   # read forcing files
   startTime = datetime.now()
   print('Reading dataset...')
-  if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, \
-                           chunks={'time': 365}, parallel=True,  data_vars='minimal',
-                           coords='minimal', preprocess=preprocess)
-  else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, data_vars='minimal',
-                          compat='override', coords='minimal', preprocess=preprocess)
+  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, parallel=parallel)
+  # use datetime
+  ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+  ds = preprocess(ds1)
+
 
   print('Time elasped: ', datetime.now() - startTime)
 
@@ -697,7 +702,12 @@ def xystats(fname, variables, grd, dcase, basins, args):
     Plots min, max, mean, std and rms for variables provided and for different basins.
 
   '''
-  parallel, cluster, client = request_workers(args.number_of_workers)
+  parallel = False
+  if args.number_of_workers > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(args.number_of_workers)
+    client = Client(cluster)
 
   RUNDIR = dcase.get_value('RUNDIR')
   area = grd.area_t.where(grd.wet > 0)
@@ -710,13 +720,11 @@ def xystats(fname, variables, grd, dcase, basins, args):
   # read forcing files
   startTime = datetime.now()
   print('Reading dataset...')
-  if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, \
-                           chunks={'time': 365}, parallel=True,  data_vars='minimal',
-                           coords='minimal', preprocess=preprocess)
-  else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, data_vars='minimal',
-                          compat='override', coords='minimal', preprocess=preprocess)
+  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, parallel=parallel)
+  ds = preprocess(ds1)
+
+  # use datetime
+  ds['time'] = ds.indexes['time'].to_datetimeindex()
 
   print('Time elasped: ', datetime.now() - startTime)
 
@@ -777,7 +785,13 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   RUNDIR = dcase.get_value('RUNDIR')
   area = grd.area_t.where(grd.wet > 0)
   if args.debug: print('RUNDIR:', RUNDIR)
-  parallel, cluster, client = request_workers(args.number_of_workers)
+
+  parallel = False
+  if args.number_of_workers > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(args.number_of_workers)
+    client = Client(cluster)
 
   def preprocess(ds):
     if 'thetao' not in ds.variables:
@@ -790,20 +804,19 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args):
   # read dataset
   startTime = datetime.now()
   print('Reading dataset...')
-  ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc',
-    parallel=True,
-    combine="nested", # concatenate in order of files
-    concat_dim="time", # concatenate along time
-    preprocess=preprocess,
-    ).chunk({"time": 12})
+  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel)
+  ds = preprocess(ds1)
+
+  # use datetime
+  ds1['time'] = ds1.indexes['time'].to_datetimeindex()
 
   if args.debug:
     print(ds)
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  #print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
-  #ds = ds.sel(time=slice(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  ds = ds.sel(time=slice(args.start_date, args.end_date))
 
   # Compute climatologies
   thetao_model = ds.thetao.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \

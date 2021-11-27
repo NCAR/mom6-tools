@@ -68,7 +68,14 @@ def main(stream=False):
   # remote Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
-  parallel, cluster, client = m6toolbox.request_workers(nw)
+
+  parallel = False
+  if nw > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(nw)
+    client = Client(cluster)
+
   print('Reading dataset...')
   startTime = datetime.now()
   variables = args.variables
@@ -84,18 +91,15 @@ def main(stream=False):
         da = xr.DataArray(np.zeros((tm, jm, im)), dims=['time','yq','xh'], \
              coords={'yq' : grd.yq, 'xh' : grd.xh, 'time' : ds.time}).rename(var)
         ds = xr.merge([ds, da])
-    #return ds[variables].resample(time="1Y", closed='left', \
-    #       keep_attrs=True).mean(dim='time', keep_attrs=True)
     return ds[variables]
 
-  if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', \
-         parallel=True, data_vars='minimal', chunks={'time': 12},\
-         coords='minimal', compat='override', preprocess=preprocess)
-  else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', \
-         data_vars='minimal', coords='minimal', compat='override', \
-         preprocess=preprocess)
+  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
+
+  # use datetime
+  ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+
+  ds = preprocess(ds1)
+
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))

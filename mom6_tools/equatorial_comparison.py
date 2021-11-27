@@ -10,7 +10,6 @@ from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import request_workers
 from mom6_tools.m6plot import yzcompare, yzplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import shiftgrid
@@ -79,29 +78,26 @@ def driver(args):
   thetao_obs = phc_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
   salt_obs = phc_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
 
-  parallel, cluster, client = request_workers(nw)
+  parallel = False
+  if nw > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(nw)
+    client = Client(cluster)
 
   print('Reading surface dataset...')
   startTime = datetime.now()
-  #variables = ['thetao', 'so', 'uo', 'time', 'time_bnds', 'e']
-
-  #def preprocess(ds):
-  #  ''' Compute yearly averages and return the dataset with variables'''
-  #  return ds[variables].resample(time="1Y", closed='left', \
-  #         keep_attrs=True).mean(dim='time', keep_attrs=True)
 
   # load data
   def preprocess(ds):
     variables = ['thetao', 'so', 'uo', 'time', 'time_bnds', 'e']
     return ds[variables]
 
-  if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', \
-         parallel=True, data_vars='minimal', \
-         coords='minimal', compat='override', preprocess=preprocess)
-  else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.monthly_*.nc', concat_dim=['time'],\
-         data_vars='minimal', coords='minimal', compat='override', preprocess=preprocess)
+  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel)
+  # use datetime
+  ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+
+  ds = preprocess(ds1)
 
   print('Time elasped: ', datetime.now() - startTime)
 
@@ -114,7 +110,6 @@ def driver(args):
   startTime = datetime.now()
   ds = ds.sel(time=slice(args.start_date, args.end_date)).sel(yh=slice(-10,10)).isel(z_i=slice(0,15)).isel(z_l=slice(0,14))
   print('Time elasped: ', datetime.now() - startTime)
-
 
   print('Yearly mean...')
   startTime = datetime.now()

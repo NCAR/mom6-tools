@@ -10,9 +10,10 @@ from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import request_workers, add_global_attrs
+from mom6_tools.m6toolbox import add_global_attrs
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
+from distributed import Client
 
 def parseCommandLine():
   """
@@ -64,27 +65,31 @@ def driver(args):
   # read grid info
   grd = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc')
 
-  parallel, cluster, client = request_workers(nw)
+  parallel = False
+  if nw > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(args.number_of_workers)
+    client = Client(cluster)
 
   print('Reading surface dataset...')
   startTime = datetime.now()
-  variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bnds']
+  #variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bnds']
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
+    variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bnds']
     for v in variables:
       if v not in ds.variables:
         ds[v] = xr.zeros_like(ds.SSH)
     return ds[variables].resample(time="1M", closed='left', \
            keep_attrs=True).mean(dim='time', keep_attrs=True)
 
-  if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.sfc_*.nc', \
-         chunks={'time': 365}, parallel=True, data_vars='minimal', \
-         coords='minimal', compat='override', preprocess=preprocess)
-  else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.sfc_*.nc', \
-         data_vars='minimal', coords='minimal', compat='override', preprocess=preprocess)
+  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
+  # use datetime
+  ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+
+  ds = preprocess(ds1)
 
   print('Time elasped: ', datetime.now() - startTime)
 
