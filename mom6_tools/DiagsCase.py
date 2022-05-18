@@ -90,7 +90,7 @@ class DiagsCase(object,):
             if caseroot and cimeroot:
                 sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
                 from CIME.case.case import Case
-                self._cime_case = Case(caseroot)
+                self._cime_case = Case(caseroot, non_local=True)
         return self._cime_case
 
     # deduce the case name:
