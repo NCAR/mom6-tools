@@ -11,7 +11,7 @@ from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import request_workers, add_global_attrs, genBasinMasks
+from mom6_tools.m6toolbox import add_global_attrs, genBasinMasks
 from mom6_tools.m6plot import xycompare, polarcomparison, chooseColorLevels
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.stats import stats_to_ds, min_da, max_da, mean_da, rms_da, std_da
@@ -43,6 +43,7 @@ def parseCommandLine():
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
 def driver(args):
+  debug = args.debug
   nw = args.number_of_workers
   if not os.path.isdir('PNG/TS_levels'):
     print('Creating a directory to place figures (PNG)... \n')
@@ -56,9 +57,14 @@ def driver(args):
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
-  RUNDIR = dcase.get_value('RUNDIR')
+  DOUT_S = dcase.get_value('DOUT_S')
+  if DOUT_S:
+    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+  else:
+    OUTDIR = dcase.get_value('RUNDIR')
+
   args.casename = dcase.casename
-  print('Run directory is:', RUNDIR)
+  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
@@ -68,8 +74,8 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  grd = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc');
-  grd_xr = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc', xrformat=True);
+  grd = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc');
+  grd_xr = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc', xrformat=True);
 
   # create masks
   depth = grd.depth_ocean
@@ -86,12 +92,19 @@ def driver(args):
   elif args.obs == 'WOA18':
     # load WOA18 data
     obs_path = '/glade/u/home/gmarques/Notebooks/CESM_MOM6/WOA18_remapping/'
-    obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False).rename({'theta0': 'TEMP'});
-    obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False).rename({'s_an': 'SALT'});
+    obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc',
+                              decode_times=False).rename({'theta0': 'TEMP', 'z_l' : 'depth'});
+    obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc',
+                              decode_times=False).rename({'s_an': 'SALT', 'z_l' : 'depth'});
   else:
     raise ValueError("The obs selected is not available.")
 
-  parallel, cluster, client = request_workers(nw)
+  parallel = False
+  if nw > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(nw)
+    client = Client(cluster)
 
   print('Reading surface dataset...')
   startTime = datetime.now()
@@ -102,13 +115,11 @@ def driver(args):
     return ds[variables]#.resample(time="1Y", closed='left', \
            #keep_attrs=True).mean(dim='time', keep_attrs=True)
 
-  if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', \
-         parallel=True, data_vars='minimal', \
-         coords='minimal', compat='override', preprocess=preprocess)
-  else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', \
-         data_vars='minimal', coords='minimal', compat='override', preprocess=preprocess)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel)
+  # use datetime
+  #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+
+  ds = preprocess(ds1)
 
   print('Time elasped: ', datetime.now() - startTime)
 
@@ -139,14 +150,18 @@ def driver(args):
   for k in range(len(area_mom3D.depth)):
       area_mom3D[k,:] = grd_xr.area_t.where(grd_xr.depth_ocean >= area_mom3D.depth[k])
 
+  print('Done computing area_mom3D...')
   # temp
-  thetao_mean = ds.thetao.mean('time')
+  thetao_mean = ds.thetao.mean('time').compute()
+  print('Done computing thetao_mean...')
   temp_diff = thetao_mean.rename({'z_l':'depth'}).rename('TEMP') - obs_temp['TEMP']
-  temp_stats = myStats_da(temp_diff, area_mom3D, basins=basin_code).rename('thetao_bias_stats')
+  print('Done computing thetao_diff...')
+  temp_stats = myStats_da(temp_diff, area_mom3D, basins=basin_code, debug=debug).rename('thetao_bias_stats')
+  print('Done computing temp_stats...')
   # salt
-  so_mean = ds.so.mean('time')
+  so_mean = ds.so.mean('time').compute()
   salt_diff = so_mean.rename({'z_l':'depth'}).rename('SALT') - obs_salt['SALT']
-  salt_stats = myStats_da(salt_diff, area_mom3D, basins=basin_code).rename('so_bias_stats')
+  salt_stats = myStats_da(salt_diff, area_mom3D, basins=basin_code, debug=debug).rename('so_bias_stats')
 
   # plots
   depth = temp_stats.depth.values
@@ -231,7 +246,7 @@ def driver(args):
   thetao = xr.DataArray(thetao_mean, dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('thetao')
   temp_bias = np.ma.masked_invalid(thetao.values - obs_temp['TEMP'].values)
-  ds_thetao = xr.Dataset(data_vars={ 'thetao' : (('z_l','yh','xh'), thetao),
+  ds_thetao = xr.Dataset(data_vars={ 'thetao' : (('z_l','yh','xh'), thetao.values),
                             'thetao_bias' :     (('z_l','yh','xh'), temp_bias)},
                             coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
   add_global_attrs(ds_thetao,attrs)
@@ -240,7 +255,7 @@ def driver(args):
   so = xr.DataArray(ds.so.mean('time'), dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('so')
   salt_bias = np.ma.masked_invalid(so.values - obs_salt['SALT'].values)
-  ds_so = xr.Dataset(data_vars={ 'so' : (('z_l','yh','xh'), so),
+  ds_so = xr.Dataset(data_vars={ 'so' : (('z_l','yh','xh'), so.values),
                             'so_bias' :     (('z_l','yh','xh'), salt_bias)},
                             coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
   add_global_attrs(ds_so,attrs)
@@ -306,6 +321,9 @@ def driver(args):
               extend='both', dextend='neither', clim=(31.5,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               proj='NP', save=figname+'arctic_salt.png')
+
+    print('{} was run successfully!'.format(os.path.basename(__file__)))
+
   return
 
 # misc functions

@@ -52,9 +52,14 @@ def main():
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
   args.case_name = dcase.casename
+  DOUT_S = dcase.get_value('DOUT_S')
+  if DOUT_S:
+    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+  else:
+    OUTDIR = dcase.get_value('RUNDIR')
+
   args.savefigs = True; args.outdir = 'PNG/MOC/'
-  RUNDIR = dcase.get_value('RUNDIR')
-  print('Run directory is:', RUNDIR)
+  print('Output directory is:', OUTDIR)
   print('Casename is:', dcase.casename)
   print('Number of workers to be used:', nw)
 
@@ -64,13 +69,18 @@ def main():
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  grd = MOM6grid(RUNDIR+'/'+dcase.casename+'.mom6.static.nc')
+  grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc')
   depth = grd.depth_ocean
   # remote Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
 
-  parallel, cluster, client = m6toolbox.request_workers(nw)
+  parallel = False
+  if nw > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(nw)
+    client = Client(cluster)
 
   print('Reading {} dataset...'.format(args.file_name))
   startTime = datetime.now()
@@ -82,17 +92,12 @@ def main():
         ds[v] = xr.zeros_like(ds.vo)
     return ds[variables]
 
-  if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+args.file_name,
-    parallel=True,
-    combine="nested", # concatenate in order of files
-    concat_dim="time", # concatenate along time
-    preprocess=preprocess,
-    ).chunk({"time": 12})
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+args.file_name, parallel=parallel)
 
-  else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+args.file_name, data_vars='minimal', \
-                           coords='minimal', compat='override', preprocess=preprocess)
+  # use datetime
+  #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+
+  ds = preprocess(ds1)
 
   print('Time elasped: ', datetime.now() - startTime)
 
@@ -136,10 +141,10 @@ def main():
   plotPsi(yyg, zg, psiPlot, ci, 'Global MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(case_name)
-  plt.gca().invert_yaxis()
   findExtrema(yyg, zg, psiPlot, max_lat=-30.)
   findExtrema(yyg, zg, psiPlot, min_lat=25., min_depth=250.)
   findExtrema(yyg, zg, psiPlot, min_depth=2000., mult=-1.)
+  plt.gca().invert_yaxis()
   objOut = args.outdir+str(case_name)+'_MOC_global.png'
   plt.savefig(objOut)
 
@@ -175,11 +180,11 @@ def main():
   plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ args.start_date + ' and '+ args.end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(case_name)
-  plt.gca().invert_yaxis()
   findExtrema(yy, z, psiPlot, min_lat=26.5, max_lat=27., min_depth=250.) # RAPID
   findExtrema(yy, z, psiPlot, max_lat=-33.)
   findExtrema(yy, z, psiPlot)
   findExtrema(yy, z, psiPlot, min_lat=5.)
+  plt.gca().invert_yaxis()
   objOut = args.outdir+str(case_name)+'_MOC_Atlantic.png'
   plt.savefig(objOut,format='png')
   moc['amoc'].data = psiPlot
@@ -335,6 +340,9 @@ def main():
 
   print('Saving netCDF files...')
   moc.to_netcdf('ncfiles/'+str(case_name)+'_MOC.nc')
+
+  print('{} was run successfully!'.format(os.path.basename(__file__)))
+
   return
 
 def MOCpsi(vh, vmsk=None):

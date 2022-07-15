@@ -10,9 +10,10 @@ from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import request_workers
+from mom6_tools.m6toolbox import add_global_attrs
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
+from distributed import Client
 
 def parseCommandLine():
   """
@@ -50,9 +51,14 @@ def driver(args):
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
-  RUNDIR = dcase.get_value('RUNDIR')
+  DOUT_S = dcase.get_value('DOUT_S')
+  if DOUT_S:
+    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+  else:
+    OUTDIR = dcase.get_value('RUNDIR')
+
   args.casename = dcase.casename
-  print('Run directory is:', RUNDIR)
+  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
@@ -62,29 +68,33 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  grd = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc')
+  grd = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc')
 
-  parallel, cluster, client = request_workers(nw)
+  parallel = False
+  if nw > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(args.number_of_workers)
+    client = Client(cluster)
 
   print('Reading surface dataset...')
   startTime = datetime.now()
-  variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bnds']
+  #variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bnds']
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
+    variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bnds']
     for v in variables:
       if v not in ds.variables:
         ds[v] = xr.zeros_like(ds.SSH)
     return ds[variables].resample(time="1M", closed='left', \
            keep_attrs=True).mean(dim='time', keep_attrs=True)
 
-  if parallel:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.sfc_*.nc', \
-         chunks={'time': 365}, parallel=True, data_vars='minimal', \
-         coords='minimal', compat='override', preprocess=preprocess)
-  else:
-    ds = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.sfc_*.nc', \
-         data_vars='minimal', coords='minimal', compat='override', preprocess=preprocess)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
+  # use datetime
+  #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+
+  ds = preprocess(ds1)
 
   print('Time elasped: ', datetime.now() - startTime)
 
@@ -96,12 +106,17 @@ def driver(args):
   # MLD
   get_MLD(ds, 'mlotst', grd, args)
 
+  # BLD
+  get_BLD(ds, 'oml', grd, args)
+
   # SSH
   get_SSH(ds, 'SSH', grd, args)
 
   if parallel:
     print('\n Releasing workers...')
     client.close(); cluster.close()
+
+  print('{} was run successfully!'.format(os.path.basename(__file__)))
 
   return
 
@@ -152,11 +167,18 @@ def get_SSH(ds, var, grd, args):
   model_rms_sla_da = xr.DataArray(model, dims=['yh','xh'],
                            coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('rms_sla')
 
+  attrs = {'start_date': args.start_date,
+           'end_date': args.end_date,
+           'casename': args.casename,
+           'description': 'RMS of SSH anomaly (AVISO, 1993-2018)',
+           'obs': 'AVISO',
+           'module': os.path.basename(__file__)}
+  add_global_attrs(model_rms_sla_da,attrs)
   model_rms_sla_da.to_netcdf('ncfiles/'+str(args.casename)+'_RMS_SLA.nc')
 
   model_mean_sl_da = xr.DataArray(mean_sl_model.values, dims=['yh','xh'],
                            coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('mean_sl')
-
+  attrs['description'] = 'Mean sea level climatology'
   model_mean_sl_da.to_netcdf('ncfiles/'+str(args.casename)+'_mean_sea_level.nc')
 
   return
@@ -238,6 +260,12 @@ def get_MLD(ds, var, grd, args):
                            coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('MLD_winter')
 
   month = 'winter'
+  attrs = {'start_date': args.start_date,
+           'end_date': args.end_date,
+           'casename': args.casename,
+           'description': 'Winter MLD (m)',
+           'module': os.path.basename(__file__)}
+  add_global_attrs(model_winter_da,attrs)
   model_winter_da.to_netcdf('ncfiles/'+str(args.casename)+'_MLD_'+month+'.nc')
   xycompare(model_winter , obs_winter, grd.geolon, grd.geolat, area=grd.area_t,
             title1 = 'model, JFM (NH), JAS (SH)',
@@ -260,6 +288,8 @@ def get_MLD(ds, var, grd, args):
                            coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('MLD_summer')
 
   month = 'summer'
+  attrs['description'] = 'Summer MLD (m)'
+  add_global_attrs(model_summer_da,attrs)
   model_summer_da.to_netcdf('ncfiles/'+str(args.casename)+'_MLD_'+month+'.nc')
   xycompare(model_summer , obs_summer, grd.geolon, grd.geolat, area=grd.area_t,
             title1 = 'model, JFM (SH), JAS (NH)',
@@ -275,6 +305,88 @@ def get_MLD(ds, var, grd, args):
               ' JFM (SH), JAS (NH)')
   return
 
+def get_BLD(ds, var, grd, args):
+  '''
+  Compute and save a surface BLD climatology.
+  TODO: compare against obs
+  '''
+  if not os.path.isdir('PNG/BLD'):
+    print('Creating a directory to place figures (PNG/BLD)... \n')
+    os.system('mkdir -p PNG/BLD')
+
+  print('Computing monthly BLD climatology...')
+  startTime = datetime.now()
+  mld_model = ds[var].groupby("time.month").mean('time').compute()
+  print('Time elasped: ', datetime.now() - startTime)
+
+  # fix month values using pandas. We just want something that xarray understands
+  mld_model['month'] = pd.date_range('2000-01-15', '2001-01-01',  freq='2SMS')
+
+  # read obs
+  #filepath = '/glade/work/gmarques/cesm/datasets/Mimoc/MIMOC_ML_v2.2_PT_S_MLP_remapped_to_tx06v1.nc'
+  #filepath = '/glade/work/gmarques/cesm/datasets/MLD/ARGO_MLD_remapped_to_tx06v1.nc'
+  print('\n Plotting...')
+  # March and Sep, noticed starting from 0
+  months = [2,8]
+  for t in months:
+    model = np.ma.masked_invalid(mld_model[t,:].values)
+    month = date(1900, t+1, 1).strftime('%B')
+    xyplot(model, grd.geolon, grd.geolat, area=grd.area_t,
+           save='PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png',
+           suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
+           title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
+
+  # JFM, starting from 0
+  months = [0,1,2]
+  model_JFM = np.ma.masked_invalid(mld_model.isel(month=months).mean('month').values)
+  month = 'JFM'
+  # JAS, starting from 0
+  months = [6,7,8]
+  model_JAS = np.ma.masked_invalid(mld_model.isel(month=months).mean('month').values)
+  month = 'JAS'
+
+  # Winter, JFM (NH) and JAS (SH)
+  model_winter = model_JAS.copy()
+  # find point closest to eq. and select data
+  j = np.abs( grd.geolat[:,0] - 0. ).argmin()
+  model_winter[j::,:] = model_JFM[j::,:]
+  # create dataarays
+  model_winter_da = xr.DataArray(model_winter, dims=['yh','xh'],
+                           coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('BLD_winter')
+
+  month = 'winter'
+  attrs = {'start_date': args.start_date,
+           'end_date': args.end_date,
+           'casename': args.casename,
+           'description': 'Winter MLD (m)',
+           'module': os.path.basename(__file__)}
+  add_global_attrs(model_winter_da,attrs)
+  model_winter_da.to_netcdf('ncfiles/'+str(args.casename)+'_BLD_'+month+'.nc')
+
+  xyplot(model_winter, grd.geolon, grd.geolat, area=grd.area_t,
+         save='PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png',
+         suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
+         title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
+              ' JFM (NH), JAS (SH)')
+
+  # Summer, JFM (SH) and JAS (NH)
+  model_summer = model_JAS.copy()
+  model_summer[0:j,:] = model_JFM[0:j,:]
+  # create dataarays
+  model_summer_da = xr.DataArray(model_summer, dims=['yh','xh'],
+                           coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('BLD_summer')
+
+  month = 'summer'
+  attrs['description'] = 'Summer BLD (m)'
+  add_global_attrs(model_summer_da,attrs)
+  model_summer_da.to_netcdf('ncfiles/'+str(args.casename)+'_BLD_'+month+'.nc')
+
+  xyplot(model_summer, grd.geolon, grd.geolat, area=grd.area_t,
+         save='PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png',
+         suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,150),
+         title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
+              ' JFM (SH), JAS (NH)')
+  return
 # Invoke parseCommandLine(), the top-level prodedure
 if __name__ == '__main__': parseCommandLine()
 

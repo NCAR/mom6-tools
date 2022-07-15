@@ -182,7 +182,7 @@ if __name__ == '__main__':
     plt.plot(s, z, '.-', lw=2)
     plt.axhline(-1000.)
     plt.gca().set_yscale('splitscale', zval=[0.,-1000.,-9000.])
-
+    plt.gca().invert_yaxis()
     plt.xlabel('Depth')
     plt.ylabel('Z')
     plt.grid(True)
