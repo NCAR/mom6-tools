@@ -55,7 +55,7 @@ class Transport():
       inFileName = '{}.mom6.{}_*.nc.{}'.format(args.infile+args.case_name, section, str(tiles[t]))
       if debug: print('inFileName {}, variable {}'.format(inFileName,var))
       rootGroup = xr.open_mfdataset(inFileName, combine='by_coords')
-      rootGroup['time'] = rootGroup.indexes['time'].to_datetimeindex()
+      #rootGroup['time'] = rootGroup.indexes['time'].to_datetimeindex()
       if debug: print(rootGroup)
       # select time range requested
       rootGroup = rootGroup.sel(time=slice(args.start_date, args.end_date))
@@ -130,10 +130,16 @@ def main(stream=False):
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
   cmdLineArgs.case_name = dcase.casename
-  cmdLineArgs.infile = dcase.get_value('RUNDIR')
+  DOUT_S = dcase.get_value('DOUT_S')
+  if DOUT_S:
+    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+  else:
+    OUTDIR = dcase.get_value('RUNDIR')
+
+  cmdLineArgs.infile = OUTDIR
   if cmdLineArgs.infile[-1] != '/': cmdLineArgs.infile = cmdLineArgs.infile+'/'
   if cmdLineArgs.debug:
-    print('Run directory is:', cmdLineArgs.infile)
+    print('Output directory is:', cmdLineArgs.infile)
     print('Casename is:', cmdLineArgs.case_name)
 
 
@@ -246,6 +252,9 @@ def main(stream=False):
       os.system('mkdir -p '+cmdLineArgs.outdir)
     objOut = cmdLineArgs.outdir+'/'+cmdLineArgs.case_name+'_section_transports.png'
   plt.savefig(objOut)
+
+  print('{} was run successfully!'.format(os.path.basename(__file__)))
+
   if stream is True: imgbufs.append(objOut)
 
   if stream is True:

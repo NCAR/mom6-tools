@@ -51,9 +51,14 @@ def driver(args):
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
-  RUNDIR = dcase.get_value('RUNDIR')
+  DOUT_S = dcase.get_value('DOUT_S')
+  if DOUT_S:
+    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+  else:
+    OUTDIR = dcase.get_value('RUNDIR')
+
   args.casename = dcase.casename
-  print('Run directory is:', RUNDIR)
+  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
@@ -63,7 +68,7 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  grd = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc')
+  grd = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc')
 
   parallel = False
   if nw > 1:
@@ -85,9 +90,9 @@ def driver(args):
     return ds[variables].resample(time="1M", closed='left', \
            keep_attrs=True).mean(dim='time', keep_attrs=True)
 
-  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
   # use datetime
-  ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+  #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
 
   ds = preprocess(ds1)
 
@@ -110,6 +115,8 @@ def driver(args):
   if parallel:
     print('\n Releasing workers...')
     client.close(); cluster.close()
+
+  print('{} was run successfully!'.format(os.path.basename(__file__)))
 
   return
 

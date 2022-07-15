@@ -12,7 +12,7 @@ from dask.distributed import Client
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6plot import yzcompare, yzplot
 from mom6_tools.MOM6grid import MOM6grid
-from mom6_tools.m6toolbox import shiftgrid
+from mom6_tools.m6toolbox import shiftgrid, add_global_attrs
 
 def parseCommandLine():
   """
@@ -32,6 +32,8 @@ def parseCommandLine():
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
+  parser.add_argument('-o','--obs', type=str, default='WOA18', help='''Observational product to compare agaist.  \
+    Valid options are: WOA18 (default) or PHC2''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   optCmdLineArgs = parser.parse_args()
   driver(optCmdLineArgs)
@@ -52,9 +54,14 @@ def driver(args):
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
-  RUNDIR = dcase.get_value('RUNDIR')
+  DOUT_S = dcase.get_value('DOUT_S')
+  if DOUT_S:
+    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+  else:
+    OUTDIR = dcase.get_value('RUNDIR')
+
   args.casename = dcase.casename
-  print('Run directory is:', RUNDIR)
+  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
@@ -64,19 +71,33 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  grd = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc', xrformat=True)
+  grd = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc', xrformat=True)
   # select Equatorial region
   grd_eq = grd.sel(yh=slice(-10,10))
 
   # load obs
-  phc_path = '/glade/p/cesm/omwg/obs_data/phc/'
-  phc_temp = xr.open_mfdataset(phc_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_coords=False, decode_times=False)
-  phc_salt = xr.open_mfdataset(phc_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_coords=False, decode_times=False)
-  johnson = xr.open_dataset('/glade/p/cesm/omwg/obs_data/johnson_pmel/meanfit_m.nc')
+  if args.obs == 'PHC2':
+    # load PHC2 data
+    obs_path = '/glade/p/cesm/omwg/obs_data/phc/'
+    obs_temp = xr.open_dataset(obs_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    obs_salt = xr.open_dataset(obs_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    # get theta and salt and rename coordinates to be the same as the model's
+    thetao_obs = obs_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+    salt_obs = obs_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+  elif args.obs == 'WOA18':
+    # load WOA18 data
+    obs_path = '/glade/u/home/gmarques/Notebooks/CESM_MOM6/WOA18_remapping/'
+    obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+    # get theta and salt and rename coordinates to be the same as the model's
+    #thetao_obs = obs_temp.theta0.rename({'zl': 'z_l'});
+    #salt_obs = obs_salt.s_an.rename({'zl': 'z_l'});
 
-  # get T and S and rename variables
-  thetao_obs = phc_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
-  salt_obs = phc_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+  else:
+    raise ValueError("The obs selected is not available.")
+
+
+  johnson = xr.open_dataset('/glade/p/cesm/omwg/obs_data/johnson_pmel/meanfit_m.nc')
 
   parallel = False
   if nw > 1:
@@ -93,9 +114,9 @@ def driver(args):
     variables = ['thetao', 'so', 'uo', 'time', 'time_bnds', 'e']
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel)
   # use datetime
-  ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+  #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
 
   ds = preprocess(ds1)
 
@@ -162,10 +183,14 @@ def driver(args):
   temp_eq_da = xr.DataArray(temp_eq, dims=['zl','xh'],
                            coords={'zl' : z[:,0], 'xh' : x[:]}).rename('temp_eq')
 
+  attrs = {'casename': args.casename,
+           'module': os.path.basename(__file__)}
+  add_global_attrs(temp_eq_da,attrs)
   temp_eq_da.to_netcdf('ncfiles/'+str(args.casename)+'_temp_eq.nc')
+
   salt_eq_da = xr.DataArray(salt_eq, dims=['zl','xh'],
                            coords={'zl' : z[:,0], 'xh' : x[:]}).rename('salt_eq')
-
+  add_global_attrs(salt_eq_da,attrs)
   salt_eq_da.to_netcdf('ncfiles/'+str(args.casename)+'_salt_eq.nc')
 
   # Shift model data to compare against obs
@@ -255,6 +280,9 @@ def driver(args):
   plt.savefig(figname+'Equatorial_Pacific_uo.png')
 
   plt.close('all')
+
+  print('{} was run successfully!'.format(os.path.basename(__file__)))
+
   return
 
 # Invoke parseCommandLine(), the top-level prodedure
