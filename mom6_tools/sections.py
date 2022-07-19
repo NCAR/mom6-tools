@@ -151,8 +151,7 @@ def cfconcat(dsets, axis, **kwargs):
         arrays = [ds[var] for ds in dsets if var in ds]
         # print(f"{dim}: {xr.concat([array[dim] for array in arrays], dim=dim).data}")
 
-        # At this point we really only want `axis` index values to be different.
-        # So set join="exact"
+        # I don't like this join="outer"
         combined[var] = xr.concat(arrays, dim=dim, join="outer", **kwargs)
 
     return combined
