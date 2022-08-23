@@ -16,3 +16,4 @@ Examples
     examples/poleward_heat_transport.ipynb
     examples/section_transports.ipynb
     examples/seaice.ipynb
+    examples/combining-sections.ipynb
