@@ -90,8 +90,8 @@ def driver(args):
     obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
     obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
     # get theta and salt and rename coordinates to be the same as the model's
-    #thetao_obs = obs_temp.theta0.rename({'zl': 'z_l'});
-    #salt_obs = obs_salt.s_an.rename({'zl': 'z_l'});
+    thetao_obs = obs_temp.theta0 #.rename({'zl': 'z_l'});
+    salt_obs = obs_salt.s_an     #.rename({'zl': 'z_l'});
 
   else:
     raise ValueError("The obs selected is not available.")
