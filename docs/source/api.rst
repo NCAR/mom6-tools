@@ -13,6 +13,13 @@ Transports across vertical sections
 .. autosummary::
    section_transports
 
+
+Sections
+~~~~~~~~
+
+.. autosummary::
+   sections
+
 Meridional overturning
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
