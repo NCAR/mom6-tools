@@ -17,3 +17,5 @@ Examples
     examples/section_transports.ipynb
     examples/seaice.ipynb
     examples/combining-tiles.ipynb
+    examples/EquatorialOceanMetrics.ipynb
+    examples/close_tracer_budgets.ipynb
