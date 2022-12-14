@@ -78,7 +78,10 @@ def driver(args):
   grd_xr = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc', xrformat=True);
 
   # create masks
-  depth = grd.depth_ocean
+  try:
+    depth = grd.depth_ocean
+  except:
+    depth = grd.deptho
   # remote Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
   basin_code = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
@@ -142,13 +145,25 @@ def driver(args):
   print('Computing stats for different basins...')
   startTime = datetime.now()
   # construct a 3D area with land values masked
-  area = np.ma.masked_where(grd.wet == 0,grd.area_t)
+  try:
+    area = np.ma.masked_where(grd.wet == 0,grd.area_t)
+    area_xr = grd_xr.area_t
+  except:
+    area = np.ma.masked_where(grd.wet == 0,grd.areacello)
+    area_xr = grd_xr.areacello
+
+  try:
+    depth = grd_xr.depth_ocean
+  except:
+    depth = grd_xr.deptho
+
   tmp = np.repeat(area[np.newaxis, :, :], len(obs_temp.depth), axis=0)
   area_mom3D = xr.DataArray(tmp, dims=('depth', 'yh','xh'),
                           coords={'depth':obs_temp.depth.values, 'yh': grd.yh,
                                   'xh':grd.xh})
+
   for k in range(len(area_mom3D.depth)):
-      area_mom3D[k,:] = grd_xr.area_t.where(grd_xr.depth_ocean >= area_mom3D.depth[k])
+      area_mom3D[k,:] = area_xr.where(depth >= area_mom3D.depth[k])
 
   print('Done computing area_mom3D...')
   # temp
@@ -267,62 +282,67 @@ def driver(args):
     client.close(); cluster.close()
 
   print('Global plots...')
+  try:
+    area = grd_xr.area_t.where(grd_xr.wet > 0).values
+  except:
+    area = grd_xr.areacello.where(grd_xr.wet > 0).values
+
   km = len(obs_temp['depth'])
   for k in range(km):
     if ds['z_l'][k].values < 1200.0:
       figname = 'PNG/TS_levels/'+str(dcase.casename)+'_'+str(ds['z_l'][k].values)+'_'
       temp_obs = np.ma.masked_invalid(obs_temp['TEMP'][k,:].values)
-      xycompare(temp[k,:] , temp_obs, grd.geolon, grd.geolat, area=grd.area_t,
+      xycompare(temp[k,:] , temp_obs, grd.geolon, grd.geolat, area=area,
               title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
               title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
               suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               extend='both', dextend='neither', clim=(-1.9,30.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               save=figname+'global_temp.png')
       salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
-      xycompare( salt[k,:] , salt_obs, grd.geolon, grd.geolat, area=grd.area_t,
+      xycompare( salt[k,:] , salt_obs, grd.geolon, grd.geolat, area=area,
               title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
               title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
               suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               extend='both', dextend='neither', clim=(30.,39.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               save=figname+'global_salt.png')
 
-  print('Antarctic plots...')
-  for k in range(km):
-    if (ds['z_l'][k].values < 1200.):
-      temp_obs = np.ma.masked_invalid(obs_temp['TEMP'][k,:].values)
-      polarcomparison(temp[k,:] , temp_obs, grd,
-              title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
-              title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
-              extend='both', dextend='neither', clim=(-1.9,10.5), dlim=(-2,2), dcolormap=plt.cm.bwr,
-              suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
-              proj='SP', save=figname+'antarctic_temp.png')
-      salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
-      polarcomparison( salt[k,:] , salt_obs, grd,
-              title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
-              title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
-              extend='both', dextend='neither', clim=(33.,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
-              suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
-              proj='SP', save=figname+'antarctic_salt.png')
+  #print('Antarctic plots...')
+  #for k in range(km):
+  #  if (ds['z_l'][k].values < 1200.):
+  #    temp_obs = np.ma.masked_invalid(obs_temp['TEMP'][k,:].values)
+  #    polarcomparison(temp[k,:] , temp_obs, grd,
+  #            title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
+  #            title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
+  #            extend='both', dextend='neither', clim=(-1.9,10.5), dlim=(-2,2), dcolormap=plt.cm.bwr,
+  #            suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            proj='SP', save=figname+'antarctic_temp.png')
+  #    salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
+  #    polarcomparison( salt[k,:] , salt_obs, grd,
+  #            title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
+  #            title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
+  #            extend='both', dextend='neither', clim=(33.,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
+  #            suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            proj='SP', save=figname+'antarctic_salt.png')
 
-  print('Arctic plots...')
-  for k in range(km):
-    if (ds['z_l'][k].values < 100.):
-      temp_obs = np.ma.masked_invalid(obs_temp['TEMP'][k,:].values)
-      polarcomparison(temp[k,:] , temp_obs, grd,
-              title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
-              title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
-              extend='both', dextend='neither', clim=(-1.9,11.5), dlim=(-2,2), dcolormap=plt.cm.bwr,
-              suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
-              proj='NP', save=figname+'arctic_temp.png')
-      salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
-      polarcomparison( salt[k,:] , salt_obs, grd,
-              title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
-              title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
-              extend='both', dextend='neither', clim=(31.5,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
-              suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
-              proj='NP', save=figname+'arctic_salt.png')
+  #print('Arctic plots...')
+  #for k in range(km):
+  #  if (ds['z_l'][k].values < 100.):
+  #    temp_obs = np.ma.masked_invalid(obs_temp['TEMP'][k,:].values)
+  #    polarcomparison(temp[k,:] , temp_obs, grd,
+  #            title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
+  #            title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
+  #            extend='both', dextend='neither', clim=(-1.9,11.5), dlim=(-2,2), dcolormap=plt.cm.bwr,
+  #            suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            proj='NP', save=figname+'arctic_temp.png')
+  #    salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
+  #    polarcomparison( salt[k,:] , salt_obs, grd,
+  #            title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
+  #            title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
+  #            extend='both', dextend='neither', clim=(31.5,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
+  #            suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            proj='NP', save=figname+'arctic_salt.png')
 
-    print('{} was run successfully!'.format(os.path.basename(__file__)))
+  print('{} was run successfully!'.format(os.path.basename(__file__)))
 
   return
 

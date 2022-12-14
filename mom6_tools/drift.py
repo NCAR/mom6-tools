@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Functions used to calculate statistics.
+Functions used to calculate the drift of scalars within defined regions and globally.
 """
 
 import xarray as xr
@@ -22,14 +22,18 @@ try: import argparse
 except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
 
 def options():
-  parser = argparse.ArgumentParser(description='''Compute horizontal mean difference and RMS: model versus \
+  parser = argparse.ArgumentParser(description='''Compute horizontal drift and/or RMS: model versus \
                       observations.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
-    describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
-                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
-                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+    with metadata for the experiment to be processed.''')
+  parser.add_argument('var', type=str, help='''Name of variable to be processed.  \
+    Currently, only thetao or so are supported.''')
+  parser.add_argument('--drift', action='store_false',
+                      help='''Compute drift. Default is False''')
+  parser.add_argument('--rms', action='store_false',
+                      help='''Compute rms. Default is False''')
+  parser.add_argument('--savefig', action='store_true',
+                      help='''Save figures (PNG). Default is False''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
   parser.add_argument('-o','--obs', type=str, default='WOA18', help='''Observational product to compare agaist.  \
@@ -548,8 +552,6 @@ def main(stream=False):
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
   # set avg dates
   avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
@@ -563,9 +565,9 @@ def main(stream=False):
   print('Casename is:', dcase.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  if not os.path.isdir('PNG/Horizontal_mean_biases'):
+  if not os.path.isdir('PNG/Drift'):
     print('Creating a directory to place figures (PNG)... \n')
-    os.system('mkdir -p PNG/Horizontal_mean_biases')
+    os.system('mkdir -p PNG/Drift')
   if not os.path.isdir('ncfiles'):
     print('Creating a directory to place netCDF files (ncfiles)... \n')
     os.system('mkdir ncfiles')
@@ -574,9 +576,9 @@ def main(stream=False):
   grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc', xrformat=True)
   #grd = MOM6grid('ocean.mom6.static.nc', xrformat=True)
   try:
-    area = grd.area_t.where(grd.wet > 0)
+    area = np.ma.masked_where(grd.wet == 0,grd.area_t)
   except:
-    area = grd.areacello.where(grd.wet > 0)
+    area = np.ma.masked_where(grd.wet == 0,grd.areacello)
 
   try:
     depth = grd.depth_ocean.values
@@ -629,6 +631,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
 
   '''
 
+  var = args.var
   try:
     area = grd.area_t.where(grd.wet > 0)
   except:
@@ -657,78 +660,74 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
   ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel)
   ds = preprocess(ds1)
 
-  # use datetime
-  #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+  if (var not in ds):
+    raise ValueError("The variable requested is not available in the history files of this simulation. \
+                     Only thetao and so are available at this time.")
+
+  units = ds[var].units
 
   if args.debug:
     print(ds)
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  #print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
-  #ds = ds.sel(time=slice(args.start_date, args.end_date))
-
   # Compute climatologies
-  thetao_model = ds.thetao.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
-                                    keep_attrs=True)
-
-  salt_model = ds.so.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
-                               keep_attrs=True)
+  model = ds[var].resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
+                           keep_attrs=True)
 
   # TODO: improve how obs are selected
   if args.obs == 'PHC2':
     # load PHC2 data
     obs_path = '/glade/p/cesm/omwg/obs_data/phc/'
-    obs_temp = xr.open_dataset(obs_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-    obs_salt = xr.open_dataset(obs_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-    # get theta and salt and rename coordinates to be the same as the model's
-    thetao_obs = obs_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
-    salt_obs = obs_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+    if (var == 'thetao'):
+      obs_temp = xr.open_dataset(obs_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+      # rename coordinates to be the same as the model's
+      obs = obs_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
+    else:
+      obs_salt = xr.open_dataset(obs_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+      # rename coordinates to be the same as the model's
+      obs = obs_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
   elif args.obs == 'WOA18':
     # load WOA18 data
     obs_path = '/glade/u/home/gmarques/Notebooks/CESM_MOM6/WOA18_remapping/'
-    obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-    obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-    # get theta and salt and rename coordinates to be the same as the model's
-    thetao_obs = obs_temp.theta0#.rename({'depth': 'z_l'});
-    salt_obs = obs_salt.s_an#.rename({'depth': 'z_l'});
+    if (var == 'thetao'):
+      obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+      obs = obs_temp.theta0
+    else:
+      obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
+      obs = obs_salt.s_an
 
   else:
     raise ValueError("The obs selected is not available.")
 
   # set coordinates to the same as the model's
-  thetao_obs['xh'] = thetao_model.xh; thetao_obs['yh'] = thetao_model.yh;
-  salt_obs['xh'] = salt_model.xh; salt_obs['yh'] = salt_model.yh;
+  obs['xh'] = model.xh; obs['yh'] = model.yh;
 
   # compute difference
-  temp_diff = thetao_model - thetao_obs
-  salt_diff = salt_model - salt_obs
+  diff = model - obs
 
   # construct a 3D area with land values masked
-  area3d = np.repeat(area.values[np.newaxis, :, :], len(temp_diff.z_l), axis=0)
-  mask3d = xr.DataArray(area3d, dims=(temp_diff.dims[1:4]), coords= {temp_diff.dims[1]: temp_diff.z_l,
-                                                                   temp_diff.dims[2]: temp_diff.yh,
-                                                                   temp_diff.dims[3]: temp_diff.xh})
-  area3d_masked = mask3d.where(temp_diff[0,:] == temp_diff[0,:])
+  area3d = np.repeat(area.values[np.newaxis, :, :], len(diff.z_l), axis=0)
+  mask3d = xr.DataArray(area3d, dims=(diff.dims[1::]), coords= {diff.dims[1]: diff.z_l,
+                                                                diff.dims[2]: diff.yh,
+                                                                diff.dims[3]: diff.xh})
+  area3d_masked = mask3d.where(diff[0,:] == diff[0,:])
 
-  # Horizontal Mean difference (model - obs)
-  print('\n Computing Horizontal Mean difference for temperature...')
-  startTime = datetime.now()
-  temp_bias = HorizontalMeanDiff_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('temp_bias')
-  print('Time elasped: ', datetime.now() - startTime)
-  print('\n Computing Horizontal Mean difference for salt...')
-  startTime = datetime.now()
-  salt_bias = HorizontalMeanDiff_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('salt_bias')
-  print('Time elasped: ', datetime.now() - startTime)
+  if args.drift:
+    # Horizontal Mean difference (model - obs)
+    print('\n Computing Horizontal Mean difference for {}...'.format(var))
+    startTime = datetime.now()
+    vname = '{}_drift'.format(var)
+    drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+    print('Time elasped: ', datetime.now() - startTime)
 
-  # Horizontal Mean rms (model - obs)
-  print('\n Computing Horizontal Mean rms for temperature...')
-  startTime = datetime.now()
-  temp_rms = HorizontalMeanRmse_da(temp_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('temp_rms')
-  print('Time elasped: ', datetime.now() - startTime)
-  print('\n Computing Horizontal Mean rms for salt...')
-  salt_rms = HorizontalMeanRmse_da(salt_diff,weights=area3d_masked, basins=basins, debug=args.debug).rename('salt_rms')
-  print('Time elasped: ', datetime.now() - startTime)
+  if args.rms:
+    # Horizontal Mean rms (model - obs)
+    print('\n Computing Horizontal Mean rms for temperature...')
+    startTime = datetime.now()
+    vname = '{}_rms'.format(var)
+    rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+    print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
     print('Releasing workers...')
@@ -738,65 +737,61 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
   attrs = {'casename': dcase.casename,
            'obs': args.obs,
            'module': os.path.basename(__file__)}
-  add_global_attrs(temp_bias,attrs)
-  temp_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_bias.nc')
-  add_global_attrs(salt_bias,attrs)
-  salt_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_bias.nc')
-  add_global_attrs(temp_rms,attrs)
-  temp_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_rms.nc')
-  add_global_attrs(salt_rms,attrs)
-  salt_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_rms.nc')
+  if args.drift:
+    add_global_attrs(drift,attrs)
+    drift.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_drift.nc'.format(var))
 
-  # temperature
-  for reg in temp_bias.region:
-    print('Generating temperature plots for:', str(reg.values))
-    # remove Nan's
-    temp_diff_reg = temp_bias.sel(region=reg).dropna('z_l')
-    temp_rms_reg = temp_rms.sel(region=reg).dropna('z_l')
-    if temp_diff_reg.z_l.max() <= 1000.0:
-      splitscale = None
-    else:
-      splitscale =  [0., -1000., -temp_diff_reg.z_l.max()]
+  if args.rms:
+    add_global_attrs(rms,attrs)
+    rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_rms.nc'.format(var))
 
-    savefig_diff='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_diff.png'
-    savefig_rms='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_rms.png'
+  if args.savefig:
+    # save plots
+    if args.drift:
+      if var == 'thetao':
+        clim_diff = (-3,3)
+      else:
+        clim_diff = (-1.5,1.5)
 
-    ztplot(temp_diff_reg.values, temp_diff_reg.time.values, temp_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
-           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], diff (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=False, clim=(-3,3),
-           save=savefig_diff, interactive=True);
+      print('Generating plots for {} drift...', str(var))
+      for reg in drift.region:
+        drift_reg = drift.sel(region=reg).dropna('z_l')
+        if drift_reg.z_l.max() <= 1000.0:
+          splitscale = None
+        else:
+          splitscale =  [0., -1000., -drift_reg.z_l.max()]
 
-    ztplot(temp_rms_reg.values, temp_rms_reg.time.values, temp_rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
-           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], rms (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=False, clim=(0,6),
-           save=savefig_rms, interactive=True);
+        savefig_diff='PNG/Drift/'+str(dcase.casename)+'_'+str(reg.values)+'_{}_drift.png'.format(var)
+        vname = ', {} [{}], diff (model - obs)'.format(var,units)
+        ztplot(drift_reg.values, drift_reg.time.values, drift_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
+               suptitle=dcase._casename, contour=True, title= str(reg.values) + vname,
+               extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=False, clim=clim_diff,
+               save=savefig_diff, interactive=True);
+        plt.close('all')
 
-    plt.close('all')
-  # salinity
-  for reg in salt_bias.region:
-    print('Generating salinity plots for ', str(reg.values))
-    # remove Nan's
-    salt_diff_reg = salt_bias.sel(region=reg).dropna('z_l')
-    salt_rms_reg = salt_rms.sel(region=reg).dropna('z_l')
-    if salt_diff_reg.z_l.max() <= 1000.0:
-      splitscale = None
-    else:
-      splitscale =  [0., -1000., -salt_diff_reg.z_l.max()]
+    if args.rms:
+      if var == 'thetao':
+        clim_rms = (0,6)
+      else:
+        clim_rms = (0,3)
 
-    savefig_diff='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_diff.png'
-    savefig_rms='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_rms.png'
+      print('Generating plots for {} rms...', str(var))
+      for reg in rms.region:
+        rms_reg  = rms.sel(region=reg).dropna('z_l')
+        if rms_reg.z_l.max() <= 1000.0:
+          splitscale = None
+        else:
+          splitscale =  [0., -1000., -rms_reg.z_l.max()]
 
-    ztplot(salt_diff_reg.values, salt_diff_reg.time.values, salt_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
-           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], diff (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=False, clim=(-1.5, 1.5),
-           save=savefig_diff, interactive=True);
+        savefig_rms='PNG/Drift/'+str(dcase.casename)+'_'+str(reg.values)+'_{}_rms.png'.format(var)
+        vname = ', {} [{}], rms (model - obs)'.format(var,units)
 
-    ztplot(salt_rms_reg.values, salt_rms_reg.time.values, salt_rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
-           suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], rms (model - obs)',
-           extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=False, clim=(0,3),
-           save=savefig_rms, interactive=True);
+        ztplot(rms_reg.values, rms_reg.time.values, rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
+               suptitle=dcase._casename, contour=True, title= str(reg.values) + vname,
+               extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=False, clim=clim_rms,
+               save=savefig_rms, interactive=True);
 
-    plt.close('all')
+        plt.close('all')
   return
 
 if __name__ == '__main__':

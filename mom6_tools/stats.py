@@ -407,11 +407,18 @@ def main(stream=False):
   # read grid
   grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc', xrformat=True)
   #grd = MOM6grid('ocean.mom6.static.nc', xrformat=True)
-  area = grd.area_t.where(grd.wet > 0)
+  try:
+    area = grd.area_t.where(grd.wet > 0)
+  except:
+    area = grd.areacello.where(grd.wet > 0)
 
-  # Get masking for different regions
-  depth = grd.depth_ocean.values
+  try:
+    depth = grd.depth_ocean.values
+  except:
+    depth = grd.deptho.values
+
   # remove Nan's, otherwise genBasinMasks won't work
+  # Get masking for different regions
   depth[np.isnan(depth)] = 0.0
   basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
 
@@ -636,7 +643,10 @@ def xystats(fname, variables, grd, dcase, basins, args, OUTDIR):
     cluster.scale(args.number_of_workers)
     client = Client(cluster)
 
-  area = grd.area_t.where(grd.wet > 0)
+  try:
+    area = grd.area_t.where(grd.wet > 0)
+  except:
+    area = grd.areacello.where(grd.wet > 0)
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
