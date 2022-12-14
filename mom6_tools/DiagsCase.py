@@ -290,8 +290,12 @@ class DiagsCase(object,):
 
 
     def _generate_grid(self):
-        rundir = self.get_value("RUNDIR")
-        static_file_path = os.path.join(rundir, f"{self.casename}.mom6.static.nc")
+        dout_s = dcase.get_value('DOUT_S')
+        if dout_s:
+          outdir = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+        else:
+          outdir = dcase.get_value('RUNDIR')
+        static_file_path = os.path.join(outdir, f"{self.casename}.mom6.static.nc")
         self._grid = MOM6grid(static_file_path, self.xrformat)
 
     @property
