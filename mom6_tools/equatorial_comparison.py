@@ -111,7 +111,7 @@ def driver(args):
 
   # load data
   def preprocess(ds):
-    variables = ['thetao', 'so', 'uo', 'time', 'time_bnds', 'e']
+    variables = ['thetao', 'so', 'uo', 'time', 'time_bnds', 'z_i']
     return ds[variables]
 
   ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel)
@@ -142,13 +142,11 @@ def driver(args):
   thetao = ds.thetao.mean('time')
   so = ds.so.mean('time')
   uo = ds.uo.mean('time')
-  eta = ds.e.mean('time')
   # find point closest to eq. and select data
   j = np.abs( grd_eq.geolat[:,0].values - 0. ).argmin()
   temp_eq = np.ma.masked_invalid(thetao.isel(yh=j).values)
   salt_eq = np.ma.masked_invalid(so.isel(yh=j).values)
   u_eq    = np.ma.masked_invalid(uo.isel(yh=j).values)
-  e_eq    = np.ma.masked_invalid(eta.isel(yh=j).values)
   thetao_obs_eq = np.ma.masked_invalid(thetao_obs.sel(yh=slice(-10,10)).isel(yh=j).isel(z_l=slice(0,14)).values)
   salt_obs_eq = np.ma.masked_invalid(salt_obs.sel(yh=slice(-10,10)).isel(yh=j).isel(z_l=slice(0,14)).values)
   print('Time elasped: ', datetime.now() - startTime)
@@ -209,7 +207,7 @@ def driver(args):
 
   # y and z from model
   y_model = thetao.yh.values
-  z = eta.z_i.values
+  z = ds.z_i.values
   [Y, Z_model] = np.meshgrid(y_model, z)
   z_model = 0.5 * ( Z_model[0:-1,:] + Z_model[1:,:] )
 
@@ -262,7 +260,7 @@ def driver(args):
   z_obs = 0.5 * ( Z_obs[:-1,:] + Z_obs[1:,:] )
 
   x_model = so.xh.values
-  z = eta.z_i.values
+  z = ds.z_i.values
   [X, Z_model] = np.meshgrid(x_model, z)
   z_model = 0.5 * ( Z_model[:-1,:] + Z_model[1:,:] )
 
