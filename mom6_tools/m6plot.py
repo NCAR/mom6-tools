@@ -247,11 +247,16 @@ def polarcomparison(field1, field2, grd, proj='SP', circle=True,
     maskedField1 = regionalMasking(field1, yCoord, xCoord, latRange, lonRange)
     maskedField2 = regionalMasking(field2, yCoord, xCoord, latRange, lonRange)
 
-  s1Min, s1Max, s1Mean, s1Std, s1RMS = myStats(maskedField1, grd.area_t, debug=debug)
-  s2Min, s2Max, s2Mean, s2Std, s2RMS = myStats(maskedField2, grd.area_t, debug=debug)
-  dMin, dMax, dMean, dStd, dRMS = myStats(maskedField1 - maskedField2, grd.area_t, debug=debug)
+  try:
+    area = grd.area_t
+  except:
+    area = grd.areacello
 
-  if s1Mean is not None: dRxy = corr(maskedField1 - s1Mean, maskedField2 - s2Mean, grd.area_t)
+  s1Min, s1Max, s1Mean, s1Std, s1RMS = myStats(maskedField1, area, debug=debug)
+  s2Min, s2Max, s2Mean, s2Std, s2RMS = myStats(maskedField2, area, debug=debug)
+  dMin, dMax, dMean, dStd, dRMS = myStats(maskedField1 - maskedField2, area, debug=debug)
+
+  if s1Mean is not None: dRxy = corr(maskedField1 - s1Mean, maskedField2 - s2Mean, area)
   else: dRxy = None
 
   s12Min = min(s1Min, s2Min); s12Max = max(s1Max, s2Max)
@@ -486,7 +491,12 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   else:
     maskedField = regionalMasking(field, yCoord, xCoord, latRange, lonRange)
 
-  sMin, sMax, sMean, sStd, sRMS = myStats(maskedField, grd.area_t, debug=debug)
+  try:
+    area = grd.area_t
+  except:
+    area = grd.areacello
+
+  sMin, sMax, sMean, sStd, sRMS = myStats(maskedField, area, debug=debug)
 
   # Choose colormap
   if nbins is None and (clim is None or len(clim)==2): nbins=35

@@ -70,7 +70,10 @@ def main():
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc')
-  depth = grd.depth_ocean
+  try:
+    depth = grd.depth_ocean
+  except:
+    depth = grd.deptho
   # remote Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
@@ -240,7 +243,7 @@ def main():
   path = '/glade/p/cesm/omwg/amoc/COREII_AMOC_papers/papers/COREII.variability/data.original/'
   amoc_core_26 = xr.open_dataset(path+'AMOCts.cyc5.26p5.nc')
   # load AMOC from POP JRA-55
-  amoc_pop_26 = xr.open_dataset('/glade/u/home/bryan/MOM6-modeloutputanalysis/'
+  amoc_pop_26 = xr.open_dataset('/glade/u/home/gmarques/Notebooks/POP/MOC/'
                                 'AMOC_series_26n.g210.GIAF_JRA.v13.gx1v7.01.nc')
   # load RAPID time series
   rapid = xr.open_dataset('/glade/work/gmarques/cesm/datasets/RAPID/moc_transports.nc').resample(time="1Y",
@@ -268,8 +271,8 @@ def main():
   plt.savefig(objOut,format='png')
 
   amoc_core_45 = xr.open_dataset(path+'AMOCts.cyc5.45.nc')
-  amoc_pop_45 = xr.open_dataset('/glade/u/home/bryan/MOM6-modeloutputanalysis/'
-                              'AMOC_series_45n.g210.GIAF_JRA.v13.gx1v7.01.nc')
+  amoc_pop_45 = xr.open_dataset('/glade/u/home/gmarques/Notebooks/POP/MOC/'
+                                'AMOC_series_45n.g210.GIAF_JRA.v13.gx1v7.01.nc')
   # plot
   fig = plt.figure(figsize=(12, 6))
   plt.plot(np.arange(len(moc.time))+1958.5 ,moc['amoc_45'], color='k', label=case_name, lw=2)

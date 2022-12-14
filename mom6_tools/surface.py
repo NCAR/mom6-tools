@@ -151,13 +151,18 @@ def get_SSH(ds, var, grd, args):
   model = np.ma.masked_invalid(rms_sla_model.values)
   aviso = np.ma.masked_invalid(rms_sla_aviso.rms_sla.values)
 
+  try:
+    area = grd.area_t
+  except:
+    area = grd.areacello
+
   fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(14,24))
-  xyplot(model, grd.geolon, grd.geolat, area=grd.area_t,
+  xyplot(model, grd.geolon, grd.geolat, area=area,
          axis=ax[0], suptitle='RMS of SSH anomaly [m]', clim=(0,0.4),
          title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
-  xyplot(aviso, grd.geolon, grd.geolat, area=grd.area_t,
+  xyplot(aviso, grd.geolon, grd.geolat, area=area,
          axis=ax[1], clim=(0,0.4), title='RMS of SSH anomaly (AVISO, 1993-2018)')
-  xyplot(model - aviso, grd.geolon, grd.geolat, area=grd.area_t,
+  xyplot(model - aviso, grd.geolon, grd.geolat, area=area,
          axis=ax[2], title='model - AVISO', clim=(-0.2,0.2))
 
   plt.savefig('PNG/SLA/'+str(args.casename)+'_RMS_SLA_vs_AVISO.png')
@@ -200,6 +205,11 @@ def get_MLD(ds, var, grd, args):
   # fix month values using pandas. We just want something that xarray an understand
   mld_model['month'] = pd.date_range('2000-01-15', '2001-01-01',  freq='2SMS')
 
+  try:
+    area = grd.area_t
+  except:
+    area = grd.areacello
+
   # read obs
   #filepath = '/glade/work/gmarques/cesm/datasets/Mimoc/MIMOC_ML_v2.2_PT_S_MLP_remapped_to_tx06v1.nc'
   #filepath = '/glade/work/gmarques/cesm/datasets/MLD/ARGO_MLD_remapped_to_tx06v1.nc'
@@ -214,14 +224,14 @@ def get_MLD(ds, var, grd, args):
     model = np.ma.masked_invalid(mld_model[t,:].values)
     obs = np.ma.masked_invalid(mld_obs.mld[t,:].values)
     month = date(1900, t+1, 1).strftime('%B')
-    xycompare(model , obs, grd.geolon, grd.geolat, area=grd.area_t,
+    xycompare(model , obs, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
             title2 = 'obs (deBoyer), '+str(month),
             suptitle=args.casename +', ' + str(args.start_date) + ' to ' + str(args.end_date),
             colormap=plt.cm.Spectral_r, dcolormap=plt.cm.bwr, clim = (0,1500), extend='max',
             save = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png')
 
-    xyplot(model, grd.geolon, grd.geolat, area=grd.area_t,
+    xyplot(model, grd.geolon, grd.geolat, area=area,
            save='PNG/MLD/'+str(args.casename)+'_MLD_model_'+str(month)+'.png',
            suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
            title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
@@ -231,7 +241,7 @@ def get_MLD(ds, var, grd, args):
   model_JFM = np.ma.masked_invalid(mld_model.isel(month=months).mean('month').values)
   obs_JFM = np.ma.masked_invalid(mld_obs.mld.isel(time=months).mean('time').values)
   month = 'JFM'
-  xycompare(model_JFM , obs_JFM, grd.geolon, grd.geolat, area=grd.area_t,
+  xycompare(model_JFM , obs_JFM, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
             title2 = 'obs (deBoyer), '+str(month),
             suptitle=args.casename +', ' + str(args.start_date) + ' to ' + str(args.end_date),
@@ -243,7 +253,7 @@ def get_MLD(ds, var, grd, args):
   model_JAS = np.ma.masked_invalid(mld_model.isel(month=months).mean('month').values)
   obs_JAS = np.ma.masked_invalid(mld_obs.mld.isel(time=months).mean('time').values)
   month = 'JAS'
-  xycompare(model_JAS , obs_JAS, grd.geolon, grd.geolat, area=grd.area_t,
+  xycompare(model_JAS , obs_JAS, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
             title2 = 'obs (deBoyer), '+str(month),
             suptitle=args.casename +', ' + str(args.start_date) + ' to ' + str(args.end_date),
@@ -267,14 +277,14 @@ def get_MLD(ds, var, grd, args):
            'module': os.path.basename(__file__)}
   add_global_attrs(model_winter_da,attrs)
   model_winter_da.to_netcdf('ncfiles/'+str(args.casename)+'_MLD_'+month+'.nc')
-  xycompare(model_winter , obs_winter, grd.geolon, grd.geolat, area=grd.area_t,
+  xycompare(model_winter , obs_winter, grd.geolon, grd.geolat, area=area,
             title1 = 'model, JFM (NH), JAS (SH)',
             title2 = 'obs (deBoyer), JFM (NH), JAS (SH)',
             suptitle=args.casename +', ' + str(args.start_date) + ' to ' + str(args.end_date),
             colormap=plt.cm.Spectral_r, dcolormap=plt.cm.bwr, clim = (0,1500), extend='max',
             save = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png')
 
-  xyplot(model_winter, grd.geolon, grd.geolat, area=grd.area_t,
+  xyplot(model_winter, grd.geolon, grd.geolat, area=area,
          save='PNG/MLD/'+str(args.casename)+'_MLD_model_'+str(month)+'.png',
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
          title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
@@ -291,14 +301,14 @@ def get_MLD(ds, var, grd, args):
   attrs['description'] = 'Summer MLD (m)'
   add_global_attrs(model_summer_da,attrs)
   model_summer_da.to_netcdf('ncfiles/'+str(args.casename)+'_MLD_'+month+'.nc')
-  xycompare(model_summer , obs_summer, grd.geolon, grd.geolat, area=grd.area_t,
+  xycompare(model_summer , obs_summer, grd.geolon, grd.geolat, area=area,
             title1 = 'model, JFM (SH), JAS (NH)',
             title2 = 'obs (deBoyer), JFM (SH), JAS (NH)',
             suptitle=args.casename +', ' + str(args.start_date) + ' to ' + str(args.end_date),
             colormap=plt.cm.Spectral_r, dcolormap=plt.cm.bwr, clim = (0,150), extend='max',
             save = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png')
 
-  xyplot(model_summer, grd.geolon, grd.geolat, area=grd.area_t,
+  xyplot(model_summer, grd.geolon, grd.geolat, area=area,
          save='PNG/MLD/'+str(args.casename)+'_MLD_model_'+str(month)+'.png',
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,150),
          title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
@@ -326,12 +336,17 @@ def get_BLD(ds, var, grd, args):
   #filepath = '/glade/work/gmarques/cesm/datasets/Mimoc/MIMOC_ML_v2.2_PT_S_MLP_remapped_to_tx06v1.nc'
   #filepath = '/glade/work/gmarques/cesm/datasets/MLD/ARGO_MLD_remapped_to_tx06v1.nc'
   print('\n Plotting...')
+  try:
+    area = grd.area_t
+  except:
+    area = grd.areacello
+
   # March and Sep, noticed starting from 0
   months = [2,8]
   for t in months:
     model = np.ma.masked_invalid(mld_model[t,:].values)
     month = date(1900, t+1, 1).strftime('%B')
-    xyplot(model, grd.geolon, grd.geolat, area=grd.area_t,
+    xyplot(model, grd.geolon, grd.geolat, area=area,
            save='PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png',
            suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
            title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
@@ -363,7 +378,7 @@ def get_BLD(ds, var, grd, args):
   add_global_attrs(model_winter_da,attrs)
   model_winter_da.to_netcdf('ncfiles/'+str(args.casename)+'_BLD_'+month+'.nc')
 
-  xyplot(model_winter, grd.geolon, grd.geolat, area=grd.area_t,
+  xyplot(model_winter, grd.geolon, grd.geolat, area=area,
          save='PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png',
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
          title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
@@ -381,7 +396,7 @@ def get_BLD(ds, var, grd, args):
   add_global_attrs(model_summer_da,attrs)
   model_summer_da.to_netcdf('ncfiles/'+str(args.casename)+'_BLD_'+month+'.nc')
 
-  xyplot(model_summer, grd.geolon, grd.geolat, area=grd.area_t,
+  xyplot(model_summer, grd.geolon, grd.geolat, area=area,
          save='PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png',
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,150),
          title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \

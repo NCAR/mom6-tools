@@ -69,7 +69,11 @@ def main(stream=False):
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc')
-  depth = grd.depth_ocean
+  try:
+    depth = grd.depth_ocean
+  except:
+    depth = grd.deptho
+
   # remote Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
@@ -172,7 +176,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   # Load Observations
   fObs = netCDF4.Dataset('/glade/work/gmarques/cesm/datasets/Trenberth_and_Caron_Heat_Transport.nc')
   # POP JRA-55, 31 year (years 29-59)
-  pop = xr.open_dataset('/glade/u/home/bryan/MOM6-modeloutputanalysis/MHT_mean.g210.GIAF_JRA.v13.gx1v7.01.nc')
+  pop = xr.open_dataset('/glade/u/home/gmarques/Notebooks/POP/MHT/MHT_mean.g210.GIAF_JRA.v13.gx1v7.01.nc')
   # Estimate based on the JRA-55 v1.3 forcing (Tsujino et al, 2019)
   # basin = 0 is Global; basin = 1 is Atlantic and basin = 2 is IndoPacific
   jra = xr.open_dataset('/glade/work/gmarques/cesm/datasets/Heat_transport/jra55fcst_v1_3_annual_1x1/nht_jra55do_v1_3.nc')

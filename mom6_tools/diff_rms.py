@@ -573,10 +573,17 @@ def main(stream=False):
   # read grid
   grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc', xrformat=True)
   #grd = MOM6grid('ocean.mom6.static.nc', xrformat=True)
-  area = grd.area_t.where(grd.wet > 0)
+  try:
+    area = grd.area_t.where(grd.wet > 0)
+  except:
+    area = grd.areacello.where(grd.wet > 0)
+
+  try:
+    depth = grd.depth_ocean.values
+  except:
+    depth = grd.deptho.values
 
   # Get masking for different regions
-  depth = grd.depth_ocean.values
   # remove Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
   basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
@@ -622,7 +629,11 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
 
   '''
 
-  area = grd.area_t.where(grd.wet > 0)
+  try:
+    area = grd.area_t.where(grd.wet > 0)
+  except:
+    area = grd.areacello.where(grd.wet > 0)
+
   if args.debug: print('OUTDIR:', OUTDIR)
 
   parallel = False
