@@ -19,8 +19,8 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for plotting poleward heat transport.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-v', '--variables', nargs='+', default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d'],
-                     help='''Variables to be processed (default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d'])''')
+  #parser.add_argument('-v', '--variables', nargs='+', default=['T_ady_2d, T_diffy_2d, T_lbd_diffy_2d, T_hbd_diffy_2d'],
+  #                   help='''Variables to be processed (default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d', 'T_hbd_diffy_2d'])''')
   parser.add_argument('-sd','--start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-ed','--end_date', type=str, default='',
@@ -56,10 +56,12 @@ def main(stream=False):
   else:
     OUTDIR = dcase.get_value('RUNDIR')
 
+  variables = ['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d', 'T_hbd_diffy_2d']
   args.savefigs = True; args.outdir = 'PNG/HT'
   print('Output directory is:', OUTDIR)
   print('Casename is:', dcase.casename)
-  print('Variables to be processed:', args.variables)
+  #print('Variables to be processed:', args.variables)
+  print('Variables to be processed:', variables)
   print('Number of workers to be used:', nw)
 
   # set avg dates
@@ -87,7 +89,7 @@ def main(stream=False):
 
   print('Reading dataset...')
   startTime = datetime.now()
-  variables = args.variables
+  #variables = args.variables
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
