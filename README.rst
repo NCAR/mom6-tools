@@ -19,7 +19,7 @@ MOM6-tools
 Tools to support analysis of MOM6-CESM model solutions. See
 documentation_ for more information.
 
-.. _documentation: https://mom6-tools.readthedocs.io/en/latest/
+.. _documentation: https://mom6-tools.readthedocs.io/
 
 
 Installation (Coming Soon!)
