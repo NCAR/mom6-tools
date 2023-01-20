@@ -1,7 +1,9 @@
+import itertools
 import operator
 from functools import reduce
 
 import numpy as np
+import tqdm
 import xarray as xr
 
 
@@ -351,3 +353,23 @@ def transpose(seq):
     """transpose nested lists"""
     assert ndimlist(seq) > 1
     return list(map(list, zip(*seq)))
+
+
+def combine_variables_by_coords(dsets):
+
+    all_vars = set(itertools.chain(*[ds.data_vars for ds in dsets]))
+
+    to_merge = []
+    for var in tqdm.tqdm(all_vars):
+        if var in ["time_bnds", "average_T1", "average_T2", "average_DT"]:
+            to_merge.append(dsets[0][var])
+        else:
+            to_merge.append(
+                xr.combine_by_coords(
+                    [ds[var] for ds in dsets if ds.sizes["time"] > 0],
+                    combine_attrs="override",
+                )
+            )
+    merged = xr.merge(to_merge)
+
+    return merged
