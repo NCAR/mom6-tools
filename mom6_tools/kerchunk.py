@@ -1,8 +1,9 @@
 import copy
+import os
 from glob import glob
 from pathlib import Path
 
-import dask.bag
+import dask
 import kerchunk
 import ujson
 from kerchunk.combine import MultiZarrToZarr
@@ -14,6 +15,7 @@ def generate_references_for_stream(
     stream: str,
     merge_static_refs: bool = True,
     inline_threshold: int = 5000,
+    existing="skip",
 ):
     """
     Generate Kerchunk reference JSON files for a single stream.
@@ -40,7 +42,27 @@ def generate_references_for_stream(
     """
 
     def gen_ref(f):
-        return NetCDF3ToZarr(f, inline_threshold=inline_threshold).translate()
+        refs = NetCDF3ToZarr(f, inline_threshold=inline_threshold).translate()
+        try:
+            # avoid empty files for last timestep
+            time_ref = refs["refs"]["time/.zarray"]
+            # .zarray contains null, assign to allow eval to succeed
+            null = 0
+            attrs = eval(time_ref)
+            if attrs["shape"] == [0]:
+                return {}
+        except KeyError:
+            pass
+        return  refs
+
+    outfile = f"{caseroot}/run/jsons/{stream}.json"
+    if os.path.exists(outfile):
+        if existing == "skip":
+            return
+        if existing == "raise":
+            raise OSError(
+                "output JSON file exists. Specify existing='overwrite' or existing='skip'."
+            )
 
     if merge_static_refs:
         (staticfile,) = glob(f"{caseroot}/run/*static*")
@@ -58,10 +80,13 @@ def generate_references_for_stream(
     if not flist:
         raise OSError(f"No files found for caseroot: {caseroot}, stream: {stream}")
 
-    # parallelize generating references using dask.bag
-    # Alternatively this could be dask.delayed
-    bag = dask.bag.from_sequence(flist, npartitions=len(flist)).map(gen_ref)
-    dicts = bag.compute()
+    # generate references in parallel, one  per netcdf file.
+    tasks = [dask.delayed(gen_ref)(f) for f in flist]
+    dicts = dask.compute(*tasks)
+
+    # remove empty dicts for empty files
+    if not dicts[-1]:
+        dicts = dicts[:-1]
 
     # Combine multiple Zarr references (one per file) to
     # a single aggregate reference file
@@ -80,5 +105,5 @@ def generate_references_for_stream(
     Path(f"{caseroot}/run/jsons/").mkdir(parents=True, exist_ok=True)
 
     # write the JSON
-    with open(f"{caseroot}/run/jsons/{stream}.json", "wb") as f:
+    with open(outfile, "wb") as f:
         f.write(ujson.dumps(merged).encode())
