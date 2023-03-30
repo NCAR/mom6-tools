@@ -56,6 +56,7 @@ def generate_references_for_stream(
         return  refs
 
     outfile = f"{caseroot}/run/jsons/{stream}.json"
+    casename = caseroot.split("/")[-1]
     if os.path.exists(outfile):
         if existing == "skip":
             return
@@ -65,7 +66,7 @@ def generate_references_for_stream(
             )
 
     if merge_static_refs:
-        (staticfile,) = glob(f"{caseroot}/run/*static*")
+        (staticfile,) = glob(f"{caseroot}/run/{casename}.mom6.static.nc")
         static_refs = gen_ref(staticfile)
 
         # The static file with time-invariant variables has a useless `time` dimension.
