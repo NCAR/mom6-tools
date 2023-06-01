@@ -14,3 +14,6 @@ cftime
 scipy
 jupyter
 cmocean
+cartopy
+yaml
+ncar-jobqueue
