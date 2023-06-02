@@ -15,5 +15,5 @@ scipy
 jupyter
 cmocean
 cartopy
-yaml
+pyyaml
 ncar-jobqueue

@@ -7,7 +7,7 @@ dependencies:
   - numpy
   - numpydoc
   - pip
-  - python=3.7
+  - python=3.10
   - recommonmark
   - sphinx_rtd_theme
   - sphinx>=1.6
@@ -24,6 +24,9 @@ dependencies:
   - cftime
   - matplotlib
   - netCDF4
-  - pip:
-    - sphinx_copybutton
-    - ncar_jobqueue
+  - intake-xarray
+  - sphinx-copybutton
+  - ncar-jobqueue
+  - nc-time-axis
+  - watermark
+  - pyyaml
