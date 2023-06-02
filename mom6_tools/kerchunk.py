@@ -1,5 +1,6 @@
 import copy
 import os
+import warnings
 from glob import glob
 from pathlib import Path
 
@@ -28,10 +29,12 @@ def gen_ref(f, inline_threshold):
 
 def generate_references_for_stream(
     caseroot: str,
+    *,
     stream: str,
     merge_static_refs: bool = True,
     inline_threshold: int = 5000,
-    existing="skip",
+    missing_stream="raise",
+    existing_output="raise",
     debug_static=False,
 ):
     """
@@ -52,6 +55,10 @@ def generate_references_for_stream(
         will find the file.
     inline_threshold: int
         Threshold, in bytes, below which array values are inlined in the JSON file.
+    missing_stream: str, {'raise', 'skip', 'warn'}
+        Raise an error or skip if stream files don't exist.
+    existing_output: str, {'raise', 'skip'}
+        Raise an error or skip if output JSON file already exists
     debug_static: bool
         If True, print the xarray repr for the static file Dataset.
         This aids in debugging
@@ -64,11 +71,11 @@ def generate_references_for_stream(
     outfile = f"{caseroot}/run/jsons/{stream}.json"
     casename = caseroot.split("/")[-1]
     if os.path.exists(outfile):
-        if existing == "skip":
+        if existing_output == "skip":
             return
-        if existing == "raise":
+        if existing_output == "raise":
             raise OSError(
-                "output JSON file exists. Specify existing='overwrite' or existing='skip'."
+                "output JSON file exists. Specify existing_output='overwrite' or existing_output='skip'."
             )
 
     if merge_static_refs:
@@ -91,7 +98,14 @@ def generate_references_for_stream(
     flist = sorted(glob(f"{caseroot}/run/*mom6.{stream}_*"))
 
     if not flist:
-        raise OSError(f"No files found for caseroot: {caseroot}, stream: {stream}")
+        if missing_stream == "raise":
+            raise OSError(f"No files found for caseroot: {caseroot}, stream: {stream}")
+        elif missing_stream == "warn":
+            warnings.warn(f"No files found for caseroot: {caseroot}, stream: {stream}", RuntimeWarning)
+            return
+        else:
+            return
+
 
     # generate references in parallel, one  per netcdf file.
     tasks = [dask.delayed(gen_ref)(f, inline_threshold) for f in flist]
