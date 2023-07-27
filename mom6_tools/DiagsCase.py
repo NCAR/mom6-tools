@@ -88,7 +88,8 @@ class DiagsCase(object,):
             caseroot = self.get_value('CASEROOT')
             cimeroot = self.get_value('CIMEROOT')
             if caseroot and cimeroot:
-                sys.path.append(os.path.join(cimeroot, "CIME"))
+                sys.path.append(cimeroot)
+                #sys.path.append(os.path.join(cimeroot, "CIME"))
                 sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
                 from CIME.case.case import Case
                 try:
