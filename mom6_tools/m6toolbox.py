@@ -17,6 +17,33 @@ def check_time_interval(ti,tf,nc):
 
  return
 
+def weighted_temporal_mean_vars(ds,attrs=None):
+    """
+    Loop over all data_vars is ds and compute a weighted
+    annual temporal mean using the days in each month
+    """
+    ds_list = []
+    vnames = []
+    for i, var in zip(range(len(ds.data_vars)), ds.data_vars):
+      ds_list.append(weighted_temporal_mean(ds,var))
+      vnames.append(var)
+      ds_list[i].attrs = ds[var].attrs
+      ds_list[i].attrs['reduction_method']='annual mean weighted by days in each month'
+
+    # convert ds_list to dataset
+    for i, var in zip(range(len(vnames)),ds.data_vars):
+      if (i == 0):
+        ds_out = ds_list[i].to_dataset(name=vnames[i])
+      else:
+        ds_out[vnames[i]] = ds_list[i]
+
+      ds_out[vnames[i]].attrs = ds_list[i].attrs
+
+    if attrs:
+      ds_out.attrs = attrs
+
+    return ds_out
+
 def weighted_temporal_mean(ds, var):
     """
     weight by days in each month
