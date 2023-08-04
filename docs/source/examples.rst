@@ -10,6 +10,7 @@ Examples
     examples/surface.ipynb
     examples/forcing.ipynb
     examples/TS_levels.ipynb
+    examples/TS_drift.ipynb
     examples/Equatorial_comparison.ipynb
     examples/globally_averaged_ocean_properties.ipynb
     examples/meridional_overturning.ipynb
