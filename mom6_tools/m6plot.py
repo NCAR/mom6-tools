@@ -1197,7 +1197,7 @@ def ztplot(field, t=None, z=None,
       cs1 = axis.contour(tCoord, zCoord,field2,clevs,colors='k',lw=0.50)
     else:
       cs1 = axis.contour(tCoord, zCoord,field2,colors='k',lw=0.50)
-    axis.clabel(cs1,inline=1, fontsize=10)
+    axis.clabel(cs1, cs1.levels, inline=1, fontsize=16)
 
   if centerlabels and add_cbar and len(clim)>2: cb.set_ticks(  0.5*(clim[:-1]+clim[1:]) )
   axis.set_facecolor(landcolor)
