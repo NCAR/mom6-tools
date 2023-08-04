@@ -3,7 +3,7 @@
 import io, yaml, os
 import matplotlib.pyplot as plt
 import numpy as np
-import warnings, dask
+import warnings, dask, intake
 from datetime import datetime, date
 import xarray as xr
 from mom6_tools.DiagsCase import DiagsCase
@@ -25,7 +25,6 @@ def options():
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-ed','--end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-fname','--file_name', type=str, default='.mom6.hm_*.nc',  help='''File(s) where vmo should be read. Default .mom6.hm_*.nc''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
@@ -68,8 +67,13 @@ def main():
   if not args.start_date : args.start_date = avg['start_date']
   if not args.end_date : args.end_date = avg['end_date']
 
+  # file names are provided via yaml
+  args.monthly = dcase.casename+diag_config_yml['Fnames']['z']
+  args.sigma2 = dcase.casename+diag_config_yml['Fnames']['rho2']
+  args.static = dcase.casename+diag_config_yml['Fnames']['static']
+
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc')
+  grd = MOM6grid(OUTDIR+'/'+args.static)
   try:
     depth = grd.depth_ocean
   except:
@@ -85,7 +89,7 @@ def main():
     cluster.scale(nw)
     client = Client(cluster)
 
-  print('Reading {} dataset...'.format(args.file_name))
+  print('Reading {} dataset...'.format(args.monthly))
   startTime = datetime.now()
   # load data
   def preprocess(ds):
@@ -95,7 +99,7 @@ def main():
         ds[v] = xr.zeros_like(ds.vo)
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+args.file_name, parallel=parallel)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel)
 
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
@@ -105,14 +109,19 @@ def main():
   print('Time elasped: ', datetime.now() - startTime)
 
   # compute yearly means first since this will be used in the time series
+  attrs =  {
+         'description': 'Annual mean meridional thickness flux by components ',
+         'reduction_method': 'annual mean weighted by days in each month',
+         'casename': dcase.casename
+         }
   print('Computing yearly means...')
   startTime = datetime.now()
-  ds_yr = ds.resample(time="1Y", closed='left').mean('time')
+  ds_ann =  m6toolbox.weighted_temporal_mean_vars(ds,attrs=attrs)
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   startTime = datetime.now()
-  ds_sel = ds_yr.sel(time=slice(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  ds_sel = ds_ann.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing time mean...')
@@ -163,10 +172,10 @@ def main():
                             'amoc' :   (('zl','yq'), np.zeros((psiPlot.shape))),
                             'moc_FFM' :   (('zl','yq'), np.zeros((psiPlot.shape))),
                             'moc_GM' : (('zl','yq'), np.zeros((psiPlot.shape))),
-                            'amoc_45' : (('time'), np.zeros((ds_yr.time.shape))),
-                            'moc_GM_ACC' : (('time'), np.zeros((ds_yr.time.shape))),
-                            'amoc_26' : (('time'), np.zeros((ds_yr.time.shape))) },
-                            coords={'zl': zl, 'yq':ds.yq, 'time':ds_yr.time})
+                            'amoc_45' : (('time'), np.zeros((ds_ann.time.shape))),
+                            'moc_GM_ACC' : (('time'), np.zeros((ds_ann.time.shape))),
+                            'amoc_26' : (('time'), np.zeros((ds_ann.time.shape))) },
+                            coords={'zl': zl, 'yq':ds.yq, 'time':ds_ann.time})
   attrs = {'description': 'MOC time-mean sections and time-series', 'units': 'Sv', 'start_date': avg['start_date'],
        'end_date': avg['end_date'], 'casename': dcase.casename}
   m6toolbox.add_global_attrs(moc,attrs)
@@ -193,7 +202,8 @@ def main():
   moc['amoc'].data = psiPlot
 
   print('Plotting AMOC profile at 26N...')
-  rapid_vertical = xr.open_dataset('/glade/work/gmarques/cesm/datasets/RAPID/moc_vertical.nc')
+  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  rapid_vertical = catalog["moc-rapid"].to_dask()
   fig, ax = plt.subplots(nrows=1, ncols=1)
   ax.plot(rapid_vertical.stream_function_mar.mean('time'), rapid_vertical.depth, 'k', label='RAPID')
   ax.plot(moc['amoc'].sel(yq=26, method='nearest'), zl, label=case_name)
@@ -208,21 +218,21 @@ def main():
   print('Computing time series...')
   startTime = datetime.now()
   # time-series
-  dtime = ds_yr.time
+  dtime = ds_ann.time
   amoc_26 = np.zeros(len(dtime))
   amoc_45 = np.zeros(len(dtime))
   moc_GM_ACC = np.zeros(len(dtime))
   if args.debug: startTime = datetime.now()
   # loop in time
   for t in range(len(dtime)):
-    tmp = np.ma.masked_invalid(ds_yr[varName][t,:].values)
+    tmp = np.ma.masked_invalid(ds_ann[varName][t,:].values)
     tmp = tmp[:].filled(0.)
     # m is still Atlantic ocean
     psi = MOCpsi(tmp, vmsk=m*np.roll(m,-1,axis=-2))*conversion_factor
     psi = 0.5 * (psi[0:-1,:]+psi[1::,:])
     amoc_26[t] = findExtrema(yy, z, psi, min_lat=26., max_lat=27., plot=False, min_depth=250.)
     amoc_45[t] = findExtrema(yy, z, psi, min_lat=44., max_lat=46., plot=False, min_depth=250.)
-    tmp_GM = np.ma.masked_invalid(ds_yr['vhGM'][t,:].values)
+    tmp_GM = np.ma.masked_invalid(ds_ann['vhGM'][t,:].values)
     tmp_GM = tmp_GM[:].filled(0.)
     psiGM = MOCpsi(tmp_GM)*conversion_factor
     psiGM = 0.5 * (psiGM[0:-1,:]+psiGM[1::,:])
@@ -239,15 +249,17 @@ def main():
     client.close(); cluster.close()
 
   print('Plotting...')
-  # load AMOC time series data (5th) cycle used in Danabasoglu et al., doi:10.1016/j.ocemod.2015.11.007
-  path = '/glade/p/cesm/omwg/amoc/COREII_AMOC_papers/papers/COREII.variability/data.original/'
-  amoc_core_26 = xr.open_dataset(path+'AMOCts.cyc5.26p5.nc')
-  # load AMOC from POP JRA-55
-  amoc_pop_26 = xr.open_dataset('/glade/u/home/gmarques/Notebooks/POP/MOC/'
-                                'AMOC_series_26n.g210.GIAF_JRA.v13.gx1v7.01.nc')
-  # load RAPID time series
-  rapid = xr.open_dataset('/glade/work/gmarques/cesm/datasets/RAPID/moc_transports.nc').resample(time="1Y",
-                              closed='left',keep_attrs=True).mean('time',keep_attrs=True)
+
+  # load datasets from oce catalog
+  amoc_core_26 = catalog["moc-core2-26p5"].to_dask()
+  amoc_pop_26  = catalog["moc-pop-jra-26"].to_dask()
+  rapid = catalog["transports-rapid"].to_dask().resample(time="1Y",
+                  closed='left',keep_attrs=True).mean('time',keep_attrs=True)
+
+  amoc_core_45 = catalog["moc-core2-45"].to_dask()
+
+  amoc_pop_45 = catalog["moc-pop-jra-45"].to_dask()
+
   # plot
   fig = plt.figure(figsize=(12, 6))
   plt.plot(np.arange(len(moc.time))+1958.5 ,moc['amoc_26'].values, color='k', label=case_name, lw=2)
@@ -270,9 +282,6 @@ def main():
   objOut = args.outdir+str(case_name)+'_MOC_26N_time_series.png'
   plt.savefig(objOut,format='png')
 
-  amoc_core_45 = xr.open_dataset(path+'AMOCts.cyc5.45.nc')
-  amoc_pop_45 = xr.open_dataset('/glade/u/home/gmarques/Notebooks/POP/MOC/'
-                                'AMOC_series_45n.g210.GIAF_JRA.v13.gx1v7.01.nc')
   # plot
   fig = plt.figure(figsize=(12, 6))
   plt.plot(np.arange(len(moc.time))+1958.5 ,moc['amoc_45'], color='k', label=case_name, lw=2)

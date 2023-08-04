@@ -9,14 +9,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.ClimoGenerator import ClimoGenerator
-from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs
+from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs, weighted_temporal_mean
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from datetime import datetime
 from distributed import Client
 from ncar_jobqueue import NCARCluster
 from collections import OrderedDict
-import yaml, os
+import yaml, os, intake
 
 try: import argparse
 except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
@@ -36,8 +36,9 @@ def options():
                       help='''Save figures (PNG). Default is False''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
-  parser.add_argument('-o','--obs', type=str, default='WOA18', help='''Observational product to compare agaist.  \
-    Valid options are: WOA18 (default) or PHC2''')
+  parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
+                      help='''Name of observational product in the oce-catalog  \
+    to compare against. Default is woa-2018-tx2_3v2-annual-all''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
@@ -550,8 +551,6 @@ def main(stream=False):
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  # set avg dates
-  avg = diag_config_yml['Avg']
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
@@ -565,6 +564,9 @@ def main(stream=False):
   print('Casename is:', dcase.casename)
   print('Number of workers: ', args.number_of_workers)
 
+  args.z = dcase.casename+diag_config_yml['Fnames']['z']
+  args.static = dcase.casename+diag_config_yml['Fnames']['static']
+
   if not os.path.isdir('PNG/Drift'):
     print('Creating a directory to place figures (PNG)... \n')
     os.system('mkdir -p PNG/Drift')
@@ -573,7 +575,7 @@ def main(stream=False):
     os.system('mkdir ncfiles')
 
   # read grid
-  grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc', xrformat=True)
+  grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
   #grd = MOM6grid('ocean.mom6.static.nc', xrformat=True)
   try:
     area = np.ma.masked_where(grd.wet == 0,grd.area_t)
@@ -594,15 +596,19 @@ def main(stream=False):
   # Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
   basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
 
+  # load obs
+  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  obs = catalog[args.obs].to_dask()[args.var]
+
   # diff_rms
-  horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR)
+  horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
   return
 
 
-def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
+def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR):
   '''
    Compute horizontal mean difference and rms: model versus observations.
 
@@ -657,7 +663,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
   # read dataset
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.z, parallel=parallel)
   ds = preprocess(ds1)
 
   if (var not in ds):
@@ -672,33 +678,13 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
   print('Time elasped: ', datetime.now() - startTime)
 
   # Compute climatologies
-  model = ds[var].resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \
-                           keep_attrs=True)
+  attrs =  {
+         'description': 'Annual mean climatology for '+var,
+         'reduction_method': 'annual mean weighted by days in each month',
+         'casename': dcase.casename
+         }
 
-  # TODO: improve how obs are selected
-  if args.obs == 'PHC2':
-    # load PHC2 data
-    obs_path = '/glade/p/cesm/omwg/obs_data/phc/'
-    if (var == 'thetao'):
-      obs_temp = xr.open_dataset(obs_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-      # rename coordinates to be the same as the model's
-      obs = obs_temp.TEMP.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
-    else:
-      obs_salt = xr.open_dataset(obs_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-      # rename coordinates to be the same as the model's
-      obs = obs_salt.SALT.rename({'X': 'xh','Y': 'yh', 'depth': 'z_l'});
-  elif args.obs == 'WOA18':
-    # load WOA18 data
-    obs_path = '/glade/u/home/gmarques/Notebooks/CESM_MOM6/WOA18_remapping/'
-    if (var == 'thetao'):
-      obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-      obs = obs_temp.theta0
-    else:
-      obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc', decode_times=False)
-      obs = obs_salt.s_an
-
-  else:
-    raise ValueError("The obs selected is not available.")
+  model = weighted_temporal_mean(ds,var)
 
   # set coordinates to the same as the model's
   obs['xh'] = model.xh; obs['yh'] = model.yh;
@@ -713,21 +699,21 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
                                                                 diff.dims[3]: diff.xh})
   area3d_masked = mask3d.where(diff[0,:] == diff[0,:])
 
-  if args.drift:
-    # Horizontal Mean difference (model - obs)
-    print('\n Computing Horizontal Mean difference for {}...'.format(var))
-    startTime = datetime.now()
-    vname = '{}_drift'.format(var)
-    drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
-    print('Time elasped: ', datetime.now() - startTime)
+  #if args.drift:
+  # Horizontal Mean difference (model - obs)
+  print('\n Computing Horizontal Mean difference for {}...'.format(var))
+  startTime = datetime.now()
+  vname = '{}_drift'.format(var)
+  drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+  print('Time elasped: ', datetime.now() - startTime)
 
-  if args.rms:
-    # Horizontal Mean rms (model - obs)
-    print('\n Computing Horizontal Mean rms for temperature...')
-    startTime = datetime.now()
-    vname = '{}_rms'.format(var)
-    rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
-    print('Time elasped: ', datetime.now() - startTime)
+ # if args.rms:
+ #   # Horizontal Mean rms (model - obs)
+ #   print('\n Computing Horizontal Mean rms for temperature...')
+ #   startTime = datetime.now()
+ #   vname = '{}_rms'.format(var)
+ #   rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+ #   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
     print('Releasing workers...')
@@ -737,13 +723,13 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
   attrs = {'casename': dcase.casename,
            'obs': args.obs,
            'module': os.path.basename(__file__)}
-  if args.drift:
-    add_global_attrs(drift,attrs)
-    drift.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_drift.nc'.format(var))
+  #if args.drift:
+  add_global_attrs(drift,attrs)
+  drift.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_drift.nc'.format(var))
 
-  if args.rms:
-    add_global_attrs(rms,attrs)
-    rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_rms.nc'.format(var))
+  #if args.rms:
+  #  add_global_attrs(rms,attrs)
+  #  rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_rms.nc'.format(var))
 
   if args.savefig:
     # save plots

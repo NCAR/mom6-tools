@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import warnings, os, yaml, argparse
 import pandas as pd
-import dask
+import dask, intake
 from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
@@ -32,6 +32,8 @@ def parseCommandLine():
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-ed','--end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-mld_obs','--mld_obs', type=str, default='mld-deboyer-tx2_3v2',
+                      help='''Name of the observation-based MLD dataset in the oce-catalog. Default is mld-deboyer-tx2_3v2''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
@@ -62,13 +64,16 @@ def driver(args):
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
-  # set avg dates
+  # set avg dates + other params
   avg = diag_config_yml['Avg']
   if not args.start_date : args.start_date = avg['start_date']
   if not args.end_date : args.end_date = avg['end_date']
+  args.native = dcase.casename+diag_config_yml['Fnames']['native']
+  args.static = dcase.casename+diag_config_yml['Fnames']['static']
+  args.savefigs = True
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc')
+  grd = MOM6grid(OUTDIR+args.static)
 
   parallel = False
   if nw > 1:
@@ -79,18 +84,16 @@ def driver(args):
 
   print('Reading surface dataset...')
   startTime = datetime.now()
-  #variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bnds']
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
-    variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bnds']
+    variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bounds']
     for v in variables:
       if v not in ds.variables:
         ds[v] = xr.zeros_like(ds.SSH)
-    return ds[variables].resample(time="1M", closed='left', \
-           keep_attrs=True).mean(dim='time', keep_attrs=True)
+    return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, parallel=parallel)
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
 
@@ -103,14 +106,18 @@ def driver(args):
   ds = ds.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
+  # load obs-based mld from oce-catalog
+  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  mld_obs = catalog[args.mld_obs].to_dask()
+
   # MLD
-  get_MLD(ds, 'mlotst', grd, args)
+  get_MLD(ds, 'mlotst', mld_obs, grd, args)
 
   # BLD
   get_BLD(ds, 'oml', grd, args)
 
-  # SSH
-  get_SSH(ds, 'SSH', grd, args)
+  # TODO: SSH
+  #get_SSH(ds, 'SSH', grd, args)
 
   if parallel:
     print('\n Releasing workers...')
@@ -188,21 +195,22 @@ def get_SSH(ds, var, grd, args):
 
   return
 
-def get_MLD(ds, var, grd, args):
+def get_MLD(ds, var, mld_obs, grd, args):
   '''
   Compute a MLD climatology and compare against obs.
   '''
 
-  if not os.path.isdir('PNG/MLD'):
-    print('Creating a directory to place figures (PNG/MLD)... \n')
-    os.system('mkdir -p PNG/MLD')
+  if args.savefigs:
+    if not os.path.isdir('PNG/MLD'):
+      print('Creating a directory to place figures (PNG/MLD)... \n')
+      os.system('mkdir -p PNG/MLD')
 
   print('Computing monthly MLD climatology...')
   startTime = datetime.now()
   mld_model = ds[var].groupby("time.month").mean('time').compute()
   print('Time elasped: ', datetime.now() - startTime)
 
-  # fix month values using pandas. We just want something that xarray an understand
+  # fix month values using pandas. We just want something that xarray understands
   mld_model['month'] = pd.date_range('2000-01-15', '2001-01-01',  freq='2SMS')
 
   try:
@@ -210,19 +218,13 @@ def get_MLD(ds, var, grd, args):
   except:
     area = grd.areacello
 
-  # read obs
-  #filepath = '/glade/work/gmarques/cesm/datasets/Mimoc/MIMOC_ML_v2.2_PT_S_MLP_remapped_to_tx06v1.nc'
-  #filepath = '/glade/work/gmarques/cesm/datasets/MLD/ARGO_MLD_remapped_to_tx06v1.nc'
-  filepath = '/glade/work/gmarques/cesm/datasets/MLD/deBoyer/deBoyer_MLD_remapped_to_tx06v1.nc'
-  print('\n Reading climatology from: ', filepath)
-  mld_obs = xr.open_dataset(filepath)
-
   print('\n Plotting...')
   # March and Sep, noticed starting from 0
   months = [2,8]
   for t in months:
     model = np.ma.masked_invalid(mld_model[t,:].values)
     obs = np.ma.masked_invalid(mld_obs.mld[t,:].values)
+    obs = np.ma.masked_where(grd.wet == 0, obs)
     month = date(1900, t+1, 1).strftime('%B')
     xycompare(model , obs, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
@@ -240,6 +242,7 @@ def get_MLD(ds, var, grd, args):
   months = [0,1,2]
   model_JFM = np.ma.masked_invalid(mld_model.isel(month=months).mean('month').values)
   obs_JFM = np.ma.masked_invalid(mld_obs.mld.isel(time=months).mean('time').values)
+  obs_JFM = np.ma.masked_where(grd.wet == 0, obs_JFM)
   month = 'JFM'
   xycompare(model_JFM , obs_JFM, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
@@ -252,6 +255,7 @@ def get_MLD(ds, var, grd, args):
   months = [6,7,8]
   model_JAS = np.ma.masked_invalid(mld_model.isel(month=months).mean('month').values)
   obs_JAS = np.ma.masked_invalid(mld_obs.mld.isel(time=months).mean('time').values)
+  obs_JAS = np.ma.masked_where(grd.wet == 0, obs_JAS)
   month = 'JAS'
   xycompare(model_JAS , obs_JAS, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
@@ -332,9 +336,6 @@ def get_BLD(ds, var, grd, args):
   # fix month values using pandas. We just want something that xarray understands
   mld_model['month'] = pd.date_range('2000-01-15', '2001-01-01',  freq='2SMS')
 
-  # read obs
-  #filepath = '/glade/work/gmarques/cesm/datasets/Mimoc/MIMOC_ML_v2.2_PT_S_MLP_remapped_to_tx06v1.nc'
-  #filepath = '/glade/work/gmarques/cesm/datasets/MLD/ARGO_MLD_remapped_to_tx06v1.nc'
   print('\n Plotting...')
   try:
     area = grd.area_t

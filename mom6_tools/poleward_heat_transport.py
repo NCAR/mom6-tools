@@ -3,7 +3,7 @@
 import io, yaml, os
 import matplotlib.pyplot as plt
 import numpy as np
-import warnings, dask, netCDF4
+import warnings, dask, netCDF4, intake
 from datetime import datetime, date
 import xarray as xr
 from mom6_tools.DiagsCase import DiagsCase
@@ -19,8 +19,8 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for plotting poleward heat transport.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-v', '--variables', nargs='+', default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d'],
-                     help='''Variables to be processed (default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d'])''')
+  #parser.add_argument('-v', '--variables', nargs='+', default=['T_ady_2d, T_diffy_2d, T_lbd_diffy_2d, T_hbd_diffy_2d'],
+  #                   help='''Variables to be processed (default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d', 'T_hbd_diffy_2d'])''')
   parser.add_argument('-sd','--start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-ed','--end_date', type=str, default='',
@@ -41,7 +41,7 @@ def main(stream=False):
     print('Creating a directory to place figures (PNG/HT)... \n')
     os.system('mkdir -p PNG/HT')
   if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place figures (ncfiles)... \n')
+    print('Creating a directory to store netcdf files (ncfiles)... \n')
     os.system('mkdir ncfiles')
 
   # Read in the yaml file
@@ -56,19 +56,25 @@ def main(stream=False):
   else:
     OUTDIR = dcase.get_value('RUNDIR')
 
+  variables = ['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d', 'T_hbd_diffy_2d']
   args.savefigs = True; args.outdir = 'PNG/HT'
   print('Output directory is:', OUTDIR)
   print('Casename is:', dcase.casename)
-  print('Variables to be processed:', args.variables)
+  #print('Variables to be processed:', args.variables)
+  print('Variables to be processed:', variables)
   print('Number of workers to be used:', nw)
 
-  # set avg dates
+  # set avg dates and other params
+  args.case_name = dcase.casename
   avg = diag_config_yml['Avg']
   if not args.start_date : args.start_date = avg['start_date']
   if not args.end_date : args.end_date = avg['end_date']
+  args.native = dcase.casename+diag_config_yml['Fnames']['native']
+  args.static = dcase.casename+diag_config_yml['Fnames']['static']
+  args.savefigs = False
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc')
+  grd = MOM6grid(OUTDIR+'/'+args.static)
   try:
     depth = grd.depth_ocean
   except:
@@ -87,7 +93,7 @@ def main(stream=False):
 
   print('Reading dataset...')
   startTime = datetime.now()
-  variables = args.variables
+  #variables = args.variables
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
@@ -102,7 +108,8 @@ def main(stream=False):
         ds = xr.merge([ds, da])
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, \
+                          parallel=parallel)
 
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
@@ -116,14 +123,22 @@ def main(stream=False):
   ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Computing yearly means...')
+  attrs =  {
+         'description': 'Annual mean of poleward heat transport by components ',
+         'start_date': args.start_date,
+         'end_date': args.end_date,
+         'reduction_method': 'annual mean weighted by days in each month',
+         'casename': dcase.casename
+         }
+
+  print('Computing annual means...')
   startTime = datetime.now()
-  ds_sel = ds_sel.resample(time="1Y", closed='left',keep_attrs=True).mean('time',keep_attrs=True)
+  ds_ann =  m6toolbox.weighted_temporal_mean_vars(ds_sel,attrs=attrs)
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing time mean...')
   startTime = datetime.now()
-  ds_sel = ds_sel.mean('time').load()
+  ds_mean = ds_ann.mean('time').load()
   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
@@ -134,14 +149,14 @@ def main(stream=False):
   print('Saving netCDF files...')
   attrs = {'description': 'Time-mean poleward heat transport by components ', 'units': ds[varName].units,
        'start_date': args.start_date, 'end_date': args.end_date, 'casename': dcase.casename}
-  m6toolbox.add_global_attrs(ds_sel,attrs)
+  m6toolbox.add_global_attrs(ds_mean,attrs)
 
-  ds_sel.to_netcdf('ncfiles/'+dcase.casename+'_heat_transport.nc')
+  ds_mean.to_netcdf('ncfiles/'+dcase.casename+'_heat_transport.nc')
   # create a ndarray subclass
   class C(np.ndarray): pass
 
   if varName in ds.variables:
-    tmp = np.ma.masked_invalid(ds_sel[varName].values)
+    tmp = np.ma.masked_invalid(ds_mean[varName].values)
     tmp = tmp[:].filled(0.)
     advective = tmp.view(C)
     advective.units = ds[varName].units
@@ -150,7 +165,7 @@ def main(stream=False):
 
   varName = 'T_diffy_2d'
   if varName in ds.variables:
-    tmp = np.ma.masked_invalid(ds_sel[varName].values)
+    tmp = np.ma.masked_invalid(ds_mean[varName].values)
     tmp = tmp[:].filled(0.)
     diffusive = tmp.view(C)
     diffusive.units = ds[varName].units
@@ -160,7 +175,7 @@ def main(stream=False):
 
   varName = 'T_hbd_diffy_2d'
   if varName in ds.variables:
-    tmp = np.ma.masked_invalid(ds_sel[varName].values)
+    tmp = np.ma.masked_invalid(ds_mean[varName].values)
     tmp = tmp[:].filled(0.)
     hbd = tmp.view(C)
     #hbd.units = ds[varName].units

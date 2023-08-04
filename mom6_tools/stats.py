@@ -380,10 +380,6 @@ def main(stream=False):
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
@@ -392,6 +388,13 @@ def main(stream=False):
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
   else:
     OUTDIR = dcase.get_value('RUNDIR')
+
+  # set avg dates and other params
+  avg = diag_config_yml['Avg']
+  if not args.start_date : args.start_date = avg['start_date']
+  if not args.end_date : args.end_date = avg['end_date']
+  args.static = dcase.casename+diag_config_yml['Fnames']['static']
+  args.native = dcase.casename+diag_config_yml['Fnames']['native']
 
   print('Output directory is:', OUTDIR)
   print('Casename is:', dcase.casename)
@@ -405,7 +408,7 @@ def main(stream=False):
     os.system('mkdir ncfiles')
 
   # read grid
-  grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc', xrformat=True)
+  grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
   #grd = MOM6grid('ocean.mom6.static.nc', xrformat=True)
   try:
     area = grd.area_t.where(grd.wet > 0)
@@ -432,19 +435,16 @@ def main(stream=False):
   if args.surface:
     #variables = ['SSH','tos','sos','mlotst','oml','speed', 'SSU', 'SSV']
     variables = ['SSH','tos','sos','mlotst','oml','speed']
-    fname = '.mom6.hm_*.nc'
-    xystats(fname, variables, grd, dcase, basins, args, OUTDIR)
+    xystats(args.native, variables, grd, dcase, basins, args, OUTDIR)
 
   if args.forcing:
     variables = ['friver','ficeberg','fsitherm','hfsnthermds','sfdsi', 'hflso',
              'seaice_melt_heat', 'wfo', 'hfds', 'Heat_PmE']
-    fname = '.mom6.hm_*.nc'
-    xystats(fname, variables, grd, dcase, basins, args, OUTDIR)
+    xystats(args.native, variables, grd, dcase, basins, args, OUTDIR)
 
   if args.time_series:
     variables = ['thetaoga','soga']
-    fname = '.mom6.hm_*.nc'
-    extract_time_series(fname, variables, grd, dcase, args, OUTDIR)
+    extract_time_series(args.native, variables, grd, dcase, args, OUTDIR)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
@@ -576,14 +576,13 @@ def extract_time_series(fname, variables, grd, dcase, args, OUTDIR):
     client = Client(cluster)
 
   def preprocess(ds):
-    ''' Compute montly averages and return the dataset with variables'''
-    return ds[variables].resample(time="1M", closed='left', \
-           keep_attrs=True).mean(dim='time', keep_attrs=True)
+    ''' Return the dataset with variables'''
+    return ds[variables]
 
   # read forcing files
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+fname, parallel=parallel)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+fname, parallel=parallel)
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
   ds = preprocess(ds1)
@@ -649,14 +648,13 @@ def xystats(fname, variables, grd, dcase, basins, args, OUTDIR):
     area = grd.areacello.where(grd.wet > 0)
 
   def preprocess(ds):
-    ''' Compute montly averages and return the dataset with variables'''
-    return ds[variables].resample(time="1M", closed='left', \
-           keep_attrs=True).mean(dim='time', keep_attrs=True)
+    ''' Return the dataset with variables'''
+    return ds[variables]
 
   # read forcing files
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+fname, parallel=parallel)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+fname, parallel=parallel)
   ds = preprocess(ds1)
 
   # use datetime
