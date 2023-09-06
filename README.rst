@@ -5,7 +5,7 @@ MOM6-tools
     :alt: Build Status
 
 .. image:: https://img.shields.io/readthedocs/mom6-tools/latest.svg?style=for-the-badge
-    :target: https://mom6-tools.readthedocs.io/en/latest/?badge=latest
+    :target: https://mom6-tools.readthedocs.io/?badge=latest
     :alt: Documentation Status
 
 .. image:: https://img.shields.io/pypi/v/mom6-tools.svg?style=for-the-badge
