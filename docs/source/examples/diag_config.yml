@@ -1,8 +1,50 @@
+# case info
 Case:
-  CIMEROOT: "/glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04d_mom6/cime"
-  CASEROOT: "/glade/work/gmarques/cesm.cases/G/g.c2b6.GJRA.TL319_t061.long_JRA_mct.076"
-  RUNDIR: "/glade/scratch/gmarques/g.c2b6.GJRA.TL319_t061.long_JRA_mct.076/run"
-
+  CASEROOT: /glade/work/gmarques/cesm.cases/G/g.e23_b15.GJRAv4.TL319_t232_zstar_N65.baseline.001/
+  CIMEROOT: /glade/work/gmarques/cesm.sandboxes/cesm2_3_beta15/cime/
+  OCN_DIAG_ROOT: /glade/u/home/gmarques/Notebooks/CESM_MOM6/G/g.e23_b15.GJRAv4.TL319_t232_zstar_N65.baseline.001/ncfiles/
+  SNAME: ctrl_jra_beta15
+  
+# start and end dates to perform averages
 Avg:
-  end_date: '0059-01-01'
-  start_date: '0029-01-01'
+  end_date: '0062-01-01'
+  start_date: '0031-01-01'
+
+# cesm hist fname conventions
+Fnames:
+  rho2:   '.mom6.h.rho2.????-??.nc'
+  z:      '.mom6.h.z.????-??.nc'
+  native: '.mom6.h.native.????-??.nc'
+  sfc:    '.mom6.h.sfc.????-??.nc'
+  static: '.mom6.h.static.nc'
+
+# sections where transports are computed online
+# Format: file name stream (e.g., Drake_Passage), transport 
+# component (umo or vmo), observational estimate (optional)
+Transports:
+  sections : {'Agulhas_Section': ['umo', 129.8, 143.6],
+              'Barents_Opening': ['vmo', 2.0],
+              'Bering_Strait': ['vmo', 0.7, 1.1],
+              'Davis_Strait': ['vmo', -2.1,-1.1],
+              'Denmark_Strait': ['vmo',-4.8,-2.0],
+              'Drake_Passage': ['umo',129.8,143.6],
+              'English_Channel': ['umo',0.01,0.1],
+              'Fram_Strait': ['vmo',-4.7,0.7],
+              'Florida_Bahamas': ['vmo',28.9,34.3],
+              'Florida_Bahamas_extended':['vmo',28.9,34.3],
+              'Florida_Cuba':['umo', None],
+              'Gibraltar_Strait':['umo',-1.0, 1.0],
+              'Iceland_Norway':['vmo',28.9,34.3],
+              'Indonesian_Throughflow':['vmo',-15.,-13.],
+              'Mozambique_Channel':['vmo',-25.6,-7.8],
+              'Pacific_undercurrent':['umo',24.5,28.3],
+              'Taiwan_Luzon':['umo',-3.0,-1.8],
+              'Windward_Passage':['vmo',-15.,5.],
+              'Robeson_Channel':['umo', None],
+              'Yucatan_Channel':['vmo', None],
+              'Bosporus_Strait':['vmo', None], 
+           }
+           
+# path to ocean-related datasets catalog
+oce_cat: /glade/u/home/gmarques/libs/oce-catalogs/reference-datasets.yml
+

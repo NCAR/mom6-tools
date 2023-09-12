@@ -3,7 +3,7 @@
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
-import warnings, os, yaml, argparse
+import warnings, os, yaml, argparse, intake
 import pandas as pd
 from collections import OrderedDict
 import dask
@@ -11,7 +11,7 @@ from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import add_global_attrs, genBasinMasks
+from mom6_tools.m6toolbox import add_global_attrs, genBasinMasks, weighted_temporal_mean_vars
 from mom6_tools.m6plot import xycompare, polarcomparison, chooseColorLevels
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.stats import stats_to_ds, min_da, max_da, mean_da, rms_da, std_da
@@ -34,8 +34,9 @@ def parseCommandLine():
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
-  parser.add_argument('-o','--obs', type=str, default='WOA18', help='''Observational product to compare agaist.  \
-    Valid options are: WOA18 (default) or PHC2''')
+  parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
+                      help='''Name of observational product in the oce-catalog  \
+                              to compare against. Default is woa-2018-tx2_3v2-annual-all''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   optCmdLineArgs = parser.parse_args()
   driver(optCmdLineArgs)
@@ -64,9 +65,13 @@ def driver(args):
     OUTDIR = dcase.get_value('RUNDIR')
 
   args.casename = dcase.casename
+  args.monthly = dcase.casename+diag_config_yml['Fnames']['z']
+  args.static = dcase.casename+diag_config_yml['Fnames']['static']
+
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
+  print('Reading file stream: ', args.monthly)
 
   # set avg dates
   avg = diag_config_yml['Avg']
@@ -74,8 +79,8 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc');
-  grd_xr = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc', xrformat=True);
+  grd = MOM6grid(OUTDIR+'/'+args.static);
+  grd_xr = MOM6grid(OUTDIR+'/'+args.static, xrformat=True);
 
   # create masks
   try:
@@ -86,21 +91,12 @@ def driver(args):
   depth[np.isnan(depth)] = 0.0
   basin_code = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
 
-  # TODO: improve how obs are selected
-  if args.obs == 'PHC2':
-    # load PHC2 data
-    obs_path = '/glade/p/cesm/omwg/obs_data/phc/'
-    obs_temp = xr.open_mfdataset(obs_path+'PHC2_TEMP_tx0.66v1_34lev_ann_avg.nc', decode_coords=False, decode_times=False)
-    obs_salt = xr.open_mfdataset(obs_path+'PHC2_SALT_tx0.66v1_34lev_ann_avg.nc', decode_coords=False, decode_times=False)
-  elif args.obs == 'WOA18':
-    # load WOA18 data
-    obs_path = '/glade/u/home/gmarques/Notebooks/CESM_MOM6/WOA18_remapping/'
-    obs_temp = xr.open_dataset(obs_path+'WOA18_TEMP_tx0.66v1_34lev_ann_avg.nc',
-                              decode_times=False).rename({'theta0': 'TEMP', 'z_l' : 'depth'});
-    obs_salt = xr.open_dataset(obs_path+'WOA18_SALT_tx0.66v1_34lev_ann_avg.nc',
-                              decode_times=False).rename({'s_an': 'SALT', 'z_l' : 'depth'});
-  else:
-    raise ValueError("The obs selected is not available.")
+  # load obs
+  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  obs = catalog[args.obs].to_dask()
+  obs = obs.rename({'z_l' : 'depth'});
+  obs_temp = obs.thetao
+  obs_salt = obs.so
 
   parallel = False
   if nw > 1:
@@ -111,35 +107,30 @@ def driver(args):
 
   print('Reading surface dataset...')
   startTime = datetime.now()
-  variables = ['thetao', 'so', 'time', 'time_bnds']
 
   def preprocess(ds):
-    ''' Compute montly averages and return the dataset with variables'''
-    return ds[variables]#.resample(time="1Y", closed='left', \
-           #keep_attrs=True).mean(dim='time', keep_attrs=True)
+    ''' Load monthly averages and return the dataset with variables'''
+    variables = ['thetao', 'so', 'time', 'time_bounds']
+    return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel)
-  # use datetime
-  #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
+  ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, \
+         parallel=True, data_vars='minimal', \
+         coords='minimal', compat='override', preprocess=preprocess)
 
-  ds = preprocess(ds1)
 
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   startTime = datetime.now()
-  ds = ds.sel(time=slice(args.start_date, args.end_date))
+  ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('\n Computing yearly means...')
+  print('\n Computing annual means and then average in time...')
   startTime = datetime.now()
-  ds = ds.resample(time="1Y", closed='left',keep_attrs=True).mean('time',keep_attrs=True)
-  print('Time elasped: ', datetime.now() - startTime)
-
-  print('Time averaging...')
-  startTime = datetime.now()
-  temp = np.ma.masked_invalid(ds.thetao.mean('time').values)
-  salt = np.ma.masked_invalid(ds.so.mean('time').values)
+  # compute annual mean and then average in time
+  ds_ann = weighted_temporal_mean_vars(ds_sel)
+  temp = np.ma.masked_invalid(ds_ann.thetao.mean('time').values)
+  salt = np.ma.masked_invalid(ds_ann.so.mean('time').values)
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing stats for different basins...')
@@ -169,13 +160,13 @@ def driver(args):
   # temp
   thetao_mean = ds.thetao.mean('time').compute()
   print('Done computing thetao_mean...')
-  temp_diff = thetao_mean.rename({'z_l':'depth'}).rename('TEMP') - obs_temp['TEMP']
+  temp_diff = thetao_mean.rename({'z_l':'depth'}) - obs_temp
   print('Done computing thetao_diff...')
   temp_stats = myStats_da(temp_diff, area_mom3D, basins=basin_code, debug=debug).rename('thetao_bias_stats')
   print('Done computing temp_stats...')
   # salt
   so_mean = ds.so.mean('time').compute()
-  salt_diff = so_mean.rename({'z_l':'depth'}).rename('SALT') - obs_salt['SALT']
+  salt_diff = so_mean.rename({'z_l':'depth'}) - obs_salt
   salt_stats = myStats_da(salt_diff, area_mom3D, basins=basin_code, debug=debug).rename('so_bias_stats')
 
   # plots
@@ -260,7 +251,7 @@ def driver(args):
 
   thetao = xr.DataArray(thetao_mean, dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('thetao')
-  temp_bias = np.ma.masked_invalid(thetao.values - obs_temp['TEMP'].values)
+  temp_bias = np.ma.masked_invalid(thetao.values - obs_temp.values)
   ds_thetao = xr.Dataset(data_vars={ 'thetao' : (('z_l','yh','xh'), thetao.values),
                             'thetao_bias' :     (('z_l','yh','xh'), temp_bias)},
                             coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
@@ -269,7 +260,7 @@ def driver(args):
   ds_thetao.to_netcdf('ncfiles/'+str(args.casename)+'_thetao_time_mean.nc')
   so = xr.DataArray(ds.so.mean('time'), dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('so')
-  salt_bias = np.ma.masked_invalid(so.values - obs_salt['SALT'].values)
+  salt_bias = np.ma.masked_invalid(so.values - obs_salt.values)
   ds_so = xr.Dataset(data_vars={ 'so' : (('z_l','yh','xh'), so.values),
                             'so_bias' :     (('z_l','yh','xh'), salt_bias)},
                             coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
@@ -291,14 +282,14 @@ def driver(args):
   for k in range(km):
     if ds['z_l'][k].values < 1200.0:
       figname = 'PNG/TS_levels/'+str(dcase.casename)+'_'+str(ds['z_l'][k].values)+'_'
-      temp_obs = np.ma.masked_invalid(obs_temp['TEMP'][k,:].values)
+      temp_obs = np.ma.masked_invalid(obs_temp[k,:].values)
       xycompare(temp[k,:] , temp_obs, grd.geolon, grd.geolat, area=area,
               title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
               title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
               suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               extend='both', dextend='neither', clim=(-1.9,30.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               save=figname+'global_temp.png')
-      salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
+      salt_obs = np.ma.masked_invalid(obs_salt[k,:].values)
       xycompare( salt[k,:] , salt_obs, grd.geolon, grd.geolat, area=area,
               title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
               title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
