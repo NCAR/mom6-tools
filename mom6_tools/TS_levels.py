@@ -109,8 +109,12 @@ def driver(args):
   startTime = datetime.now()
 
   def preprocess(ds):
-    ''' Load monthly averages and return the dataset with variables'''
-    variables = ['thetao', 'so', 'time', 'time_bounds']
+    ''' Return a dataset desired variables'''
+    variables = ['thetao', 'so', 'time']
+    if 'time_bounds' in ds.variables:
+      variables.append('time_bounds')
+    elif 'time_bnds' in ds.variables:
+      variables.append('time_bnds')
     return ds[variables]
 
   ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, \

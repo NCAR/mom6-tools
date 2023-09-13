@@ -87,7 +87,11 @@ def driver(args):
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
-    variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bounds']
+    variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed']
+    if 'time_bounds' in ds.variables:
+      variables.append('time_bounds')
+    elif 'time_bnds' in ds.variables:
+      variables.append('time_bnds')
     for v in variables:
       if v not in ds.variables:
         ds[v] = xr.zeros_like(ds.SSH)
