@@ -230,12 +230,12 @@ def get_MLD(ds, var, mld_obs, grd, args):
   fname = None
 
   for t in months:
+    month = date(1900, t+1, 1).strftime('%B')
     if args.savefigs:
       fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
     model = np.ma.masked_invalid(mld_model[t,:].values)
     obs = np.ma.masked_invalid(mld_obs.mld[t,:].values)
     obs = np.ma.masked_where(grd.wet == 0, obs)
-    month = date(1900, t+1, 1).strftime('%B')
     xycompare(model , obs, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
             title2 = 'obs (deBoyer), '+str(month),
