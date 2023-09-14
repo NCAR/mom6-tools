@@ -371,10 +371,10 @@ def get_BLD(ds, var, grd, args):
   months = [2,8]
   fname = None
   for t in months:
+    month = date(1900, t+1, 1).strftime('%B')
     if args.savefigs:
       fname = 'PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png'
     model = np.ma.masked_invalid(mld_model[t,:].values)
-    month = date(1900, t+1, 1).strftime('%B')
     xyplot(model, grd.geolon, grd.geolat, area=area,
            save=fname,
            suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
