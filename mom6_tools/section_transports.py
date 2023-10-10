@@ -163,7 +163,7 @@ def main(stream=False):
   plotSections = []
 
   # leaving this here to catch if start/end years outside the range of the dataset
-  res = Transport(cmdLineArgs, sections, 'Agulhas_Section')
+  #res = Transport(cmdLineArgs, sections, 'Agulhas_Section')
 
   for key in sections:
     try: res = Transport(cmdLineArgs, sections, key); plotSections.append(res)
