@@ -104,8 +104,13 @@ def driver(args):
   startTime = datetime.now()
 
   # load data
+
   def preprocess(ds):
-    variables = ['thetao', 'so', 'uo', 'time', 'time_bounds', 'z_i']
+    variables = ['thetao', 'so', 'uo', 'time', 'z_i']
+    if 'time_bounds' in ds.variables:
+      variables.append('time_bounds')
+    elif 'time_bnds' in ds.variables:
+      variables.append('time_bnds')
     return ds[variables]
 
   ds1 = xr.open_mfdataset(OUTDIR+args.monthly, parallel=parallel)

@@ -87,7 +87,11 @@ def driver(args):
 
   def preprocess(ds):
     ''' Compute montly averages and return the dataset with variables'''
-    variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed', 'time_bounds']
+    variables = ['oml','mlotst','tos','SSH', 'SSU', 'SSV', 'speed']
+    if 'time_bounds' in ds.variables:
+      variables.append('time_bounds')
+    elif 'time_bnds' in ds.variables:
+      variables.append('time_bnds')
     for v in variables:
       if v not in ds.variables:
         ds[v] = xr.zeros_like(ds.SSH)
@@ -226,12 +230,12 @@ def get_MLD(ds, var, mld_obs, grd, args):
   fname = None
 
   for t in months:
+    month = date(1900, t+1, 1).strftime('%B')
     if args.savefigs:
       fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
     model = np.ma.masked_invalid(mld_model[t,:].values)
     obs = np.ma.masked_invalid(mld_obs.mld[t,:].values)
     obs = np.ma.masked_where(grd.wet == 0, obs)
-    month = date(1900, t+1, 1).strftime('%B')
     xycompare(model , obs, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
             title2 = 'obs (deBoyer), '+str(month),
@@ -367,10 +371,10 @@ def get_BLD(ds, var, grd, args):
   months = [2,8]
   fname = None
   for t in months:
+    month = date(1900, t+1, 1).strftime('%B')
     if args.savefigs:
       fname = 'PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png'
     model = np.ma.masked_invalid(mld_model[t,:].values)
-    month = date(1900, t+1, 1).strftime('%B')
     xyplot(model, grd.geolon, grd.geolat, area=area,
            save=fname,
            suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),

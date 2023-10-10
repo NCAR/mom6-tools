@@ -41,7 +41,7 @@ class Transport():
 
     # List all section* files in args.infile
     #full_path = args.infile+args.case_name+'.mom6.'+section+'*'
-    full_path = args.infile+args.case_name+'.mom6.'+section+'.*.nc.????'
+    full_path = args.infile+args.case_name+'.mom6.'+section+'*'
     if debug: print('Full path ', full_path)
     files = [f for f in glob.glob(full_path)]
     #files = [f for f in glob.glob(full_path, recursive=True)]
@@ -62,7 +62,7 @@ class Transport():
     missing_var = True
     # loop over tiles
     for t in range(len(tiles)):
-      inFileName = '{}.mom6.{}.*.nc.{}'.format(args.infile+args.case_name, section, str(tiles[t]))
+      inFileName = '{}.mom6.{}*nc.{}'.format(args.infile+args.case_name, section, str(tiles[t]))
       if debug: print('inFileName {}, variable {}'.format(inFileName,var))
       rootGroup = xr.open_mfdataset(inFileName, combine='by_coords')
       #rootGroup['time'] = rootGroup.indexes['time'].to_datetimeindex()
@@ -163,7 +163,7 @@ def main(stream=False):
   plotSections = []
 
   # leaving this here to catch if start/end years outside the range of the dataset
-  res = Transport(cmdLineArgs, sections, 'Agulhas_Section')
+  #res = Transport(cmdLineArgs, sections, 'Agulhas_Section')
 
   for key in sections:
     try: res = Transport(cmdLineArgs, sections, key); plotSections.append(res)

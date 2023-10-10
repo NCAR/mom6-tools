@@ -2,9 +2,9 @@
 Case:
   CASEROOT: /glade/work/gmarques/cesm.cases/G/g.e23_b15.GJRAv4.TL319_t232_zstar_N65.baseline.001/
   CIMEROOT: /glade/work/gmarques/cesm.sandboxes/cesm2_3_beta15/cime/
-  OCN_DIAG_ROOT: /glade/u/home/gmarques/Notebooks/CESM_MOM6/G/g.e23_b15.GJRAv4.TL319_t232_zstar_N65.baseline.001/ncfiles/
+  OCN_DIAG_ROOT: ncfiles/
   SNAME: ctrl_jra_beta15
-  
+
 # start and end dates to perform averages
 Avg:
   end_date: '0062-01-01'
@@ -19,32 +19,32 @@ Fnames:
   static: '.mom6.h.static.nc'
 
 # sections where transports are computed online
-# Format: file name stream (e.g., Drake_Passage), transport 
+# Format: file name stream (e.g., Drake_Passage), transport
 # component (umo or vmo), observational estimate (optional)
 Transports:
-  sections : {'Agulhas_Section': ['umo', 129.8, 143.6],
-              'Barents_Opening': ['vmo', 2.0],
-              'Bering_Strait': ['vmo', 0.7, 1.1],
-              'Davis_Strait': ['vmo', -2.1,-1.1],
-              'Denmark_Strait': ['vmo',-4.8,-2.0],
-              'Drake_Passage': ['umo',129.8,143.6],
-              'English_Channel': ['umo',0.01,0.1],
-              'Fram_Strait': ['vmo',-4.7,0.7],
-              'Florida_Bahamas': ['vmo',28.9,34.3],
-              'Florida_Bahamas_extended':['vmo',28.9,34.3],
-              'Florida_Cuba':['umo', None],
-              'Gibraltar_Strait':['umo',-1.0, 1.0],
-              'Iceland_Norway':['vmo',28.9,34.3],
-              'Indonesian_Throughflow':['vmo',-15.,-13.],
-              'Mozambique_Channel':['vmo',-25.6,-7.8],
-              'Pacific_undercurrent':['umo',24.5,28.3],
-              'Taiwan_Luzon':['umo',-3.0,-1.8],
-              'Windward_Passage':['vmo',-15.,5.],
-              'Robeson_Channel':['umo', None],
-              'Yucatan_Channel':['vmo', None],
-              'Bosporus_Strait':['vmo', None], 
+  sections : {'h.Agulhas_Section': ['umo', 129.8, 143.6],
+              'h.Barents_Opening': ['vmo', 2.0],
+              'h.Bering_Strait': ['vmo', 0.7, 1.1],
+              'h.Davis_Strait': ['vmo', -2.1,-1.1],
+              'h.Denmark_Strait': ['vmo',-4.8,-2.0],
+              'h.Drake_Passage': ['umo',129.8,143.6],
+              'h.English_Channel': ['umo',0.01,0.1],
+              'h.Fram_Strait': ['vmo',-4.7,0.7],
+              'h.Florida_Bahamas': ['vmo',28.9,34.3],
+              'h.Florida_Bahamas_extended':['vmo',28.9,34.3],
+              'h.Florida_Cuba':['umo', None],
+              'h.Gibraltar_Strait':['umo',-1.0, 1.0],
+              'h.Iceland_Norway':['vmo',28.9,34.3],
+              'h.Indonesian_Throughflow':['vmo',-15.,-13.],
+              'h.Mozambique_Channel':['vmo',-25.6,-7.8],
+              'h.Pacific_undercurrent':['umo',24.5,28.3],
+              'h.Taiwan_Luzon':['umo',-3.0,-1.8],
+              'h.Windward_Passage':['vmo',-15.,5.],
+              'h.Robeson_Channel':['umo', None],
+              'h.Yucatan_Channel':['vmo', None],
+              'h.Bosporus_Strait':['vmo', None],
            }
-           
+
 # path to ocean-related datasets catalog
 oce_cat: /glade/u/home/gmarques/libs/oce-catalogs/reference-datasets.yml
 
