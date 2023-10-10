@@ -398,7 +398,7 @@ def main(stream=False):
 
   print('Output directory is:', OUTDIR)
   print('Casename is:', dcase.casename)
-  print('Number of workers: ', args.number_of_workers)
+  print('Number of workers: ', args.nw)
 
   if not os.path.isdir('PNG/Horizontal_mean_biases'):
     print('Creating a directory to place figures (PNG)... \n')
@@ -538,7 +538,7 @@ def ocean_stats(dcase, OUTDIR):
 
   return
 
-def extract_time_series(fname, variables, grd, dcase, args, OUTDIR):
+def extract_time_series(fname, variables, dcase, args, OUTDIR):
   '''
    Extract time-series and saves annual means.
 
@@ -550,9 +550,6 @@ def extract_time_series(fname, variables, grd, dcase, args, OUTDIR):
 
   variables : str
     List of variables to be processed.
-
-  grd : OrderedDict
-    Dictionary with statistics computed using function myStats_da
 
   dcase : case object
     Object created using mom6_tools.DiagsCase.
@@ -569,10 +566,10 @@ def extract_time_series(fname, variables, grd, dcase, args, OUTDIR):
 
   '''
   parallel = False
-  if args.number_of_workers > 1:
+  if args.nw > 1:
     parallel = True
     cluster = NCARCluster()
-    cluster.scale(args.number_of_workers)
+    cluster.scale(args.nw)
     client = Client(cluster)
 
   def preprocess(ds):
@@ -636,10 +633,10 @@ def xystats(fname, variables, grd, dcase, basins, args, OUTDIR):
 
   '''
   parallel = False
-  if args.number_of_workers > 1:
+  if args.nw > 1:
     parallel = True
     cluster = NCARCluster()
-    cluster.scale(args.number_of_workers)
+    cluster.scale(args.nw)
     client = Client(cluster)
 
   try:
