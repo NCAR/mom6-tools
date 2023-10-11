@@ -374,6 +374,7 @@ def main(stream=False):
 
   # Get options
   args = options()
+  args.nw = args.number_of_workers
 
   if not args.ocean_stats and not args.surface and not args.forcing and not args.time_series:
     raise ValueError("Please select -ocean_stats, -time_series, -surface and/or -forcing.")
@@ -444,7 +445,7 @@ def main(stream=False):
 
   if args.time_series:
     variables = ['thetaoga','soga']
-    extract_time_series(args.native, variables, grd, dcase, args, OUTDIR)
+    extract_time_series(args.native, variables, dcase, args, OUTDIR)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
