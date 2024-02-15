@@ -1,5 +1,5 @@
-sphinx
-sphinx_rtd_theme
+#sphinx
+#sphinx_rtd_theme
 nbsphinx
 jinja2
 numpy
