@@ -444,8 +444,8 @@ def main(stream=False):
     xystats(args.native, variables, grd, dcase, basins, args, OUTDIR)
 
   if args.time_series:
-    variables = ['thetaoga','soga']
-    extract_time_series(args.native, variables, dcase, args, OUTDIR)
+    variables = ['thetaoga','soga','opottempmint','somint']
+    extract_time_series(args.native, variables, area, dcase, args, OUTDIR)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
@@ -539,7 +539,7 @@ def ocean_stats(dcase, OUTDIR):
 
   return
 
-def extract_time_series(fname, variables, dcase, args, OUTDIR):
+def extract_time_series(fname, variables, area, dcase, args, OUTDIR):
   '''
    Extract time-series and saves annual means.
 
@@ -584,7 +584,18 @@ def extract_time_series(fname, variables, dcase, args, OUTDIR):
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
   ds = preprocess(ds1)
+  opottempmint = ds['opottempmint']
+  somint = ds['somint']
+  ds.drop_vars(['opottempmint','somint'])
+  opottempmint = (opottempmint*area).sum(['yh','xh'])
+  opottempmint.attrs['description'] = 'Global integrated temperature'
+  opottempmint.attrs['units'] = 'degC kg'
 
+  somint = (somint*area).sum(['yh','xh'])
+  somint.attrs['description'] = 'Global integrated salinity'
+  somint.attrs['units'] = 'psu kg'
+  ds['opottempmint'] = opottempmint
+  ds['somint'] = somint
 
   print('Time elasped: ', datetime.now() - startTime)
 
