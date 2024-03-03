@@ -4,7 +4,7 @@ import io, yaml, os
 import matplotlib.pyplot as plt
 import numpy as np
 import warnings, dask, intake
-from datetime import datetime, date
+from datetime import datetime
 import xarray as xr
 from mom6_tools.DiagsCase import DiagsCase
 from ncar_jobqueue import NCARCluster
