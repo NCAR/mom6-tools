@@ -99,12 +99,12 @@ def main():
         ds[v] = xr.zeros_like(ds.vo)
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel)
+  ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel, preprocess=preprocess)
 
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
 
-  ds = preprocess(ds1)
+  #ds = preprocess(ds1)
 
   print('Time elasped: ', datetime.now() - startTime)
 
