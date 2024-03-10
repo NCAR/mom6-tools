@@ -3,6 +3,7 @@
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 import warnings, os, yaml, argparse
 import pandas as pd
 import dask, intake
@@ -64,6 +65,7 @@ def driver(args):
   else:
     OUTDIR = dcase.get_value('RUNDIR')+'/'
 
+  args.label = diag_config_yml['Case']['SNAME']
   args.casename = dcase.casename
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
@@ -153,6 +155,7 @@ def driver(args):
   x = ds.xh.values
   [X, Z] = np.meshgrid(x, zz)
   z = 0.5 * ( Z[:-1] + Z[1:])
+  matplotlib.rcParams.update({'font.size': 16})
 
   print('Model vs Obs comparisions...')
   figname = 'PNG/Equatorial/'+str(dcase.casename)+'_'
@@ -207,43 +210,42 @@ def driver(args):
   # longitutes to be compared
   longitudes = [143., 156., 165., 180., 190., 205., 220., 235., 250., 265.]
 
-
   print('Plots along fixed longitudes...')
   for l in longitudes:
     # Temperature
-    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(16,8))
+    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(16,8), sharey=True)
     dummy_model = np.ma.masked_invalid(thetao.sel(xh=l, method='nearest').values)
     dummy_obs = np.ma.masked_invalid(johnson.POTEMPM.sel(XLON=l, method='nearest').values)
-    yzplot(dummy_model, y_model, -Z_model, clim=(7,30), axis=ax1, zlabel='Depth', ylabel='Latitude', title=str(dcase.casename))
+    yzplot(dummy_model, y_model, -Z_model, clim=(7,30), axis=ax1, zlabel='Depth', ylabel='Latitude', title=str(args.label))
     cs1 = ax1.contour( y_model + 0*z_model, -z_model, dummy_model, levels=np.arange(0,30,2), colors='k',); plt.clabel(cs1,fmt='%3.1f', fontsize=14)
     ax1.set_ylim(-400,0)
-    yzplot(dummy_obs, y_obs, -Z_obs, clim=(7,30), axis=ax2, zlabel='Depth', ylabel='Latitude', title='Johnson et al (2002)')
+    yzplot(dummy_obs, y_obs, -Z_obs, clim=(7,30), axis=ax2, zlabel='', ylabel='Latitude', title='Johnson et al (2002)')
     cs2 = ax2.contour( y_obs + 0*z_obs, -z_obs, dummy_obs, levels=np.arange(0,30,2), colors='k',); plt.clabel(cs2,fmt='%3.1f', fontsize=14)
     ax2.set_ylim(-400,0)
     plt.suptitle('Temperature [C] @ '+str(l)+ ', averaged between '+str(args.start_date)+' and '+str(args.end_date))
     plt.savefig(figname+'temperature_'+str(l)+'.png')
 
     # Salt
-    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(16,8))
+    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(16,8), sharey=True)
     dummy_model = np.ma.masked_invalid(so.sel(xh=l, method='nearest').values)
     dummy_obs = np.ma.masked_invalid(johnson.SALINITYM.sel(XLON=l, method='nearest').values)
-    yzplot(dummy_model, y_model, -Z_model, clim=(32,36), axis=ax1, zlabel='Depth', ylabel='Latitude', title=str(dcase.casename))
+    yzplot(dummy_model, y_model, -Z_model, clim=(32,36), axis=ax1, zlabel='Depth', ylabel='Latitude', title=str(args.label))
     cs1 = ax1.contour( y_model + 0*z_model, -z_model, dummy_model, levels=np.arange(32,36,0.5), colors='k',); plt.clabel(cs1,fmt='%3.1f', fontsize=14)
     ax1.set_ylim(-400,0)
-    yzplot(dummy_obs, y_obs, -Z_obs, clim=(32,36), axis=ax2, zlabel='Depth', ylabel='Latitude', title='Johnson et al (2002)')
+    yzplot(dummy_obs, y_obs, -Z_obs, clim=(32,36), axis=ax2, zlabel='', ylabel='Latitude', title='Johnson et al (2002)')
     cs2 = ax2.contour( y_obs + 0*z_obs, -z_obs, dummy_obs, levels=np.arange(32,36,0.5), colors='k',); plt.clabel(cs2,fmt='%3.1f', fontsize=14)
     ax2.set_ylim(-400,0)
     plt.suptitle('Salinity [psu] @ '+str(l)+ ', averaged between '+str(args.start_date)+' and '+str(args.end_date))
     plt.savefig(figname+'salinity_'+str(l)+'.png')
 
     # uo
-    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(16,8))
+    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(16,8), sharey=True)
     dummy_model = np.ma.masked_invalid(uo.sel(xq=l, method='nearest').values)
     dummy_obs = np.ma.masked_invalid(johnson.UM.sel(XLON=l, method='nearest').values)
-    yzplot(dummy_model, y_model, -Z_model, clim=(-0.6,1.2), axis=ax1, zlabel='Depth', ylabel='Latitude', title=str(dcase.casename))
+    yzplot(dummy_model, y_model, -Z_model, clim=(-0.6,1.2), axis=ax1, zlabel='Depth', ylabel='Latitude', title=str(args.label))
     cs1 = ax1.contour( y_model + 0*z_model, -z_model, dummy_model, levels=np.arange(-1.2,1.2,0.1), colors='k',); plt.clabel(cs1,fmt='%3.1f', fontsize=14)
     ax1.set_ylim(-400,0)
-    yzplot(dummy_obs, y_obs, -Z_obs, clim=(-0.6,1.2), axis=ax2, zlabel='Depth', ylabel='Latitude', title='Johnson et al (2002)')
+    yzplot(dummy_obs, y_obs, -Z_obs, clim=(-0.6,1.2), axis=ax2, zlabel='', ylabel='Latitude', title='Johnson et al (2002)')
     cs2 = ax2.contour( y_obs + 0*z_obs, -z_obs, dummy_obs, levels=np.arange(-1.2,1.2,0.1), colors='k',); plt.clabel(cs2,fmt='%3.1f', fontsize=14)
     ax2.set_ylim(-400,0)
     plt.suptitle('Eastward velocity [m/s] @ '+str(l)+ ', averaged between '+str(args.start_date)+' and '+str(args.end_date))
@@ -260,15 +262,15 @@ def driver(args):
   z_model = 0.5 * ( Z_model[:-1,:] + Z_model[1:,:] )
 
   print('Eastward velocity along the Equatorial Pacific...')
-  fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(16,8))
+  fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(16,8), sharey=True)
   dummy_obs = np.ma.masked_invalid(johnson.UM.sel(YLAT11_101=0).values)
   dummy_model = np.ma.masked_invalid(uo.sel(yh=0, method='nearest').values)
-  yzplot(dummy_model, x_model, -Z_model, clim=(-0.6,1.2), axis=ax1, landcolor=[0., 0., 0.], title=str(dcase.casename), ylabel='Longitude')
+  yzplot(dummy_model, x_model, -Z_model, clim=(-0.6,1.2), axis=ax1, landcolor=[0., 0., 0.], title=str(args.label), ylabel='Longitude')
   cs1 = ax1.contour( x_model + 0*z_model, -z_model, dummy_model, levels=np.arange(-1.2,1.2,0.1),  colors='k'); plt.clabel(cs1,fmt='%2.1f', fontsize=14)
   ax1.set_xlim(143,265); ax1.set_ylim(-400,0)
   yzplot(dummy_obs, x_obs, -Z_obs, clim=(-0.4,1.2), ylabel='Longitude', yunits='',  axis=ax2, title='Johnson et al (2002)')
   cs1 = ax2.contour( x_obs + 0*z_obs, -z_obs, dummy_obs,  levels=np.arange(-1.2,1.2,0.1), colors='k'); plt.clabel(cs1,fmt='%2.1f', fontsize=14)
-  ax2.set_xlim(143,265); ax2.set_ylim(-400,0)
+  ax2.set_xlim(143,265); ax2.set_ylim(-400,0); ax2.set_ylabel('')
   plt.suptitle('Eastward velocity [m/s] along the Equatorial Pacific, averaged between '+str(args.start_date)+' and '+str(args.end_date))
   plt.savefig(figname+'Equatorial_Pacific_uo.png')
 
