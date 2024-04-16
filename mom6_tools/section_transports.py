@@ -7,6 +7,9 @@ import numpy
 import matplotlib.pyplot as plt
 import os, yaml
 from mom6_tools.DiagsCase import DiagsCase
+from ncar_jobqueue import NCARCluster
+from dask.distributed import Client
+from datetime import datetime
 
 try: import argparse
 except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
@@ -20,10 +23,11 @@ def options():
   parser.add_argument('-o','--outdir',   type=str, default='PNG/Transports', help='''Directory in which to place plots.''')
   parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',  help='''Start year to plot (default=0001-01-01)''')
   parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31', help='''Final year to plot (default=0100-12-31)''')
+  parser.add_argument('-nw','--number_of_workers',  type=int, default=1, help='''Number of workers to use (default=1).''')
   parser.add_argument('-save_ncfile', help='''Save a netCDF file with transport data''', action="store_true")
   parser.add_argument('-debug', help='''Add priting statements for debugging purposes''', action="store_true")
-  cmdLineArgs = parser.parse_args()
-  return cmdLineArgs
+  args = parser.parse_args()
+  return args
 
 class Transport():
   def __init__(self, args, sections_dict, section, ylim=None, zlim=None, mks2Sv=True, debug=False):
@@ -64,24 +68,24 @@ class Transport():
     for t in range(len(tiles)):
       inFileName = '{}.mom6.{}*nc.{}'.format(args.infile+args.case_name, section, str(tiles[t]))
       if debug: print('inFileName {}, variable {}'.format(inFileName,var))
-      rootGroup = xr.open_mfdataset(inFileName, combine='by_coords')
-      #rootGroup['time'] = rootGroup.indexes['time'].to_datetimeindex()
-      if debug: print(rootGroup)
+      ds = xr.open_mfdataset(inFileName, combine='by_coords', parallel=args.parallel)
+      #ds['time'] = ds.indexes['time'].to_datetimeindex()
+      if debug: print(ds)
       # select time range requested
-      rootGroup = rootGroup.sel(time=slice(args.start_date, args.end_date))
-      if debug: print('sd,ed,time[0],time[-1]',args.start_date,args.end_date, rootGroup.time.data[0], rootGroup.time.data[-1])
+      ds = ds.sel(time=slice(args.start_date, args.end_date))
+      if debug: print('sd,ed,time[0],time[-1]',args.start_date,args.end_date, ds.time.data[0], ds.time.data[-1])
       # yearly mean
-      rootGroup = rootGroup.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', keep_attrs=True).load()
-      if debug: print('Yearly mean: sd,ed,time[0],time[-1]',args.start_date,args.end_date, rootGroup.time.data[0], rootGroup.time.data[-1])
-      if var in rootGroup.variables:
+      #ds = ds.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', keep_attrs=True).load()
+      #if debug: print('Yearly mean: sd,ed,time[0],time[-1]',args.start_date,args.end_date, ds.time.data[0], ds.time.data[-1])
+      if var in ds.variables:
         missing_var = False
-        if t == 0: total = numpy.ones(rootGroup.variables[var][:].shape[0])*0.0
-        if zlim is None: trans = rootGroup.variables[var].sum(axis=1)  # Depth summation
+        if t == 0: total = numpy.ones(ds.variables[var][:].shape[0])*0.0
+        if zlim is None: trans = ds.variables[var].sum(axis=1)  # Depth summation
         else:
-          vardims = rootGroup.variables[var].dims
+          vardims = ds.variables[var].dims
           zdimname = vardims[1]
-          z_l = rootGroup.variables[zdimname].values[:]
-          trans = rootGroup.variables[var][:,(z_l>zlim[0]) & (z_l<zlim[1])].sum(axis=1)  # Limited depth summation
+          z_l = ds.variables[zdimname].values[:]
+          trans = ds.variables[var][:,(z_l>zlim[0]) & (z_l<zlim[1])].sum(axis=1)  # Limited depth summation
 
         if   var == 'umo': total = total + trans.sum(axis=1).squeeze().values
         elif var == 'vmo': total = total + trans.sum(axis=2).squeeze().values
@@ -91,8 +95,8 @@ class Transport():
         total = total + 0.0
 
       # load time
-      if 'time' in rootGroup.variables:
-        time = rootGroup.variables['time'].values  # in years
+      if 'time' in ds.variables:
+        time = ds.variables['time'].values  # in years
         if args.debug: print('time[0],time[-1]',time[0],time[-1])
       else:
         raise ValueError('Variable time is missing')
@@ -105,7 +109,7 @@ class Transport():
     self.data = total
     self.time = time
     if args.case_name != '':  self.case_name = args.case_name + ' ' + args.label
-    else: self.case_name = rootGroup.title + ' ' + args.label
+    else: self.case_name = ds.title + ' ' + args.label
     return
 
 def plotPanel(section,n,observedFlows=None,colorCode=True):
@@ -129,32 +133,41 @@ def plotPanel(section,n,observedFlows=None,colorCode=True):
 
 def main(stream=False):
 
+  start = datetime.now()
   # Get options
-  cmdLineArgs = options()
-  if cmdLineArgs.save_ncfile:
+  args = options()
+  if args.save_ncfile:
     if not os.path.isdir('ncfiles'):
-      print('Creating a directory to place figures (ncfiles)... \n')
+      print('Creating a directory to place netCDF file (ncfiles)... \n')
       os.system('mkdir ncfiles')
 
+  nw = args.number_of_workers
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(cmdLineArgs.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
   # load sections where transports are computed online
   sections = diag_config_yml['Transports']['sections']
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
-  cmdLineArgs.case_name = dcase.casename
+  args.case_name = dcase.casename
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
   else:
     OUTDIR = dcase.get_value('RUNDIR')
 
-  cmdLineArgs.infile = OUTDIR
-  if cmdLineArgs.infile[-1] != '/': cmdLineArgs.infile = cmdLineArgs.infile+'/'
-  if cmdLineArgs.debug:
-    print('Output directory is:', cmdLineArgs.infile)
-    print('Casename is:', cmdLineArgs.case_name)
+  parallel = False
+  if nw > 1:
+    parallel = True
+    cluster = NCARCluster()
+    cluster.scale(nw)
+    client = Client(cluster)
 
+  args.parallel = parallel
+  args.infile = OUTDIR
+  if args.infile[-1] != '/': args.infile = args.infile+'/'
+  print('Output directory is:', args.infile)
+  print('Casename is:', args.case_name)
+  print('Number of workers to be used (nw > 1 means parallel=True):', nw)
 
   reference = 'Griffies et al., 2016: OMIP contribution to CMIP6: experimental and diagnostic protocol for the physical component of the Ocean Model Intercomparison Project. Geosci. Model. Dev., 9, 3231-3296. doi:10.5194/gmd-9-3231-2016'
   title = 'Griffies et al., 2016, Geosci. Model. Dev., 9, 3231-3296. doi:10.5194/gmd-9-3231-2016'
@@ -163,13 +176,16 @@ def main(stream=False):
   plotSections = []
 
   # leaving this here to catch if start/end years outside the range of the dataset
-  #res = Transport(cmdLineArgs, sections, 'Agulhas_Section')
+  #res = Transport(args, sections, 'Agulhas_Section')
 
   for key in sections:
-    try: res = Transport(cmdLineArgs, sections, key); plotSections.append(res)
+    print('Processing section {} ...\n'.format(key))
+    startTime = datetime.now()
+    try: res = Transport(args, sections, key); plotSections.append(res)
     except: print('\n WARNING: unable to process {}'.format(key))
+    print('Time elasped: ', datetime.now() - startTime)
 
-  if cmdLineArgs.save_ncfile:
+  if args.save_ncfile:
     print('Saving netCDF file with transports...\n')
     # create a dataaray
     labels = [];
@@ -181,7 +197,7 @@ def main(stream=False):
     for n in range(len(plotSections)):
       ds.transport.values[n,:] = plotSections[n].data
 
-    ds.to_netcdf('ncfiles/'+cmdLineArgs.case_name+'_section_transports.nc')
+    ds.to_netcdf('ncfiles/'+args.case_name+'_section_transports.nc')
 
   print('Plotting {} sections...\n'.format(len(plotSections)))
   imgbufs = []
@@ -196,11 +212,12 @@ def main(stream=False):
 
   if stream is True: objOut = io.BytesIO()
   else:
-    if not os.path.isdir(cmdLineArgs.outdir):
-      os.system('mkdir -p '+cmdLineArgs.outdir)
-    objOut = cmdLineArgs.outdir+'/'+cmdLineArgs.case_name+'_section_transports.png'
+    if not os.path.isdir(args.outdir):
+      os.system('mkdir -p '+args.outdir)
+    objOut = args.outdir+'/'+args.case_name+'_section_transports.png'
   plt.savefig(objOut)
 
+  print('Total time elasped: ', datetime.now() - start)
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
   if stream is True: imgbufs.append(objOut)

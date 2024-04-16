@@ -28,9 +28,9 @@ def options():
     with metadata for the experiment to be processed.''')
   parser.add_argument('var', type=str, help='''Name of variable to be processed.  \
     Currently, only thetao or so are supported.''')
-  parser.add_argument('--drift', action='store_false',
+  parser.add_argument('--drift', action='store_true',
                       help='''Compute drift. Default is False''')
-  parser.add_argument('--rms', action='store_false',
+  parser.add_argument('--rms', action='store_true',
                       help='''Compute rms. Default is False''')
   parser.add_argument('--savefig', action='store_true',
                       help='''Save figures (PNG). Default is False''')
@@ -594,7 +594,9 @@ def main(stream=False):
 
   #select a few basins, namely, Global, MedSea,BalticSea,HudsonBay Arctic,
   # Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
-  basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
+  #basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
+  # use all basins available
+  basins = basin_code
 
   # load obs
   catalog = intake.open_catalog(diag_config_yml['oce_cat'])
@@ -636,7 +638,6 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR):
     Plots horizontal mean difference and rms for different basins.
 
   '''
-
   var = args.var
   try:
     area = grd.area_t.where(grd.wet > 0)
@@ -699,21 +700,23 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR):
                                                                 diff.dims[3]: diff.xh})
   area3d_masked = mask3d.where(diff[0,:] == diff[0,:])
 
-  #if args.drift:
-  # Horizontal Mean difference (model - obs)
-  print('\n Computing Horizontal Mean difference for {}...'.format(var))
-  startTime = datetime.now()
-  vname = '{}_drift'.format(var)
-  drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
-  print('Time elasped: ', datetime.now() - startTime)
+  if args.drift:
+    # Horizontal Mean difference (model - obs)
+    description = 'Horizontal Mean drift for {}'.format(var)
+    print('\n {}...'.format(description))
+    startTime = datetime.now()
+    vname = '{}_drift'.format(var)
+    drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+    print('Time elasped: ', datetime.now() - startTime)
 
- # if args.rms:
- #   # Horizontal Mean rms (model - obs)
- #   print('\n Computing Horizontal Mean rms for temperature...')
- #   startTime = datetime.now()
- #   vname = '{}_rms'.format(var)
- #   rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
- #   print('Time elasped: ', datetime.now() - startTime)
+  if args.rms:
+    # Horizontal Mean rms (model - obs)
+    description = 'Horizontal RMSE for {}'.format(var)
+    print('\n {}...'.format(description))
+    startTime = datetime.now()
+    vname = '{}_rms'.format(var)
+    rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+    print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
     print('Releasing workers...')
@@ -721,15 +724,17 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR):
 
   print('Saving netCDF files...')
   attrs = {'casename': dcase.casename,
+           'description': description,
            'obs': args.obs,
            'module': os.path.basename(__file__)}
-  #if args.drift:
-  add_global_attrs(drift,attrs)
-  drift.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_drift.nc'.format(var))
 
-  #if args.rms:
-  #  add_global_attrs(rms,attrs)
-  #  rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_rms.nc'.format(var))
+  if args.drift:
+    add_global_attrs(drift,attrs)
+    drift.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_drift.nc'.format(var))
+
+  if args.rms:
+    add_global_attrs(rms,attrs)
+    rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_rmse.nc'.format(var))
 
   if args.savefig:
     # save plots

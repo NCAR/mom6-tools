@@ -4,7 +4,7 @@ import io, yaml, os
 import matplotlib.pyplot as plt
 import numpy as np
 import warnings, dask, intake
-from datetime import datetime, date
+from datetime import datetime
 import xarray as xr
 from mom6_tools.DiagsCase import DiagsCase
 from ncar_jobqueue import NCARCluster
@@ -99,12 +99,12 @@ def main():
         ds[v] = xr.zeros_like(ds.vo)
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel)
+  ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel, preprocess=preprocess)
 
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
 
-  ds = preprocess(ds1)
+  #ds = preprocess(ds1)
 
   print('Time elasped: ', datetime.now() - startTime)
 
