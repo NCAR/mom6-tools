@@ -594,7 +594,9 @@ def main(stream=False):
 
   #select a few basins, namely, Global, MedSea,BalticSea,HudsonBay Arctic,
   # Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
-  basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
+  #basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
+  # use all basins available
+  basins = basin_code
 
   # load obs
   catalog = intake.open_catalog(diag_config_yml['oce_cat'])
