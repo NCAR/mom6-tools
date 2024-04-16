@@ -162,14 +162,14 @@ def driver(args):
 
   print('Done computing area_mom3D...')
   # temp
-  thetao_mean = ds.thetao.mean('time').compute()
+  thetao_mean = ds_ann.thetao.mean('time').compute()
   print('Done computing thetao_mean...')
   temp_diff = thetao_mean.rename({'z_l':'depth'}) - obs_temp
   print('Done computing thetao_diff...')
   temp_stats = myStats_da(temp_diff, area_mom3D, basins=basin_code, debug=debug).rename('thetao_bias_stats')
   print('Done computing temp_stats...')
   # salt
-  so_mean = ds.so.mean('time').compute()
+  so_mean = ds_ann.so.mean('time').compute()
   salt_diff = so_mean.rename({'z_l':'depth'}) - obs_salt
   salt_stats = myStats_da(salt_diff, area_mom3D, basins=basin_code, debug=debug).rename('so_bias_stats')
 
