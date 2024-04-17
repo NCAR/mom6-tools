@@ -254,7 +254,7 @@ def main():
   amoc_core_26 = catalog["moc-core2-26p5"].to_dask()
   amoc_pop_26  = catalog["moc-pop-jra-26"].to_dask()
   rapid = catalog["transports-rapid"].to_dask().resample(time="1Y",
-                  closed='left',keep_attrs=True).mean('time',keep_attrs=True)
+                  closed='left').mean('time',keep_attrs=True)
 
   amoc_core_45 = catalog["moc-core2-45"].to_dask()
 

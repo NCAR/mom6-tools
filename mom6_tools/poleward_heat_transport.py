@@ -189,7 +189,7 @@ def main(stream=False):
 def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, args):
   """Plots model vs obs poleward heat transport for the global, Pacific and Atlantic basins"""
   # Load Observations
-  fObs = netCDF4.Dataset('/glade/work/gmarques/cesm/datasets/Trenberth_and_Caron_Heat_Transport.nc')
+  fObs = xr.open_dataset('/glade/work/gmarques/cesm/datasets/Trenberth_and_Caron_Heat_Transport.nc')
   # POP JRA-55, 31 year (years 29-59)
   pop = xr.open_dataset('/glade/u/home/gmarques/Notebooks/POP/MHT/MHT_mean.g210.GIAF_JRA.v13.gx1v7.01.nc')
   # Estimate based on the JRA-55 v1.3 forcing (Tsujino et al, 2019)

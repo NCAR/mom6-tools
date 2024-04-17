@@ -111,10 +111,13 @@ def driver(args):
   def preprocess(ds):
     ''' Return a dataset desired variables'''
     variables = ['thetao', 'so', 'time']
-    if 'time_bounds' in ds.variables:
-      variables.append('time_bounds')
-    elif 'time_bnds' in ds.variables:
-      variables.append('time_bnds')
+#   The following mess up time averaging
+#   xarray doesn't like averaging variables that are time objects themselves
+#   the calendar information is sufficient to get weighted means
+#    if 'time_bounds' in ds.variables:
+#      variables.append('time_bounds')
+#    elif 'time_bnds' in ds.variables:
+#      variables.append('time_bnds')
     return ds[variables]
 
   ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, \

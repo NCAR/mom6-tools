@@ -486,7 +486,18 @@ def ocean_stats(dcase, OUTDIR):
   # remove characters from each column
   for var in header[3::]:
     df[var] = df[var].str.replace(r'En', '')
-    df[var] = df[var].str.replace(r'[^0-9.E-]+', '').astype(float)
+#   Not sure why this is not working
+#    df[var] = df[var].str.replace(r'[^0-9.E-]+', '').astype(float)
+#   Explcitly filter out the remaining text strings
+    df[var] = df[var].str.replace(r'CFL', '')
+    df[var] = df[var].str.replace(r'SL', '')
+    df[var] = df[var].str.replace(r'Me', '')
+    df[var] = df[var].str.replace(r'Se', '')
+    df[var] = df[var].str.replace(r'Te', '')
+    df[var] = df[var].str.replace(r'M', '')
+    df[var] = df[var].str.replace(r'S', '')
+    df[var] = df[var].str.replace(r'T', '')
+    df[var] = df[var].astype(float)
 
   # rename columns
   new_header = ["Step", "Day","Truncs", "EnergyMass",
