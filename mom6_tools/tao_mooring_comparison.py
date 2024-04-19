@@ -93,6 +93,13 @@ def driver(args):
 
 ###########################################################################
 # should we put this in mom6-tools? Handles periodic grid
+"""
+Perform a series of 1D searches along grid lines to find the point on
+the grid given by lon2D,lat2D to a tqrget give by (lon,lat).
+Should handle periodic longitude for any edge values (+ve or -ve).
+This is an alternative to the Haversine formula minimum great circle
+distance search to avoid calls to intrinsic math functions.
+"""
     def mom6_latlon2ij(lon2D,lat2D,lon,lat,max_iter=10):
 
         ilast=-1
@@ -133,6 +140,7 @@ def driver(args):
                       
     def preprocess(ds):
         variables = ['uo', 'time', 'z_l', 'z_i']
+        return ds[variables]
 
     # The full case archive
     ds = xr.open_mfdataset(os.path.join(OUTDIR,args.monthly),
