@@ -65,10 +65,10 @@ def weighted_temporal_mean(ds, var):
     ones = xr.where(cond, 0.0, 1.0)
 
     # Calculate the numerator
-    obs_sum = (obs * wgts).resample(time="AS").sum(dim="time")
+    obs_sum = (obs * wgts).resample(time="YS").sum(dim="time")
 
     # Calculate the denominator
-    ones_out = (ones * wgts).resample(time="AS").sum(dim="time")
+    ones_out = (ones * wgts).resample(time="YS").sum(dim="time")
 
     # Return the weighted average
     return obs_sum / ones_out
