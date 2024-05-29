@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-print('Staring test_script.py')
-
 import xarray as xr
 import numpy as np
 import nc_time_axis
@@ -16,12 +14,9 @@ from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.MOM6grid import MOM6grid
-from mom6_tools.m6toolbox import weighted_temporal_mean
-
-print('Finished imports')
+from mom6_tools.m6toolbox import weighted_temporal_mean, mom6_latlon2ij
 
 def parseCommandLine():
-    print('In parser')
     """
     Parse the command line positional and optional arguments.
     This is the highest level procedure invoked from the very end of the script.
@@ -30,7 +25,7 @@ def parseCommandLine():
       '''
       Compares (model vs obs) T, S and U near the Equator.
       ''',
-      epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
+         epilog='Written by Frank Bryan (bryan@ucar.edu).')
     parser.add_argument('diag_config_yml_path', type=str,
                         help='''Full path to the yaml file describing the run and diagnostics to be performed.''')
     parser.add_argument('-sd','--start_date', type=str, default='',
@@ -46,12 +41,11 @@ def parseCommandLine():
     #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
 def driver(args):
-    print('In driver !!!')
     nw = args.number_of_workers
+    path_plt_out = 'PNG/TAOMooring/'
     if not os.path.isdir('PNG/TAOMooring'):
-        print('Creating a directory to place figures (PNG/Equatorial)... \n')
-        os.system('mkdir -p PNG/TAOMOORING')
-        path_plt_out = 'PNG/TAOMOORING/'
+        print('Creating a directory to place figures (PNG/TAOMooring)... \n')
+        os.system('mkdir -p PNG/TAOMooring')
     if not os.path.isdir('ncfiles'):
         print('Creating a directory to place netCDF files (ncfiles)... \n')
         os.system('mkdir ncfiles')
@@ -64,6 +58,7 @@ def driver(args):
     # file streams
     args.monthly = dcase.casename+diag_config_yml['Fnames']['z']
     args.static = dcase.casename+diag_config_yml['Fnames']['static']
+    args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
     DOUT_S = dcase.get_value('DOUT_S')
     if DOUT_S:
         OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
@@ -82,8 +77,14 @@ def driver(args):
     if not args.start_date : args.start_date = avg['start_date']
     if not args.end_date : args.end_date = avg['end_date']
 
+
     # read grid info
-    grd = MOM6grid(OUTDIR+args.static, xrformat=True)
+    geom_file = OUTDIR+'/'+args.geom
+    if os.path.exists(geom_file):
+      grd = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True)
+    else:
+      grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
+
     # Get index for equator on model grid
     jeq = np.abs(grd['geolat'][:,0]).argmin().values
     print('j_eq = ',jeq,' lat=',grd['geolat'][jeq,0].values)
@@ -91,42 +92,6 @@ def driver(args):
     # load obs
     path_obs = '/glade/campaign/cgd/oce/datasets/obs/TAO_adcp_mon'
 
-###########################################################################
-# should we put this in mom6-tools? Handles periodic grid
-"""
-Perform a series of 1D searches along grid lines to find the point on
-the grid given by lon2D,lat2D to a tqrget give by (lon,lat).
-Should handle periodic longitude for any edge values (+ve or -ve).
-This is an alternative to the Haversine formula minimum great circle
-distance search to avoid calls to intrinsic math functions.
-"""
-    def mom6_latlon2ij(lon2D,lat2D,lon,lat,max_iter=10):
-
-        ilast=-1
-        jlast=-1
-       
-        # Find the equator
-        jpt = np.abs(lat2D[:,0]).argmin().values
-    
-        # Compute the lon offset.
-        # Handle the wierd MOM6 grids that go past -180
-        lo = 0.
-        if ( lon < lon2D[jpt,:].min() ) :
-            lo = 360.
-        if ( lon > lon2D[jpt,:].max() ) :
-            lo = -360.
-        # Search of the point along grid directions
-        ipt = np.abs(lon2D[jpt,:] - (lon+lo)).argmin().values
-        n=0
-        while ( (ilast != ipt ) and (jlast != jpt) and (n < max_iter) ):
-            ilast = ipt
-            jlast = jpt
-            jpt = np.abs(lat2D[:,ipt]-lat).argmin().values
-            ipt = np.abs(lon2D[jpt,:] - (lon+lo)).argmin().values
-            n = n+1
-
-        return ipt,jpt
-###########################################################################
 
     parallel = False
     if nw > 1:
@@ -137,7 +102,7 @@ distance search to avoid calls to intrinsic math functions.
 
     print('Reading monthly dataset ...')
     startTime = datetime.now()
-                      
+
     def preprocess(ds):
         variables = ['uo', 'time', 'z_l', 'z_i']
         return ds[variables]
@@ -199,7 +164,7 @@ distance search to avoid calls to intrinsic math functions.
                             figsize=(9,4),constrained_layout=True)
 
         fig.suptitle(pos + ' (' + args.start_date + ' - ' + args.end_date + ')')
-    
+
         ax[0].contourf(u_adcp_monclim['month'],u_adcp_monclim['depth'],u_adcp_monclim,
                        levels=ulev,cmap=cmap,extend='both')
         clo=ax[0].contour(u_adcp_monclim['month'],u_adcp_monclim['depth'],u_adcp_monclim,
@@ -223,7 +188,7 @@ distance search to avoid calls to intrinsic math functions.
 
         cbar = fig.colorbar(cf,ax=ax[0:2],extend='both',location='bottom',shrink=0.9)
         cbar.ax.set_xlabel('$cm s^{-1}$')
-    
+
         ax[2].plot(u_adcp_annclim,u_adcp_annclim['depth'],color='k',label='ADCP')
         z = uo_ann_clim['z_l']
         u = uo_ann_clim.isel(xq=iplt_m)*100.
@@ -231,7 +196,7 @@ distance search to avoid calls to intrinsic math functions.
         ax[2].axvline(0.0,color='grey',linewidth=0.75)
         ax[2].set_xlabel('$cm s^{-1}$')
         ax[2].set_title('Annual Mean')
-    
+
         ax[2].legend()
         pfile = 'u_ann.' + pos + '.png'
         plt.savefig(os.path.join(path_plt_out,pfile))
