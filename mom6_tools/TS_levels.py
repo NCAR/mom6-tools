@@ -67,6 +67,7 @@ def driver(args):
   args.casename = dcase.casename
   args.monthly = dcase.casename+diag_config_yml['Fnames']['z']
   args.static = dcase.casename+diag_config_yml['Fnames']['static']
+  args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
 
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
@@ -79,8 +80,13 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static);
-  grd_xr = MOM6grid(OUTDIR+'/'+args.static, xrformat=True);
+  geom_file = OUTDIR+'/'+args.geom
+  if os.path.exists(geom_file):
+    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file)
+    grd_xr = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True);
+  else:
+    grd = MOM6grid(OUTDIR+'/'+args.static)
+    grd_xr = MOM6grid(OUTDIR+'/'+args.static, xrformat=True);
 
   # create masks
   try:

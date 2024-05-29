@@ -566,6 +566,7 @@ def main(stream=False):
 
   args.z = dcase.casename+diag_config_yml['Fnames']['z']
   args.static = dcase.casename+diag_config_yml['Fnames']['static']
+  args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
 
   if not os.path.isdir('PNG/Drift'):
     print('Creating a directory to place figures (PNG)... \n')
@@ -574,9 +575,13 @@ def main(stream=False):
     print('Creating a directory to place netCDF files (ncfiles)... \n')
     os.system('mkdir ncfiles')
 
-  # read grid
-  grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
-  #grd = MOM6grid('ocean.mom6.static.nc', xrformat=True)
+  # read grid info
+  geom_file = OUTDIR+'/'+args.geom
+  if os.path.exists(geom_file):
+    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True)
+  else:
+    grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
+
   try:
     area = np.ma.masked_where(grd.wet == 0,grd.area_t)
   except:

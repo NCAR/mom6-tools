@@ -65,10 +65,10 @@ def weighted_temporal_mean(ds, var):
     ones = xr.where(cond, 0.0, 1.0)
 
     # Calculate the numerator
-    obs_sum = (obs * wgts).resample(time="YS").sum(dim="time")
+    obs_sum = (obs * wgts).resample(time="AS").sum(dim="time")
 
     # Calculate the denominator
-    ones_out = (ones * wgts).resample(time="YS").sum(dim="time")
+    ones_out = (ones * wgts).resample(time="AS").sum(dim="time")
 
     # Return the weighted average
     return obs_sum / ones_out
@@ -421,6 +421,40 @@ def moc_maskedarray(vh,mask=None):
     _vh = _vh[:,::-1] # flip z-axis back to original order
     return _vh
 
+def mom6_latlon2ij(lon2D,lat2D,lon,lat,max_iter=10):
+    """
+    Perform a series of 1D searches along grid lines to find the point on
+    the grid given by lon2D,lat2D to a tqrget give by (lon,lat).
+    Should handle periodic longitude for any edge values (+ve or -ve).
+    This is an alternative to the Haversine formula minimum great circle
+    distance search to avoid calls to intrinsic math functions.
+    """
+
+    ilast=-1
+    jlast=-1
+
+    # Find the equator
+    jpt = np.abs(lat2D[:,0]).argmin().values
+
+    # Compute the lon offset.
+    # Handle the wierd MOM6 grids that go past -180
+    lo = 0.
+    if ( lon < lon2D[jpt,:].min() ) :
+        lo = 360.
+    if ( lon > lon2D[jpt,:].max() ) :
+        lo = -360.
+    # Search of the point along grid directions
+    ipt = np.abs(lon2D[jpt,:] - (lon+lo)).argmin().values
+    n=0
+    while ( (ilast != ipt ) and (jlast != jpt) and (n < max_iter) ):
+        ilast = ipt
+        jlast = jpt
+        jpt = np.abs(lat2D[:,ipt]-lat).argmin().values
+        ipt = np.abs(lon2D[jpt,:] - (lon+lo)).argmin().values
+        n = n+1
+
+    return ipt,jpt
+
 def nearestJI(x, y, x0, y0):
   """
   Find (j,i) of cell with center nearest to (x0,y0).
@@ -689,40 +723,6 @@ def genBasinMasks_old(x,y,depth,verbose=False):
   code[tmp>0] = 7
   wet = wet - tmp # Removed named points
 
-  if verbose: print('Processing Mediterranean ...')
-  tmp = wet*( southOf(x, y, (-5.7,35.5), (-5.7,36.5)) )
-  tmp = ice9Wrapper(x, y, tmp, (4.,38.))
-  code[tmp>0] = 6
-  wet = wet - tmp # Removed named points
-
-  if verbose: print('Processing Baltic ...')
-  tmp = wet*( southOf(x, y, (8.6,56.), (8.6,60.)) )
-  tmp = ice9Wrapper(x, y, tmp, (10.,58.))
-  code[tmp>0] = 9
-  wet = wet - tmp # Removed named points
-
-  if verbose: print('Processing Hudson Bay ...')
-  tmp = wet*(
-             ( 1-(1-southOf(x, y, (-95.,66.), (-83.5,67.5)))
-                *(1-southOf(x, y, (-83.5,67.5), (-84.,71.)))
-             )*( 1-southOf(x, y, (-70.,58.), (-70.,65.)) ) )
-  tmp = ice9Wrapper(x, y, tmp, (-85.,60.))
-  code[tmp>0] = 8
-  wet = wet - tmp # Removed named points
-
-  if verbose: print('Processing Arctic ...')
-  tmp = wet*(
-            (1-southOf(x, y, (-171.,66.), (-166.,65.5))) * (1-southOf(x, y, (-64.,66.4), (-50.,68.5))) # Lab Sea
-       +    southOf(x, y, (-50.,0.), (-50.,90.)) * (1- southOf(x, y, (0.,65.5), (360.,65.5))  ) # Denmark Strait
-       +    southOf(x, y, (-18.,0.), (-18.,65.)) * (1- southOf(x, y, (0.,64.9), (360.,64.9))  ) # Iceland-Sweden
-       +    southOf(x, y, (20.,0.), (20.,90.)) # Barents Sea
-       +    (1-southOf(x, y, (-280.,55.), (-200.,65.)))
-            )
-  tmp = ice9Wrapper(x, y, tmp, (0.,85.))
-  code[tmp>0] = 4
-  wet = wet - tmp # Removed named points
-
-  if verbose: print('Processing Pacific ...')
   tmp = wet*( (1-southOf(x, y, (0.,yMel), (360.,yMel)))
              -southOf(x, y, (-257,1), (-257,0))*southOf(x, y, (0,3), (1,3))
              -southOf(x, y, (-254.25,1), (-254.25,0))*southOf(x, y, (0,-5), (1,-5))

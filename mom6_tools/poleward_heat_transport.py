@@ -71,10 +71,15 @@ def main(stream=False):
   if not args.end_date : args.end_date = avg['end_date']
   args.native = dcase.casename+diag_config_yml['Fnames']['native']
   args.static = dcase.casename+diag_config_yml['Fnames']['static']
+  args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
   args.savefigs = False
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static)
+  geom_file = OUTDIR+'/'+args.geom
+  if os.path.exists(geom_file):
+    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file)
+  else:
+    grd = MOM6grid(OUTDIR+'/'+args.static)
   try:
     depth = grd.depth_ocean
   except:
