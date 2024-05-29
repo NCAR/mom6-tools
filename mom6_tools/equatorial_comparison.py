@@ -59,6 +59,8 @@ def driver(args):
   # file streams
   args.monthly = dcase.casename+diag_config_yml['Fnames']['z']
   args.static = dcase.casename+diag_config_yml['Fnames']['static']
+  args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
+
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
@@ -79,7 +81,12 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  grd = MOM6grid(OUTDIR+args.static, xrformat=True)
+  geom_file = OUTDIR+'/'+args.geom
+  if os.path.exists(geom_file):
+    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True)
+  else:
+    grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
+
   # select Equatorial region
   grd_eq = grd.sel(yh=slice(-10,10))
 
