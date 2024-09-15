@@ -259,8 +259,7 @@ def main():
   # load datasets from oce catalog
   amoc_core_26 = catalog["moc-core2-26p5"].to_dask()
   amoc_pop_26  = catalog["moc-pop-jra-26"].to_dask()
-  rapid = catalog["transports-rapid"].to_dask().resample(time="1Y",
-                  closed='left').mean('time',keep_attrs=True)
+  rapid = m6toolbox.weighted_temporal_mean_vars(catalog["transports-rapid"].to_dask())
 
   amoc_core_45 = catalog["moc-core2-45"].to_dask()
 
