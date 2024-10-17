@@ -186,6 +186,7 @@ def main():
        'end_date': avg['end_date'], 'casename': dcase.casename}
   m6toolbox.add_global_attrs(moc,attrs)
 
+
   # Atlantic MOC
   m6plot.setFigureSize([16,9],576,debug=False)
   cmap = plt.get_cmap('dunnePM')
@@ -198,8 +199,21 @@ def main():
   plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ args.start_date + ' and '+ args.end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(case_name)
-  findExtrema(yy, z, psiPlot, min_lat=26.5, max_lat=27., min_depth=250.) # RAPID
-  findExtrema(yy, z, psiPlot, max_lat=-33.)
+  # find range to extract values near the RAPID array
+  # this will depend on the grid spacing
+  try:
+    tmp = findExtrema(yy, z, psiPlot, min_lat=26.5, max_lat=27., min_depth=250., plot=False) # RAPID
+    min_lat_rapid = 26.5
+    max_lat_rapid = 27.
+    max_lat = -33.
+  except: # for low-res configurations
+    min_lat_rapid = 26.
+    max_lat_rapid = 28.
+    max_lat = -30.
+
+  findExtrema(yy, z, psiPlot, min_lat=min_lat_rapid, max_lat=max_lat_rapid, min_depth=250.) # RAPID
+  findExtrema(yy, z, psiPlot, min_lat=44, max_lat=46., min_depth=250.) # RAPID
+  findExtrema(yy, z, psiPlot, max_lat=max_lat)
   findExtrema(yy, z, psiPlot)
   findExtrema(yy, z, psiPlot, min_lat=5.)
   plt.gca().invert_yaxis()
@@ -236,7 +250,7 @@ def main():
     # m is still Atlantic ocean
     psi = MOCpsi(tmp, vmsk=m*np.roll(m,-1,axis=-2))*conversion_factor
     psi = 0.5 * (psi[0:-1,:]+psi[1::,:])
-    amoc_26[t] = findExtrema(yy, z, psi, min_lat=26., max_lat=27., plot=False, min_depth=250.)
+    amoc_26[t] = findExtrema(yy, z, psi, min_lat=min_lat_rapid, max_lat=max_lat_rapid, plot=False, min_depth=250.)
     amoc_45[t] = findExtrema(yy, z, psi, min_lat=44., max_lat=46., plot=False, min_depth=250.)
     tmp_GM = np.ma.masked_invalid(ds_ann['vhGM'][t,:].values)
     tmp_GM = tmp_GM[:].filled(0.)
@@ -259,8 +273,7 @@ def main():
   # load datasets from oce catalog
   amoc_core_26 = catalog["moc-core2-26p5"].to_dask()
   amoc_pop_26  = catalog["moc-pop-jra-26"].to_dask()
-  rapid = catalog["transports-rapid"].to_dask().resample(time="1Y",
-                  closed='left').mean('time',keep_attrs=True)
+  rapid = m6toolbox.weighted_temporal_mean_vars(catalog["transports-rapid"].to_dask())
 
   amoc_core_45 = catalog["moc-core2-45"].to_dask()
 

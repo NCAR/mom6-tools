@@ -1640,12 +1640,10 @@ def dunne_rainbow(N=256):
                    (0.45, 0.30, 0.30),
                    (0.60, 0.00, 0.00),
                    (1.00, 0.00, 0.00)]}
-  import matplotlib
-  cmap = matplotlib.colors.LinearSegmentedColormap('dunneRainbow', cdict, N=N)
-  #cmap.set_under([1,.65,.85]); cmap.set_over([.25,0.,0.])
+  import matplotlib.colors as mcolors
+  cmap = mcolors.LinearSegmentedColormap('dunneRainbow', cdict, N=N)
   cmap.set_under([.95*.9,.75*.9,.9]); cmap.set_over([.3,0.,0.])
-  #cmap.set_bad('w')
-  matplotlib.cm.register_cmap(cmap=cmap)
+  matplotlib.colormaps.register(cmap=cmap)
   return cmap
 
 
@@ -1675,11 +1673,10 @@ def dunne_pm(N=256):
                      (0.60, 0.7, 0.7),
                      (0.70, 0.0, 0.0),
                      (1.00, 0.0, 0.0)]}
-  import matplotlib
-  cmap = matplotlib.colors.LinearSegmentedColormap('dunnePM', cdict, N=N)
+  import matplotlib.colors as mcolors
+  cmap = mcolors.LinearSegmentedColormap('dunnePM', cdict, N=N)
   cmap.set_under([.1,.0,.1]); cmap.set_over([.2,0.,0.])
-  #cmap.set_bad('w')
-  matplotlib.cm.register_cmap(cmap=cmap)
+  matplotlib.colormaps.register(cmap=cmap)
   return cmap
 
 def brownblue_cmap():
@@ -1707,10 +1704,10 @@ def brownblue_cmap():
   lb_brownblue_values = lb_brownblue_values/255.
   lb_brownblue_values = lb_brownblue_values[::-1,:]
 
-  import matplotlib
-  cmap = matplotlib.colors.LinearSegmentedColormap.from_list('brownblue',lb_brownblue_values)
+  import matplotlib.colors as mcolors
+  cmap = mcolors.LinearSegmentedColormap.from_list('brownblue',lb_brownblue_values)
   cmap.set_bad('w')
-  matplotlib.cm.register_cmap(cmap=cmap)
+  matplotlib.colormaps.register(cmap=cmap)
   return cmap
 
 def parula_cmap():
@@ -1780,10 +1777,12 @@ def parula_cmap():
     [0.9661,0.9514,0.0755],
     [0.9763,0.9831,0.0538]])
 
-  import matplotlib
-  cmap = matplotlib.colors.LinearSegmentedColormap.from_list('parula',parula_values)
+  import matplotlib.colors as mcolors
+  import matplotlib as mpl
+
+  cmap = mcolors.LinearSegmentedColormap.from_list('parula',parula_values)
   cmap.set_bad('w')
-  matplotlib.cm.register_cmap(cmap=cmap)
+  mpl.colormaps.register(cmap=cmap)
   return cmap
 
 def plotBasemapPanel(field, sector, xCoord, yCoord, lonRange, latRange, cmap, norm, interactive, extend):
@@ -1834,29 +1833,6 @@ def regionalMasking(field,yCoord,xCoord,latRange,lonRange):
     maskedField = numpy.ma.masked_where(numpy.greater(xCoord[1::,1::],lonRange[1]),maskedField)
     return maskedField
 
-def cmoceanRegisterColormaps():
-  import matplotlib
-  matplotlib.cm.register_cmap(name='algae',cmap=cmocean.cm.algae)
-  matplotlib.cm.register_cmap(name='thermal',cmap=cmocean.cm.thermal)
-  matplotlib.cm.register_cmap(name='haline',cmap=cmocean.cm.haline)
-  matplotlib.cm.register_cmap(name='solar',cmap=cmocean.cm.solar)
-  matplotlib.cm.register_cmap(name='ice',cmap=cmocean.cm.ice)
-  matplotlib.cm.register_cmap(name='gray',cmap=cmocean.cm.gray)
-  matplotlib.cm.register_cmap(name='oxy',cmap=cmocean.cm.oxy)
-  matplotlib.cm.register_cmap(name='deep',cmap=cmocean.cm.deep)
-  matplotlib.cm.register_cmap(name='dense',cmap=cmocean.cm.dense)
-  matplotlib.cm.register_cmap(name='algae',cmap=cmocean.cm.algae)
-  matplotlib.cm.register_cmap(name='matter',cmap=cmocean.cm.matter)
-  matplotlib.cm.register_cmap(name='turbid',cmap=cmocean.cm.turbid)
-  matplotlib.cm.register_cmap(name='speed',cmap=cmocean.cm.speed)
-  matplotlib.cm.register_cmap(name='amp',cmap=cmocean.cm.amp)
-  matplotlib.cm.register_cmap(name='tempo',cmap=cmocean.cm.tempo)
-  matplotlib.cm.register_cmap(name='phase',cmap=cmocean.cm.phase)
-  matplotlib.cm.register_cmap(name='balance',cmap=cmocean.cm.balance)
-  matplotlib.cm.register_cmap(name='delta',cmap=cmocean.cm.delta)
-  matplotlib.cm.register_cmap(name='curl',cmap=cmocean.cm.curl)
-
-
 def sectorRanges(sector=None):
   # Should add definitions for tropInd, tropAtl, sAtl, nPac, allPac, allInd, and allAtlantic
   if sector   == 'nAtl':    lonRange=(-100.,40.); latRange=(-15.,80.); hspace=0.25; titleOffset=1.14
@@ -1872,10 +1848,6 @@ c = dunne_rainbow()
 c = dunne_pm()
 c = brownblue_cmap()
 c = parula_cmap()
-
-# Register cmocean colormaps
-#if 'cmocean' in modules.keys():
-#  cmoceanRegisterColormaps()
 
 # Test
 if __name__ == '__main__':
