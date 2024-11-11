@@ -25,11 +25,6 @@ def MOM6grid(grd_file, geom_file=None, xrformat=False):
     # open grid file
     try: nc = xr.open_dataset(grd_file, decode_times=False)
     except: raise Exception('Could not find file', grd_file)
-    # fixes non-monotonic longitudes
-    mgeolon = xr.where(nc.geolon < nc.geolon[-1,0],nc.geolon+360,nc.geolon).rename({'mgeolon'})
-    mgeolon_u = xr.where(nc.geolon_u < nc.geolon_u[-1,0],nc.geolon_u+360.0,nc.geolon_u).rename({'mgeolon_u'})
-    mgeolon_c = mgeolon_u.rename({'mgeolon_c'})
-    mgeolon_v = mgeolon.rename({'mgeolon_v'})
 
     if geom_file:
       try: geom = xr.open_dataset(geom_file, decode_times=False)
@@ -38,6 +33,12 @@ def MOM6grid(grd_file, geom_file=None, xrformat=False):
       nc['geolon'].values = geom.geolon.values
       nc['geolat_c'].values = geom.geolatb.values
       nc['geolon_c'].values = geom.geolonb.values
+
+    # fixes non-monotonic longitudes
+    mgeolon = xr.where(nc.geolon < nc.geolon[-1,0],nc.geolon+360,nc.geolon).rename({'mgeolon'})
+    mgeolon_u = xr.where(nc.geolon_u < nc.geolon_u[-1,0],nc.geolon_u+360.0,nc.geolon_u).rename({'mgeolon_u'})
+    mgeolon_c = mgeolon_u.rename({'mgeolon_c'})
+    mgeolon_v = mgeolon.rename({'mgeolon_v'})
 
     if xrformat:
       nc['mgeolon']   = mgeolon
