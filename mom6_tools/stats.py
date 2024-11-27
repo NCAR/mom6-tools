@@ -7,7 +7,7 @@ Functions used to calculate statistics.
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
-from mom6_tools.DiagsCase import DiagsCase
+from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.ClimoGenerator import ClimoGenerator
 from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
@@ -382,24 +382,29 @@ def main(stream=False):
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
+  caseroot = diag_config_yml['Case']['CASEROOT']
   # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
-  DOUT_S = dcase.get_value('DOUT_S')
+  args.casename = cime_xmlquery(caseroot, 'CASE')
+  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
-    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
   else:
-    OUTDIR = dcase.get_value('RUNDIR')
+    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')
+
 
   # set avg dates and other params
   avg = diag_config_yml['Avg']
   if not args.start_date : args.start_date = avg['start_date']
   if not args.end_date : args.end_date = avg['end_date']
-  args.static = dcase.casename+diag_config_yml['Fnames']['static']
-  args.native = dcase.casename+diag_config_yml['Fnames']['native']
-  args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
+  args.static = args.casename+diag_config_yml['Fnames']['static']
+  args.native = args.casename+diag_config_yml['Fnames']['native']
+  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.rundir = cime_xmlquery(caseroot, 'RUNDIR')
+  args.caseroot = caseroot
+  args.OUTDIR = OUTDIR
 
   print('Output directory is:', OUTDIR)
-  print('Casename is:', dcase.casename)
+  print('Casename is:', args.casename)
   print('Number of workers: ', args.nw)
 
   if not os.path.isdir('PNG/Horizontal_mean_biases'):
@@ -435,39 +440,36 @@ def main(stream=False):
   basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
 
   if args.ocean_stats:
-    ocean_stats(dcase, OUTDIR)
+    _ds = ocean_stats(args)
 
   if args.surface:
     #variables = ['SSH','tos','sos','mlotst','oml','speed', 'SSU', 'SSV']
     variables = ['SSH','tos','sos','mlotst','oml','speed']
-    xystats(args.native, variables, grd, dcase, basins, args, OUTDIR)
+    xystats(args.native, variables, grd, basins, args)
 
   if args.forcing:
     variables = ['friver','ficeberg','fsitherm','hfsnthermds','sfdsi', 'hflso',
              'seaice_melt_heat', 'wfo', 'hfds', 'Heat_PmE']
-    xystats(args.native, variables, grd, dcase, basins, args, OUTDIR)
+    xystats(args.native, variables, grd, basins, args)
 
   if args.time_series:
     variables = ['thetaoga','soga','opottempmint','somint']
-    extract_time_series(args.native, variables, area, dcase, args, OUTDIR)
+    _ds = extract_time_series(args.native, variables, area, args)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
   return
 
 
-def ocean_stats(dcase, OUTDIR):
+def ocean_stats(args):
   '''
    Extract time-series from ocean.stats and ocean.stats.nc.
 
    Parameters
   ----------
 
-  dcase : case object
-    Object created using mom6_tools.DiagsCase.
-
-  OUTDIR : str
-    Path to the output.
+  args : object
+    Object with command line options and information about the case.
 
   Returns
   -------
@@ -475,15 +477,12 @@ def ocean_stats(dcase, OUTDIR):
 
   '''
 
-  # ocean.stats is not archived as of now, so it should be read from RUNDIR
-  rundir = dcase.get_value('RUNDIR')
-  CASEROOT = dcase.get_value('CASEROOT')
-
   header = ["Step", "Day","Truncs", "Energy/Mass",
           "Maximum CFL", "Mean Sea Level",
           "Total Mass", "Mean Salin", "Mean Temp",
          "Frac Mass Err", "Salin Err", "Temp Err"]
-  df = pd.read_csv(rundir+'/ocean.stats',  delimiter=',',
+  # ocean.stats is not archived, so it should be read from RUNDIR
+  df = pd.read_csv(args.rundir+'/ocean.stats',  delimiter=',',
                  usecols=(0,1,2,3,4,5,6,7,8,9,10,11),skiprows=(0,1),
                  names=header)
 
@@ -520,7 +519,7 @@ def ocean_stats(dcase, OUTDIR):
     data_vars.update({var:(('time'), df[var], {"units" : unit})})
 
   # load ocean.stats.nc
-  ds = xr.open_dataset(rundir+"/ocean.stats.nc").rename({"Time" : "time"})
+  ds = xr.open_dataset(args.rundir+"/ocean.stats.nc").rename({"Time" : "time"})
 
   # variables to be added
   variables = [ 'En', 'Ntrunc','Mass', 'Mass_chg', 'Mass_anom', 'max_CFL_trans',
@@ -535,7 +534,8 @@ def ocean_stats(dcase, OUTDIR):
   data_vars.update({"KE":(("time", "Layer"), ds.KE.values)})
   data_vars.update({"Mass_lay":(("time", "Layer"), ds.Mass_lay.values)})
 
-  time_units = "days since {}".format(dcase.get_value('RUN_STARTDATE'))
+  RUN_STARTDATE = cime_xmlquery(args.caseroot, 'RUN_STARTDATE')
+  time_units = "days since {}".format(RUN_STARTDATE)
   attrs = {"units": time_units, "calendar" : "noleap"}
   coords={"time": ("time", df["Day"], attrs),
         "Layer" : ("Layer", ds.Layer.values),
@@ -543,18 +543,18 @@ def ocean_stats(dcase, OUTDIR):
 
   msg = " can be found at https://github.com/NCAR/mom6-tools"
   attrs = {"description": "ocean stats time-series derived from ocean.stats and ocean.stats.nc",
-           "casename" : dcase.casename,
-           "caseroot" : CASEROOT,
+           "casename" : args.casename,
+           "caseroot" : args.caseroot,
            "author" : getpass.getuser(),
            "date" : datetime.now().isoformat(),
            "created_using" : os.path.basename(__file__),
            "url" : os.path.basename(__file__) + msg}
   stats = xr.decode_cf(xr.Dataset(data_vars=data_vars, coords=coords, attrs = attrs))
-  stats.to_netcdf('ncfiles/{}_ocean.stats.nc'.format(dcase.casename))
+  stats.to_netcdf('ncfiles/{}_ocean.stats.nc'.format(args.casename))
 
-  return
+  return stats
 
-def extract_time_series(fname, variables, area, dcase, args, OUTDIR):
+def extract_time_series(fname, variables, area, args):
   '''
    Extract time-series and saves annual means.
 
@@ -567,14 +567,8 @@ def extract_time_series(fname, variables, area, dcase, args, OUTDIR):
   variables : str
     List of variables to be processed.
 
-  dcase : case object
-    Object created using mom6_tools.DiagsCase.
-
   args : object
-    Object with command line options.
-
-  OUTDIR : str
-    Path to the output.
+    Object with command line options and information about the case.
 
   Returns
   -------
@@ -595,7 +589,7 @@ def extract_time_series(fname, variables, area, dcase, args, OUTDIR):
   # read forcing files
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+fname, parallel=parallel)
+  ds1 = xr.open_mfdataset(args.OUTDIR+'/'+fname, parallel=parallel)
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
   ds = preprocess(ds1)
@@ -617,15 +611,15 @@ def extract_time_series(fname, variables, area, dcase, args, OUTDIR):
   # add attrs and save
   attrs = {'description': 'Monthly averages of global mean ocean properties.'}
   add_global_attrs(ds,attrs)
-  ds.to_netcdf('ncfiles/'+str(dcase.casename)+'_mon_ave_global_means.nc')
+  ds.to_netcdf('ncfiles/'+str(args.casename)+'_mon_ave_global_means.nc')
   if parallel:
     # close processes
     print('Releasing workers...\n')
     client.close(); cluster.close()
 
-  return
+  return ds
 
-def xystats(fname, variables, grd, dcase, basins, args, OUTDIR):
+def xystats(fname, variables, grd, basins, args):
   '''
    Compute and plot statistics for 2D variables.
 
@@ -641,18 +635,12 @@ def xystats(fname, variables, grd, dcase, basins, args, OUTDIR):
   grd : OrderedDict
     Dictionary with statistics computed using function myStats_da
 
-  dcase : case object
-    Object created using mom6_tools.DiagsCase.
-
   basins : DataArray
    Basins mask to apply. Returns horizontal mean RMSE for each basin provided.
    Basins must be generated by genBasinMasks.
 
   args : object
-    Object with command line options.
-
-  OUTDIR : str
-    Path to the output.
+    Object with command line options and information about the case.
 
   Returns
   -------
@@ -678,7 +666,7 @@ def xystats(fname, variables, grd, dcase, basins, args, OUTDIR):
   # read forcing files
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+fname, parallel=parallel)
+  ds1 = xr.open_mfdataset(args.OUTDIR+'/'+fname, parallel=parallel)
   ds = preprocess(ds1)
 
   # use datetime
@@ -689,16 +677,16 @@ def xystats(fname, variables, grd, dcase, basins, args, OUTDIR):
   for var in variables:
     startTime = datetime.now()
     print('\n Processing {}...'.format(var))
-    savefig1='PNG/'+dcase.casename+'_'+str(var)+'_xymean.png'
-    savefig2='PNG/'+dcase.casename+'_'+str(var)+'_stats.png'
+    savefig1='PNG/'+args.casename+'_'+str(var)+'_xymean.png'
+    savefig2='PNG/'+args.casename+'_'+str(var)+'_stats.png'
 
     # yearly mean
     ds_var = ds[var]
     stats = myStats_da(ds_var, dims=ds_var.dims[1::], weights=area, basins=basins)
-    stats.to_netcdf('ncfiles/'+dcase.casename+'_'+str(var)+'_stats.nc')
+    stats.to_netcdf('ncfiles/'+args.casename+'_'+str(var)+'_stats.nc')
     plot_stats_da(stats, var, ds_var.attrs['units'], save=savefig2)
     ds_var_mean = ds_var.mean(dim='time')
-    ds_var_mean.to_netcdf('ncfiles/'+dcase.casename+'_'+str(var)+'_time_ave.nc')
+    ds_var_mean.to_netcdf('ncfiles/'+args.casename+'_'+str(var)+'_time_ave.nc')
     dummy = np.ma.masked_invalid(ds_var_mean.values)
     xyplot(dummy, grd.geolon.values, grd.geolat.values, area.values, save=savefig1,
            suptitle=ds_var.attrs['long_name'] +' ['+ ds_var.attrs['units']+']',

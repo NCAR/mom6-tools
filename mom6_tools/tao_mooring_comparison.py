@@ -12,9 +12,8 @@ import dask, intake
 from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
-from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.MOM6grid import MOM6grid
-from mom6_tools.m6toolbox import weighted_temporal_mean, mom6_latlon2ij
+from mom6_tools.m6toolbox import weighted_temporal_mean, mom6_latlon2ij, cime_xmlquery
 
 def parseCommandLine():
     """
@@ -53,19 +52,18 @@ def driver(args):
     # Read in the yaml file
     diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
-    # Create the case instance
-    dcase = DiagsCase(diag_config_yml['Case'])
-    # file streams
-    args.monthly = dcase.casename+diag_config_yml['Fnames']['z']
-    args.static = dcase.casename+diag_config_yml['Fnames']['static']
-    args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
-    DOUT_S = dcase.get_value('DOUT_S')
+    caseroot = diag_config_yml['Case']['CASEROOT']
+    args.casename = cime_xmlquery(caseroot, 'CASE')
+    DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
     if DOUT_S:
-        OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+      OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
     else:
-        OUTDIR = dcase.get_value('RUNDIR')+'/'
+      OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-    args.casename = dcase.casename
+    # file streams
+    args.monthly = args.casename+diag_config_yml['Fnames']['z']
+    args.static = args.casename+diag_config_yml['Fnames']['static']
+    args.geom = args.casename+diag_config_yml['Fnames']['geom']
     print('Output directory is:', OUTDIR)
     print('Casename is:', args.casename)
     print('Monthly file is:', args.monthly)
@@ -91,7 +89,6 @@ def driver(args):
 
     # load obs
     path_obs = '/glade/campaign/cgd/oce/datasets/obs/TAO_adcp_mon'
-
 
     parallel = False
     if nw > 1:

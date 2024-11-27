@@ -1,9 +1,8 @@
 # case info
 Case:
-  CASEROOT: /glade/work/gmarques/cesm.cases/G/g.e23_b15.GJRAv4.TL319_t232_zstar_N65.baseline.001/
-  CIMEROOT: /glade/work/gmarques/cesm.sandboxes/cesm2_3_beta15/cime/
+  CASEROOT: /glade/work/gmarques/cesm.cases/G/g.e30_a03c.GJRAv4.TL319_t232_wgx3_hycom1_N75.2024.079/
   OCN_DIAG_ROOT: ncfiles/
-  SNAME: ctrl_jra_beta15
+  SNAME: "079"
 
 # start and end dates to perform averages
 Avg:
@@ -16,8 +15,10 @@ Fnames:
   z:      '.mom6.h.z.????-??.nc'
   native: '.mom6.h.native.????-??.nc'
   sfc:    '.mom6.h.sfc.????-??.nc'
+  ice:    '.cice.h.????-??.nc'
   static: '.mom6.h.static.nc'
-
+  geom:   '.mom6.h.ocean_geometry.nc'
+  
 # sections where transports are computed online
 # Format: file name stream (e.g., Drake_Passage), transport
 # component (umo or vmo), observational estimate (optional)
