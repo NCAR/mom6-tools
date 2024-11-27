@@ -1,5 +1,5 @@
 import numpy as np
-from mom6_tools.stats import HorizontalMeanDiff_da, HorizontalMeanRmse_da
+from mom6_tools.drift import HorizontalMeanDiff_da, HorizontalMeanRmse_da
 import xarray as xr
 
 # starts with simple cases then build complexity.
