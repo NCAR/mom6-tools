@@ -16,3 +16,4 @@ scipy
 jupyter
 cmocean
 cartopy
+distributed
