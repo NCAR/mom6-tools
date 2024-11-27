@@ -15,3 +15,4 @@ cftime
 scipy
 jupyter
 cmocean
+cartopy
