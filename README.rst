@@ -1,9 +1,9 @@
     MOM6-tools
 ============
-<!-- .. image:: https://img.shields.io/travis/NCAR/mom6-tools/master?logo=travis&style=for-the-badge
-    :target: https://travis-ci.org/NCAR/mom6-tools
-    :alt: Build Status
---!>
+<!-- .. image:: https://img.shields.io/travis/NCAR/mom6-tools/master?logo=travis&style=for-the-badge --!>
+<!--     :target: https://travis-ci.org/NCAR/mom6-tools --!>
+<!--     :alt: Build Status --!>
+
 
 .. image:: https://img.shields.io/readthedocs/mom6-tools/latest.svg?style=for-the-badge
     :target: https://mom6-tools.readthedocs.io/?badge=latest
