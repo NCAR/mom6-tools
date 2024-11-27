@@ -18,6 +18,6 @@ cmocean
 cartopy
 distributed
 ncar_jobqueue
-yaml
+PyYAML
 intake
 nc_time_axis
