@@ -17,3 +17,8 @@ jupyter
 cmocean
 cartopy
 distributed
+ncar_jobqueue
+collections
+yaml
+intake
+nc_time_axis
