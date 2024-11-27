@@ -7,11 +7,11 @@ import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
 import warnings
-import os
-
+import os, yaml
 from mom6_tools import m6plot
 from mom6_tools.MOM6grid import MOM6grid
-from mom6_tools import m6toolbox
+from mom6_tools.m6toolbox import weighted_temporal_mean_vars, request_workers
+from mom6_tools.m6toolbox import cime_xmlquery
 
 class MyError(Exception):
   """
@@ -47,18 +47,6 @@ def parseCommandLine():
       Variable must besepareted by comma (e.g., SST,SSS).
       Default is none, which will process all variables.''')
 
-#  parser.add_argument('-month', type=str, default='ocean_month__*',
-#      help='''The name of monthly mean file(s). Default is ocean_month__*''')
-
-#  parser.add_argument('-month_z_', type=str, default='ocean_month_z__*',
-#      help='''The name of monthly mean file(s) remapped to a z coordinate. Default is ocean_month_z__*''')
-
-#  parser.add_argument('-prog', type=str, default='prog__*',
-#      help='''The name of prognostic ocean file(s). Default is prog__*''')
-
-#  parser.add_argument('-ndays', type=int, default=2,
-#      help='''Number of days to skip when computing time series. Default is 2.''')
-
   parser.add_argument('-year_start', type=int, default=80,
       help='''Start year to compute averages. Default is 80.''')
 
@@ -82,16 +70,35 @@ def parseCommandLine():
 def driver(args):
   os.system('mkdir PNG')
   os.system('mkdir ncfiles')
+
+  # Read in the yaml file
+  diag_config_yml_path = "diag_config.yml"
+  diag_config_yml = yaml.load(open(diag_config_yml_path,'r'), Loader=yaml.Loader)
+
+  caseroot = diag_config_yml['Case']['CASEROOT']
+  casename = cime_xmlquery(caseroot, 'CASE')
+  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
+  if DOUT_S:
+    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
+  else:
+    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+
+  print('Output directory is:', OUTDIR)
+  print('Casename is:', casename)
+
+  args.static = casename+diag_config_yml['Fnames']['static']
+  args.geom =   casename+diag_config_yml['Fnames']['geom']
+
   # mom6 grid
-  grd = MOM6grid(args.static)
+  # read grid info
+  geom_file = OUTDIR+'/'+args.geom
+  if os.path.exists(geom_file):
+    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file)
+  else:
+    grd = MOM6grid(OUTDIR+'/'+args.static)
 
   variables = args.variables.split(',')
-  # extract mean surface latlon time series from forcing and surface files
-  #mean_latlon_time_series(args, grd, ['SSS','SST','MLD_003','SSH','hfds','PRCmE','taux','tauy'])
-  # FIXME: SSU and SSV need to be plotted on u and v points, instead of tracer points
-  #time_mean_latlon(args,grd, ['SSH','SSS','SST','KPP_OBLdepth','SSU','SSV','hfds','PRCmE','taux','tauy'])
   time_mean_latlon(args,grd,variables)
-  #mean_latlon_plot(args,grd,['SSH','SSS','SST','KPP_OBLdepth','SSU','SSV','hfds','PRCmE','taux','tauy'])
 
   return
 
@@ -122,28 +129,30 @@ def plot_area_ave_stats(ds, var, args, aspect=[16,9], resolution=576, debug=Fals
 # -- time-average 2D latlon fields and call plotting function
 def time_mean_latlon(args, grd, variables=[]):
 
-  def preprocess(ds):
-    ''' Compute montly averages and return the dataset with variables'''
-    return ds.resample(time="1Y", closed='left', \
-           keep_attrs=True).mean(dim='time', keep_attrs=True)
-
   if args.nw>1:
-    from mom6_tools.m6toolbox import request_workers
     parallel, cluster, client = request_workers(args.nw)
 
     ds = xr.open_mfdataset(args.infile, \
          parallel=True, data_vars='minimal', chunks={'time': 12},\
-         coords='minimal', compat='override', preprocess=preprocess)
+         coords='minimal', compat='override')
   else:
     ds = xr.open_mfdataset(args.infile, \
          data_vars='minimal', chunks={'time': 12},\
-         coords='minimal', compat='override', preprocess=preprocess)
+         coords='minimal', compat='override')
 
   if len(variables) == 0:
     # plot all 2D varialbles in the dataset
     variables = ds.variables
 
-  ds1 = ds.sel(time=slice(args.start_date,args.end_date)).mean('time')
+  ds = ds[variables]
+  ds_sel = ds.sel(time=slice(args.start_date,args.end_date))
+  ds_ann = weighted_temporal_mean_vars(ds_sel)
+  ds1 = ds_ann.mean('time').compute()
+
+  try:
+    area = grd.area_t
+  except:
+    area = grd.areacello
 
   for var in variables:
     dim = len(ds1[var].shape)
@@ -157,15 +166,15 @@ def time_mean_latlon(args, grd, variables=[]):
         units = ds[var].attrs['units']
 
         if args.savefigs:
-          m6plot.xyplot( data , grd.geolon, grd.geolat, area=grd.area_t,
+          m6plot.xyplot( data , grd.geolon, grd.geolat, area=area,
             suptitle=args.case_name,
-            title=r'%s, [%s] averaged over years %i-%i'%(var,units,ti,tf),
+            title=r'%s, [%s] averaged over years %s-%s'%(var,units,args.start_date,args.end_date),
             extend='both',
             save=filename)
         else:
-          m6plot.xyplot( data , grd.geolon, grd.geolat, area=grd.area_t,
+          m6plot.xyplot( data , grd.geolon, grd.geolat, area=area,
             suptitle=args.case_name,
-            title=r'%s, [%s] averaged over years %i-%i'%(var,units,ti,tf),
+            title=r'%s, [%s] averaged over years %s-%s'%(var,units,args.start_date,args.end_date),
             extend='both',
             show=True)
 
@@ -178,7 +187,7 @@ def time_mean_latlon(args, grd, variables=[]):
       for t in range(0,len(dtime)):
         #print ("==> ' + 'step # {} out of {}  ...\n".format(t+1,tm))
         # get stats
-        sMin, sMax, mean, std, rms = m6plot.myStats(data[t], grd.area_t)
+        sMin, sMax, mean, std, rms = m6plot.myStats(data[t], area)
         # update Dataset
         ds_new[var][0,t] = sMin; ds_new[var][1,t] = sMax; ds_new[var][2,t] = mean
         ds_new[var][3,t] = std; ds_new[var][4,t] = rms

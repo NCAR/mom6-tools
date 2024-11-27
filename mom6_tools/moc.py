@@ -6,7 +6,7 @@ import numpy as np
 import warnings, dask, intake
 from datetime import datetime
 import xarray as xr
-from mom6_tools.DiagsCase import DiagsCase
+from mom6_tools.m6toolbox import cime_xmlquery
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools import m6plot
@@ -48,18 +48,17 @@ def main():
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
-  # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'])
-  args.case_name = dcase.casename
-  DOUT_S = dcase.get_value('DOUT_S')
+  caseroot = diag_config_yml['Case']['CASEROOT']
+  args.casename = cime_xmlquery(caseroot, 'CASE')
+  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
-    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
   else:
-    OUTDIR = dcase.get_value('RUNDIR')
+    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
   args.savefigs = True; args.outdir = 'PNG/MOC/'
   print('Output directory is:', OUTDIR)
-  print('Casename is:', dcase.casename)
+  print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
 
   # set avg dates
@@ -68,10 +67,10 @@ def main():
   if not args.end_date : args.end_date = avg['end_date']
 
   # file names are provided via yaml
-  args.monthly = dcase.casename+diag_config_yml['Fnames']['z']
-  args.sigma2 = dcase.casename+diag_config_yml['Fnames']['rho2']
-  args.static = dcase.casename+diag_config_yml['Fnames']['static']
-  args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
+  args.monthly = args.casename+diag_config_yml['Fnames']['z']
+  args.sigma2 = args.casename+diag_config_yml['Fnames']['rho2']
+  args.static = args.casename+diag_config_yml['Fnames']['static']
+  args.geom = args.casename+diag_config_yml['Fnames']['geom']
 
   # read grid info
   geom_file = OUTDIR+'/'+args.geom
@@ -118,7 +117,7 @@ def main():
   attrs =  {
          'description': 'Annual mean meridional thickness flux by components ',
          'reduction_method': 'annual mean weighted by days in each month',
-         'casename': dcase.casename
+         'casename': args.casename
          }
   print('Computing yearly means...')
   startTime = datetime.now()
@@ -144,8 +143,8 @@ def main():
   VHmod.units = ds[varName].units
   Zmod = m6toolbox.get_z(ds, depth, varName) # same here
 
-  if args.case_name != '':  case_name = args.case_name
-  else: case_name = ''
+  if args.casename != '':  casename = args.casename
+  else: casename = ''
 
   # Global MOC
   m6plot.setFigureSize([16,9],576,debug=False)
@@ -158,12 +157,12 @@ def main():
   ci=m6plot.pmCI(0.,40.,5.)
   plotPsi(yyg, zg, psiPlot, ci, 'Global MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
-  plt.suptitle(case_name)
+  plt.suptitle(casename)
   findExtrema(yyg, zg, psiPlot, max_lat=-30.)
   findExtrema(yyg, zg, psiPlot, min_lat=25., min_depth=250.)
   findExtrema(yyg, zg, psiPlot, min_depth=2000., mult=-1.)
   plt.gca().invert_yaxis()
-  objOut = args.outdir+str(case_name)+'_MOC_global.png'
+  objOut = args.outdir+str(casename)+'_MOC_global.png'
   plt.savefig(objOut)
 
   if 'zl' in ds:
@@ -183,7 +182,7 @@ def main():
                             'amoc_26' : (('time'), np.zeros((ds_ann.time.shape))) },
                             coords={'zl': zl, 'yq':ds.yq, 'time':ds_ann.time})
   attrs = {'description': 'MOC time-mean sections and time-series', 'units': 'Sv', 'start_date': avg['start_date'],
-       'end_date': avg['end_date'], 'casename': dcase.casename}
+       'end_date': avg['end_date'], 'casename': args.casename}
   m6toolbox.add_global_attrs(moc,attrs)
 
 
@@ -198,7 +197,7 @@ def main():
   yy = grd.geolat_c[:,:].max(axis=-1)+0*z
   plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ args.start_date + ' and '+ args.end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
-  plt.suptitle(case_name)
+  plt.suptitle(casename)
   # find range to extract values near the RAPID array
   # this will depend on the grid spacing
   try:
@@ -217,7 +216,7 @@ def main():
   findExtrema(yy, z, psiPlot)
   findExtrema(yy, z, psiPlot, min_lat=5.)
   plt.gca().invert_yaxis()
-  objOut = args.outdir+str(case_name)+'_MOC_Atlantic.png'
+  objOut = args.outdir+str(casename)+'_MOC_Atlantic.png'
   plt.savefig(objOut,format='png')
   moc['amoc'].data = psiPlot
 
@@ -226,13 +225,13 @@ def main():
   rapid_vertical = catalog["moc-rapid"].to_dask()
   fig, ax = plt.subplots(nrows=1, ncols=1)
   ax.plot(rapid_vertical.stream_function_mar.mean('time'), rapid_vertical.depth, 'k', label='RAPID')
-  ax.plot(moc['amoc'].sel(yq=26, method='nearest'), zl, label=case_name)
+  ax.plot(moc['amoc'].sel(yq=26, method='nearest'), zl, label=casename)
   ax.legend()
   plt.gca().invert_yaxis()
   plt.grid()
   ax.set_xlabel('AMOC @ 26N [Sv]')
   ax.set_ylabel('Depth [m]')
-  objOut = args.outdir+str(case_name)+'_MOC_profile_26N.png'
+  objOut = args.outdir+str(casename)+'_MOC_profile_26N.png'
   plt.savefig(objOut,format='png')
 
   print('Computing time series...')
@@ -281,7 +280,7 @@ def main():
 
   # plot
   fig = plt.figure(figsize=(12, 6))
-  plt.plot(np.arange(len(moc.time))+1958.5 ,moc['amoc_26'].values, color='k', label=case_name, lw=2)
+  plt.plot(np.arange(len(moc.time))+1958.5 ,moc['amoc_26'].values, color='k', label=casename, lw=2)
   # core data
   core_mean = amoc_core_26['MOC'].mean(axis=0).data
   core_std = amoc_core_26['MOC'].std(axis=0).data
@@ -298,12 +297,12 @@ def main():
   plt.xlim(1948,1958.5+len(moc.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=13, ncol=2)
-  objOut = args.outdir+str(case_name)+'_MOC_26N_time_series.png'
+  objOut = args.outdir+str(casename)+'_MOC_26N_time_series.png'
   plt.savefig(objOut,format='png')
 
   # plot
   fig = plt.figure(figsize=(12, 6))
-  plt.plot(np.arange(len(moc.time))+1958.5 ,moc['amoc_45'], color='k', label=case_name, lw=2)
+  plt.plot(np.arange(len(moc.time))+1958.5 ,moc['amoc_45'], color='k', label=casename, lw=2)
   # core data
   core_mean = amoc_core_45['MOC'].mean(axis=0).data
   core_std = amoc_core_45['MOC'].std(axis=0).data
@@ -318,7 +317,7 @@ def main():
   plt.xlim(1948,1958+len(moc.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
-  objOut = args.outdir+str(case_name)+'_MOC_45N_time_series.png'
+  objOut = args.outdir+str(casename)+'_MOC_45N_time_series.png'
   plt.savefig(objOut,format='png')
 
   # Submesoscale-induced Global MOC
@@ -339,9 +338,9 @@ def main():
   plotPsi(yy, z, psiPlot, ci, 'Global FFH MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date,
           zval=[0.,-400.,-1000.])
   plt.xlabel(r'Latitude [$\degree$N]')
-  plt.suptitle(case_name)
+  plt.suptitle(casename)
   plt.gca().invert_yaxis()
-  objOut = args.outdir+str(case_name)+'_FFH_MOC_global.png'
+  objOut = args.outdir+str(casename)+'_FFH_MOC_global.png'
   plt.savefig(objOut)
   moc['moc_FFM'].data = psiPlot
 
@@ -362,15 +361,15 @@ def main():
   ci=m6plot.pmCI(0.,20.,2.)
   plotPsi(yy, z, psiPlot, ci, 'Global GM MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date)
   plt.xlabel(r'Latitude [$\degree$N]')
-  plt.suptitle(case_name)
+  plt.suptitle(casename)
   plt.gca().invert_yaxis()
   findExtrema(yy, z, psiPlot, min_lat=-65., max_lat=-30, mult=-1.)
-  objOut = args.outdir+str(case_name)+'_GM_MOC_global.png'
+  objOut = args.outdir+str(casename)+'_GM_MOC_global.png'
   plt.savefig(objOut)
   moc['moc_GM'].data = psiPlot
 
   print('Saving netCDF files...')
-  moc.to_netcdf('ncfiles/'+str(case_name)+'_MOC.nc')
+  moc.to_netcdf('ncfiles/'+str(casename)+'_MOC.nc')
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

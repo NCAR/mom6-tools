@@ -10,10 +10,10 @@ import dask, intake
 from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
-from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6plot import yzcompare, yzplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import shiftgrid, add_global_attrs, weighted_temporal_mean_vars
+from mom6_tools.m6toolbox import cime_xmlquery
 
 def parseCommandLine():
   """
@@ -54,21 +54,20 @@ def driver(args):
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
-  # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'])
-  # file streams
-  args.monthly = dcase.casename+diag_config_yml['Fnames']['z']
-  args.static = dcase.casename+diag_config_yml['Fnames']['static']
-  args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
-
-  DOUT_S = dcase.get_value('DOUT_S')
+  caseroot = diag_config_yml['Case']['CASEROOT']
+  args.casename = cime_xmlquery(caseroot, 'CASE')
+  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
-    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
   else:
-    OUTDIR = dcase.get_value('RUNDIR')+'/'
+    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
+  # file streams
+  args.monthly = args.casename+diag_config_yml['Fnames']['z']
+  args.static = args.casename+diag_config_yml['Fnames']['static']
+  args.geom = args.casename+diag_config_yml['Fnames']['geom']
   args.label = diag_config_yml['Case']['SNAME']
-  args.casename = dcase.casename
+
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Monthly file is:', args.monthly)
@@ -168,18 +167,18 @@ def driver(args):
   matplotlib.rcParams.update({'font.size': 16})
 
   print('Model vs Obs comparisions...')
-  figname = 'PNG/Equatorial/'+str(dcase.casename)+'_'
+  figname = 'PNG/Equatorial/'+str(args.casename)+'_'
   yzcompare(temp_eq , thetao_obs_eq, x, -Z,
             title1 = 'model temperature', ylabel='Longitude', yunits='',
             title2 = 'observed temperature ({})'.format(obs_label), #contour=True,
-            suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+            suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
             extend='neither', dextend='neither', clim=(6,31.), dlim=(-5,5), dcolormap=plt.cm.bwr,
             save=figname+'Equatorial_Global_temperature.png')
 
   yzcompare(salt_eq , salt_obs_eq, x, -Z,
         title1 = 'model salinity', ylabel='Longitude', yunits='',
         title2 = 'observed salinity ({})'.format(obs_label), #contour=True,
-        suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+        suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
         extend='neither', dextend='neither', clim=(33.5,37.), dlim=(-1,1), dcolormap=plt.cm.bwr,
         save=figname+'Equatorial_Global_salinity.png')
 

@@ -10,8 +10,8 @@ import dask
 from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
-from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import add_global_attrs, genBasinMasks, weighted_temporal_mean_vars
+from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.m6plot import xycompare, polarcomparison, chooseColorLevels
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.stats import stats_to_ds, min_da, max_da, mean_da, rms_da, std_da
@@ -56,18 +56,17 @@ def driver(args):
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
-  # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'])
-  DOUT_S = dcase.get_value('DOUT_S')
+  caseroot = diag_config_yml['Case']['CASEROOT']
+  args.casename = cime_xmlquery(caseroot, 'CASE')
+  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
-    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
   else:
-    OUTDIR = dcase.get_value('RUNDIR')
+    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  args.casename = dcase.casename
-  args.monthly = dcase.casename+diag_config_yml['Fnames']['z']
-  args.static = dcase.casename+diag_config_yml['Fnames']['static']
-  args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
+  args.monthly = args.casename+diag_config_yml['Fnames']['z']
+  args.static = args.casename+diag_config_yml['Fnames']['static']
+  args.geom = args.casename+diag_config_yml['Fnames']['geom']
 
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
@@ -190,7 +189,7 @@ def driver(args):
     interfaces[k] = interfaces[k-1] + ( 2 * (depth[k-1] - interfaces[k-1]))
 
   reg = np.arange(len(temp_stats.basin.values)+ 1)
-  figname = 'PNG/TS_levels/'+str(dcase.casename)+'_'
+  figname = 'PNG/TS_levels/'+str(args.casename)+'_'
 
   temp_label = r'Potential temperature [$^o$C]'
   salt_label = 'Salinity [psu]'
@@ -253,7 +252,7 @@ def driver(args):
   attrs = {'description': 'model - obs at depth levels',
            'start_date': args.start_date,
            'end_date': args.end_date,
-           'casename': dcase.casename,
+           'casename': args.casename,
            'obs': args.obs,
            'module': os.path.basename(__file__)}
   # create dataset to store results
@@ -294,19 +293,19 @@ def driver(args):
   km = len(obs_temp['depth'])
   for k in range(km):
     if ds['z_l'][k].values < 1200.0:
-      figname = 'PNG/TS_levels/'+str(dcase.casename)+'_'+str(ds['z_l'][k].values)+'_'
+      figname = 'PNG/TS_levels/'+str(args.casename)+'_'+str(ds['z_l'][k].values)+'_'
       temp_obs = np.ma.masked_invalid(obs_temp[k,:].values)
       xycompare(temp[k,:] , temp_obs, grd.geolon, grd.geolat, area=area,
               title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
               title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
-              suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+              suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               extend='both', dextend='neither', clim=(-1.9,30.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               save=figname+'global_temp.png')
       salt_obs = np.ma.masked_invalid(obs_salt[k,:].values)
       xycompare( salt[k,:] , salt_obs, grd.geolon, grd.geolat, area=area,
               title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
               title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
-              suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+              suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
               extend='both', dextend='neither', clim=(30.,39.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               save=figname+'global_salt.png')
 
@@ -318,14 +317,14 @@ def driver(args):
   #            title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
   #            title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
   #            extend='both', dextend='neither', clim=(-1.9,10.5), dlim=(-2,2), dcolormap=plt.cm.bwr,
-  #            suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
   #            proj='SP', save=figname+'antarctic_temp.png')
   #    salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
   #    polarcomparison( salt[k,:] , salt_obs, grd,
   #            title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
   #            title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
   #            extend='both', dextend='neither', clim=(33.,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
-  #            suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
   #            proj='SP', save=figname+'antarctic_salt.png')
 
   #print('Arctic plots...')
@@ -336,14 +335,14 @@ def driver(args):
   #            title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
   #            title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
   #            extend='both', dextend='neither', clim=(-1.9,11.5), dlim=(-2,2), dcolormap=plt.cm.bwr,
-  #            suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
   #            proj='NP', save=figname+'arctic_temp.png')
   #    salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
   #    polarcomparison( salt[k,:] , salt_obs, grd,
   #            title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
   #            title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
   #            extend='both', dextend='neither', clim=(31.5,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
-  #            suptitle=dcase.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
   #            proj='NP', save=figname+'arctic_salt.png')
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))

@@ -6,11 +6,11 @@ import numpy as np
 import warnings, dask, netCDF4, intake
 from datetime import datetime, date
 import xarray as xr
-from mom6_tools.DiagsCase import DiagsCase
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools import m6plot
-from mom6_tools  import m6toolbox
+from mom6_tools.m6toolbox import genBasinMasks, weighted_temporal_mean_vars, add_global_attrs
+from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.MOM6grid import MOM6grid
 
 def options():
@@ -47,31 +47,29 @@ def main(stream=False):
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
-  # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'])
-  args.case_name = dcase.casename
-  DOUT_S = dcase.get_value('DOUT_S')
+  caseroot = diag_config_yml['Case']['CASEROOT']
+  args.casename = cime_xmlquery(caseroot, 'CASE')
+  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
-    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
   else:
-    OUTDIR = dcase.get_value('RUNDIR')
+    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
   variables = ['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d', 'T_hbd_diffy_2d']
   args.savefigs = True; args.outdir = 'PNG/HT'
   print('Output directory is:', OUTDIR)
-  print('Casename is:', dcase.casename)
+  print('Casename is:', args.casename)
   #print('Variables to be processed:', args.variables)
   print('Variables to be processed:', variables)
   print('Number of workers to be used:', nw)
 
   # set avg dates and other params
-  args.case_name = dcase.casename
   avg = diag_config_yml['Avg']
   if not args.start_date : args.start_date = avg['start_date']
   if not args.end_date : args.end_date = avg['end_date']
-  args.native = dcase.casename+diag_config_yml['Fnames']['native']
-  args.static = dcase.casename+diag_config_yml['Fnames']['static']
-  args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
+  args.native = args.casename+diag_config_yml['Fnames']['native']
+  args.static = args.casename+diag_config_yml['Fnames']['static']
+  args.geom = args.casename+diag_config_yml['Fnames']['geom']
   args.savefigs = False
 
   # read grid info
@@ -87,7 +85,7 @@ def main(stream=False):
 
   # remote Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
-  basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
+  basin_code = genBasinMasks(grd.geolon, grd.geolat, depth)
 
   parallel = False
   if nw > 1:
@@ -133,12 +131,12 @@ def main(stream=False):
          'start_date': args.start_date,
          'end_date': args.end_date,
          'reduction_method': 'annual mean weighted by days in each month',
-         'casename': dcase.casename
+         'casename': args.casename
          }
 
   print('Computing annual means...')
   startTime = datetime.now()
-  ds_ann =  m6toolbox.weighted_temporal_mean_vars(ds_sel,attrs=attrs)
+  ds_ann =  weighted_temporal_mean_vars(ds_sel,attrs=attrs)
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing time mean...')
@@ -153,10 +151,10 @@ def main(stream=False):
   varName = 'T_ady_2d'
   print('Saving netCDF files...')
   attrs = {'description': 'Time-mean poleward heat transport by components ', 'units': ds[varName].units,
-       'start_date': args.start_date, 'end_date': args.end_date, 'casename': dcase.casename}
-  m6toolbox.add_global_attrs(ds_mean,attrs)
+       'start_date': args.start_date, 'end_date': args.end_date, 'casename': args.casename}
+  add_global_attrs(ds_mean,attrs)
 
-  ds_mean.to_netcdf('ncfiles/'+dcase.casename+'_heat_transport.nc')
+  ds_mean.to_netcdf('ncfiles/'+args.casename+'_heat_transport.nc')
   # create a ndarray subclass
   class C(np.ndarray): pass
 
@@ -228,7 +226,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   GandW['Atlantic'] = Atlantic
   GandW['IndoPac'] = IndoPac
 
-  if args.case_name != '':  suptitle = args.case_name
+  if args.casename != '':  suptitle = args.casename
   else: suptitle = ''
 
   # Global Heat Transport
@@ -254,7 +252,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   if hbd is None: annotatePlot('Warning: LBD component of transport is missing.')
 
   if args.savefigs:
-    objOut = args.outdir+'/'+args.case_name+'_HeatTransport_global.png'
+    objOut = args.outdir+'/'+args.casename+'_HeatTransport_global.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()
@@ -281,7 +279,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   if diffusive is None: annotatePlot('Warning: Diffusive component of transport is missing.')
   if hbd is None: annotatePlot('Warning: LBD component of transport is missing.')
   if args.savefigs:
-    objOut = args.outdir+'/'+args.case_name+'_HeatTransport_Atlantic.png'
+    objOut = args.outdir+'/'+args.casename+'_HeatTransport_Atlantic.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()
@@ -308,7 +306,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   plt.suptitle(suptitle)
   plt.legend(loc=0,fontsize=10)
   if args.savefigs:
-    objOut = args.outdir+'/'+args.case_name+'_HeatTransport_IndoPacific.png'
+    objOut = args.outdir+'/'+args.casename+'_HeatTransport_IndoPacific.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()

@@ -7,16 +7,16 @@ Functions used to calculate the drift of scalars within defined regions and glob
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
-from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.ClimoGenerator import ClimoGenerator
 from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs, weighted_temporal_mean
+from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from datetime import datetime
 from distributed import Client
 from ncar_jobqueue import NCARCluster
 from collections import OrderedDict
-import yaml, os, intake
+import yaml, os, intake, nc_time_axis
 
 try: import argparse
 except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
@@ -552,21 +552,22 @@ def main(stream=False):
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
+  caseroot = diag_config_yml['Case']['CASEROOT']
   # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
-  DOUT_S = dcase.get_value('DOUT_S')
+  args.casename = cime_xmlquery(caseroot, 'CASE')
+  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
-    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
   else:
-    OUTDIR = dcase.get_value('RUNDIR')
+    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
   print('Output directory is:', OUTDIR)
-  print('Casename is:', dcase.casename)
+  print('Casename is:', args.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  args.z = dcase.casename+diag_config_yml['Fnames']['z']
-  args.static = dcase.casename+diag_config_yml['Fnames']['static']
-  args.geom = dcase.casename+diag_config_yml['Fnames']['geom']
+  args.z = args.casename+diag_config_yml['Fnames']['z']
+  args.static = args.casename+diag_config_yml['Fnames']['static']
+  args.geom = args.casename+diag_config_yml['Fnames']['geom']
 
   if not os.path.isdir('PNG/Drift'):
     print('Creating a directory to place figures (PNG)... \n')
@@ -608,14 +609,14 @@ def main(stream=False):
   obs = catalog[args.obs].to_dask()[args.var]
 
   # diff_rms
-  horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR)
+  horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
   return
 
 
-def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR):
+def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
   '''
    Compute horizontal mean difference and rms: model versus observations.
 
@@ -624,9 +625,6 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR):
 
   grd : OrderedDict
     Dictionary with statistics computed using function myStats_da
-
-  dcase : case object
-    Object created using mom6_tools.DiagsCase.
 
   basins : DataArray
    Basins mask to apply. Returns horizontal mean RMSE for each basin provided.
@@ -687,7 +685,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR):
   attrs =  {
          'description': 'Annual mean climatology for '+var,
          'reduction_method': 'annual mean weighted by days in each month',
-         'casename': dcase.casename
+         'casename': args.casename
          }
 
   model = weighted_temporal_mean(ds,var)
@@ -728,18 +726,18 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR):
     client.close(); cluster.close()
 
   print('Saving netCDF files...')
-  attrs = {'casename': dcase.casename,
+  attrs = {'casename': args.casename,
            'description': description,
            'obs': args.obs,
            'module': os.path.basename(__file__)}
 
   if args.drift:
     add_global_attrs(drift,attrs)
-    drift.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_drift.nc'.format(var))
+    drift.to_netcdf('ncfiles/'+str(args.casename)+'_{}_drift.nc'.format(var))
 
   if args.rms:
     add_global_attrs(rms,attrs)
-    rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_{}_rmse.nc'.format(var))
+    rms.to_netcdf('ncfiles/'+str(args.casename)+'_{}_rmse.nc'.format(var))
 
   if args.savefig:
     # save plots
@@ -757,10 +755,10 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR):
         else:
           splitscale =  [0., -1000., -drift_reg.z_l.max()]
 
-        savefig_diff='PNG/Drift/'+str(dcase.casename)+'_'+str(reg.values)+'_{}_drift.png'.format(var)
+        savefig_diff='PNG/Drift/'+str(args.casename)+'_'+str(reg.values)+'_{}_drift.png'.format(var)
         vname = ', {} [{}], diff (model - obs)'.format(var,units)
         ztplot(drift_reg.values, drift_reg.time.values, drift_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
-               suptitle=dcase._casename, contour=True, title= str(reg.values) + vname,
+               suptitle=args.casename, contour=True, title= str(reg.values) + vname,
                extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=False, clim=clim_diff,
                save=savefig_diff, interactive=True);
         plt.close('all')
@@ -779,11 +777,11 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, OUTDIR):
         else:
           splitscale =  [0., -1000., -rms_reg.z_l.max()]
 
-        savefig_rms='PNG/Drift/'+str(dcase.casename)+'_'+str(reg.values)+'_{}_rms.png'.format(var)
+        savefig_rms='PNG/Drift/'+str(args.casename)+'_'+str(reg.values)+'_{}_rms.png'.format(var)
         vname = ', {} [{}], rms (model - obs)'.format(var,units)
 
         ztplot(rms_reg.values, rms_reg.time.values, rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
-               suptitle=dcase._casename, contour=True, title= str(reg.values) + vname,
+               suptitle=args.casename, contour=True, title= str(reg.values) + vname,
                extend='both', colormap='dunnePM', autocenter=False, tunits='Year', show=False, clim=clim_rms,
                save=savefig_rms, interactive=True);
 
