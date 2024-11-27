@@ -1,4 +1,8 @@
-.. image:: https://img.shields.io/readthedocs/mom6-tools/latest.svg?style=for-the-badge
+.. image:: https://github.com/NCAR/mom6-tools/actions/workflows/python-tests.yml/badge.svg
+    :target: https://github.com/NCAR/mom6-tools/actions/workflows/python-tests.yml
+    :alt: Tests Status
+
+.. image:: https://img.shields.io/readthedocs/mom6-tools/latest.svg?style=flat - default
     :target: https://mom6-tools.readthedocs.io/?badge=latest
     :alt: Documentation Status
 
