@@ -1,6 +1,7 @@
-#sphinx
-#sphinx_rtd_theme
+sphinx>=4.0
+sphinx_rtd_theme
 nbsphinx
+ipython
 jinja2
 numpy
 numba
