@@ -70,6 +70,7 @@ def driver(args):
   args.native = args.casename+diag_config_yml['Fnames']['native']
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.label = diag_config_yml['Case']['SNAME']
   args.savefigs = True
 
   # read grid info
@@ -207,7 +208,8 @@ def get_SSH(ds, var, grd, args):
 
 def get_MLD(ds, var, mld_obs, grd, args):
   '''
-  Compute a MLD climatology and compare against obs.
+  Calculate the monthly and seasonal (winter and summer) climatologies for
+  Mixed Layer Depth (MLD) and compare the results with observational datasets.
   '''
 
   if args.savefigs:
@@ -220,39 +222,79 @@ def get_MLD(ds, var, mld_obs, grd, args):
   mld_model = ds[var].groupby("time.month").mean('time').compute()
   print('Time elasped: ', datetime.now() - startTime)
 
-  # fix month values using pandas. We just want something that xarray understands
-  mld_model['month'] = pd.date_range('2000-01-15', '2001-01-01',  freq='2SMS')
+  # add lat/lon
+  mld_model = mld_model.assign_coords({
+    "latitude": (("yh", "xh"), grd.geolat),
+    "longitude": (("yh", "xh"), grd.geolon)
+  })
+
+  attrs = {'start_date': args.start_date,
+           'end_date': args.end_date,
+           'casename': args.casename,
+           'description': 'MLD monthly climatology (m)',
+           'module': os.path.basename(__file__)}
+  add_global_attrs(mld_model,attrs)
+  mld_model.to_netcdf('ncfiles/'+str(args.casename)+'_MLD_monthly_clima.nc')
 
   try:
     area = grd.area_t
   except:
     area = grd.areacello
 
-  print('\n Plotting...')
-  # March and Sep, noticed starting from 0
-  months = [2,8]
   fname = None
+  if args.savefigs:
+    print('\n Plotting...')
 
-  for t in months:
-    month = date(1900, t+1, 1).strftime('%B')
-    if args.savefigs:
-      fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
-      model = np.ma.masked_invalid(mld_model[t,:].values)
-      obs = np.ma.masked_invalid(mld_obs.mld[t,:].values)
-      obs = np.ma.masked_where(grd.wet == 0, obs)
-      xycompare(model , obs, grd.geolon, grd.geolat, area=area,
-            title1 = 'model, '+str(month),
-            title2 = 'obs (deBoyer), '+str(month),
-            suptitle=args.casename +', ' + str(args.start_date) + ' to ' + str(args.end_date),
-            colormap=plt.cm.Spectral_r, dcolormap=plt.cm.bwr, clim = (0,1500), extend='max',
-            save = fname)
+    # MLD monthly climatology
+    fig = plt.figure(figsize=(15, 10))
+    plot = mld_model.plot(
+        x="longitude",
+        y="latitude",
+        col="month",
+        col_wrap=4,
+        cmap="viridis",
+        robust=True,
+        cbar_kwargs={
+            "orientation": "horizontal",
+            "pad": 0.05,
+            "aspect": 40,
+            "shrink": 0.8,
+            "label": "MLD monthly climatology (m)"
+        }
+    )
+    plt.suptitle('{}, from {} to {}'.format(args.label, args.start_date,
+                args.end_date), fontsize=16, fontweight='bold')
+    plt.subplots_adjust(top=0.93, bottom=0.26)
+    fname = 'PNG/MLD/'+str(args.casename)+'_MLD_monthly_clima.png'
+    plt.savefig(fname)
 
-    if args.savefigs:
-      fname = 'PNG/MLD/'+str(args.casename)+'_MLD_model_'+str(month)+'.png'
-      xyplot(model, grd.geolon, grd.geolat, area=area,
-           save=fname,
-           suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
-           title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
+    # MLD monthly bias (model - obs)
+    # Add a 'month' coordinate to 'reference'
+    mld_obs_with_month = mld_obs.assign_coords(month=mld_model.month)
+    mld_obs_monthly = mld_obs_with_month.groupby("month").mean(dim="time")
+    bias = mld_model - mld_obs_monthly.mld
+    # plot bias
+    fig = plt.figure(figsize=(15, 10))
+    plot = bias.plot(
+        x="longitude",
+        y="latitude",
+        col="month",
+        col_wrap=4,
+        cmap="bwr",
+        robust=True,
+        cbar_kwargs={
+            "orientation": "horizontal",
+            "pad": 0.05,
+            "aspect": 40,
+            "shrink": 0.8,
+            "label": "MLD monthly climatology bias [model - {}] (m)".format(args.mld_obs)
+        }
+    )
+    plt.suptitle('{}, from {} to {}'.format(args.label, args.start_date,
+                args.end_date), fontsize=16, fontweight='bold')
+    plt.subplots_adjust(top=0.93, bottom=0.26)
+    fname = 'PNG/MLD/'+str(args.casename)+'_MLD_monthly_clima_bias.png'
+    plt.savefig(fname)
 
   # JFM, starting from 0
   months = [0,1,2]
@@ -349,8 +391,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
 
 def get_BLD(ds, var, grd, args):
   '''
-  Compute and save a surface BLD climatology.
-  TODO: compare against obs
+  Compute and save surface BLD climatology.
   '''
   if args.savefigs:
     if not os.path.isdir('PNG/BLD'):
@@ -359,17 +400,57 @@ def get_BLD(ds, var, grd, args):
 
   print('Computing monthly BLD climatology...')
   startTime = datetime.now()
-  mld_model = ds[var].groupby("time.month").mean('time').compute()
+  bld_model = ds[var].groupby("time.month").mean('time').compute()
   print('Time elasped: ', datetime.now() - startTime)
 
   # fix month values using pandas. We just want something that xarray understands
-  mld_model['month'] = pd.date_range('2000-01-15', '2001-01-01',  freq='2SMS')
+  #bld_model['month'] = pd.date_range('2000-01-15', '2001-01-01',  freq='2SMS')
 
-  print('\n Plotting...')
+  # add lat/lon
+  bld_model = bld_model.assign_coords({
+    "latitude": (("yh", "xh"), grd.geolat),
+    "longitude": (("yh", "xh"), grd.geolon)
+  })
+
+  attrs = {'start_date': args.start_date,
+           'end_date': args.end_date,
+           'casename': args.casename,
+           'description': 'BLD monthly climatology (m)',
+           'module': os.path.basename(__file__)}
+  add_global_attrs(bld_model,attrs)
+  bld_model.to_netcdf('ncfiles/'+str(args.casename)+'_BLD_monthly_clima.nc')
+
   try:
     area = grd.area_t
   except:
     area = grd.areacello
+
+  fname = None
+  if args.savefigs:
+    print('\n Plotting...')
+
+    # BLD monthly climatology
+    fig = plt.figure(figsize=(15, 10))
+    plot = bld_model.plot(
+        x="longitude",
+        y="latitude",
+        col="month",
+        col_wrap=4,
+        cmap="viridis",
+        robust=True,
+        cbar_kwargs={
+            "orientation": "horizontal",
+            "pad": 0.05,
+            "aspect": 40,
+            "shrink": 0.8,
+            "label": "BLD monthly climatology (m)"
+        }
+    )
+    plt.suptitle('{}, from {} to {}'.format(args.label, args.start_date,
+                args.end_date), fontsize=16, fontweight='bold')
+    plt.subplots_adjust(top=0.93, bottom=0.26)
+    fname = 'PNG/BLD/'+str(args.casename)+'_BLD_monthly_clima.png'
+    plt.savefig(fname)
 
   # March and Sep, noticed starting from 0
   months = [2,8]
@@ -378,7 +459,7 @@ def get_BLD(ds, var, grd, args):
     month = date(1900, t+1, 1).strftime('%B')
     if args.savefigs:
       fname = 'PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png'
-    model = np.ma.masked_invalid(mld_model[t,:].values)
+    model = np.ma.masked_invalid(bld_model[t,:].values)
     xyplot(model, grd.geolon, grd.geolat, area=area,
            save=fname,
            suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
@@ -386,11 +467,11 @@ def get_BLD(ds, var, grd, args):
 
   # JFM, starting from 0
   months = [0,1,2]
-  model_JFM = np.ma.masked_invalid(mld_model.isel(month=months).mean('month').values)
+  model_JFM = np.ma.masked_invalid(bld_model.isel(month=months).mean('month').values)
   month = 'JFM'
   # JAS, starting from 0
   months = [6,7,8]
-  model_JAS = np.ma.masked_invalid(mld_model.isel(month=months).mean('month').values)
+  model_JAS = np.ma.masked_invalid(bld_model.isel(month=months).mean('month').values)
   month = 'JAS'
 
   # Winter, JFM (NH) and JAS (SH)
