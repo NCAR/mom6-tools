@@ -9,7 +9,7 @@ data_sources:
 ###
 # computation config keys
 computation_config:
-    default_kernel_name: dev2
+    default_kernel_name: mom6-tools
     use_cluster: True
     account: NCGD0011
 
@@ -32,6 +32,7 @@ book_toc:
         - file: meridional_overturning
         - file: ocean_stats
         - file: poleward_heat_transport
+        - file: aaiw_pv
   #      - file: region_masks
   #      - file: seaice
         - file: section_transports
