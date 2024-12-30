@@ -32,6 +32,12 @@ Poleward heat transport
 .. autosummary::
    poleward_heat_transport
 
+AAIW PV
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+   aaiw_pv
+
 Toolbox
 ~~~~~~~~~
 
