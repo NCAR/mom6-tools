@@ -3,6 +3,7 @@ A collection of useful functions...
 """
 import numpy as np
 import numpy.ma as ma
+import itertools
 import tarfile
 from scipy.io import netcdf
 import xarray as xr
@@ -791,6 +792,202 @@ Basin codes:
     """)
 
   return code
+
+
+# geoslice.py : toolkit for selecting a regions
+#
+# Acknowledgment:
+# The following functions were developed by John Krasting (NOAA/GFDL). The original version can be found at:
+# https://github.com/jkrasting/momgrid/blob/main/src/momgrid/geoslice.py
+
+def get_indices_2dcurvilinear(lat_grid, lon_grid, y, x):
+    """This function returns the j,i indices for the grid point closest to the input lon(i,j),lat(i,j) coordinates."""
+    """It returns the j,i indices."""
+
+    cost = np.fabs((lon_grid - x) ** 2 + (lat_grid - y) ** 2)
+    costm = np.where(cost == cost.min())
+    j0, i0 = costm[0][0], costm[1][0]
+    return j0, i0
+
+
+def get_indices_1dlatlon(lat_grid, lon_grid, y, x):
+    """This function returns the j,i indices for the grid point closest to the input lon(i),lat(j) coordinates."""
+    """It returns the j,i indices."""
+
+    lons = np.fabs(np.squeeze(lon_grid) - x)
+    lonm = np.where(lons == lons.min())
+    lats = np.fabs(np.squeeze(lat_grid) - y)
+    latm = np.where(lats == lats.min())
+    j0, i0 = latm[0][0], lonm[0][0]
+    return j0, i0
+
+
+def get_indices(lat_grid, lon_grid, y, x):
+    """Returns j,i indices of lat_grid and lon grid nearest to x,y"""
+    if len(lon_grid.shape) == 1:
+        J, I = get_indices_1dlatlon(lat_grid, lon_grid, y, x)
+    else:
+        J, I = get_indices_2dcurvilinear(lat_grid, lon_grid, y, x)
+    return J, I
+
+def geoslice(arr, x=(None, None), y=(None, None), ycoord=None, xcoord=None):
+    """
+    Extracts a geographic sub-region from a data array based on specified latitude and longitude ranges.
+
+    Parameters:
+        arr (xarray.DataArray or xarray.Dataset):
+            The input array or dataset containing the data to slice.
+        x (tuple, optional):
+            A tuple specifying the longitude range `(min_longitude, max_longitude)`.
+            Default is `(None, None)`, which selects the full longitude range.
+        y (tuple, optional):
+            A tuple specifying the latitude range `(min_latitude, max_latitude)`.
+            Default is `(None, None)`, which selects the full latitude range.
+        ycoord (str, optional):
+            The name of the latitude coordinate in the dataset.
+            If `None`, it is automatically inferred using `arr.cf.coordinates`.
+        xcoord (str, optional):
+            The name of the longitude coordinate in the dataset.
+            If `None`, it is automatically inferred using `arr.cf.coordinates`.
+
+    Returns:
+        xarray.DataArray or xarray.Dataset:
+            The sliced data array or dataset, including only the specified geographic region.
+
+    Notes:
+        - The function assumes the input dataset has latitude and longitude coordinates defined.
+        - The slicing is performed using the coordinate indices, not the values.
+        - Coordinate inference uses the `cf-xarray` library conventions for standard latitude
+          (`"latitude"`) and longitude (`"longitude"`) names.
+
+    Example:
+        >>> import xarray as xr
+        >>> arr = xr.open_dataset("data.nc")
+        >>> sliced = geoslice(arr, x=(-180, -90), y=(-60, -30))
+    """
+    if xcoord is None:
+        xcoord = arr.cf.coordinates["longitude"][0]
+    if ycoord is None:
+        ycoord = arr.cf.coordinates["latitude"][0]
+
+    xdim = arr[xcoord].dims[-1]
+    ydim = arr[ycoord].dims[-2] if len(arr[ycoord].dims) == 2 else arr[ycoord].dims[0]
+
+    combinations = list(itertools.product(y, x))
+    xlist = [x[1] for x in combinations if x[1] is not None]
+    ylist = [y[0] for y in combinations if y[0] is not None]
+
+    lower_left = (np.min(ylist), np.min(xlist))
+    lower_right = (np.min(ylist), np.max(xlist))
+    upper_left = (np.max(ylist), np.min(xlist))
+    upper_right = (np.max(ylist), np.max(xlist))
+
+    lower_left_ij = get_indices(arr[ycoord], arr[xcoord], *lower_left)
+    lower_right_ij = get_indices(arr[ycoord], arr[xcoord], *lower_right)
+    upper_left_ij = get_indices(arr[ycoord], arr[xcoord], *upper_left)
+    upper_right_ij = get_indices(arr[ycoord], arr[xcoord], *upper_right)
+
+    combinations = [lower_left_ij, lower_right_ij, upper_left_ij, upper_right_ij]
+    xlist = [x[1] for x in combinations if x[1] is not None]
+    ylist = [y[0] for y in combinations if y[0] is not None]
+    xrng = (np.min(xlist), np.max(xlist))
+    yrng = (np.min(ylist), np.max(ylist))
+
+    return arr.isel({ydim: slice(*yrng), xdim: slice(*xrng)})
+
+def x_slice(arr, lon_0, xcoord=None, ycoord=None):
+    """Function to slice an array at a specific longitude
+
+    Parameters
+    ----------
+    arr : xarray.core.DataArray
+        Input data array
+    lon_0 : float
+        Longitude to perform slice
+    xcoord : str, optional
+        Name of x-coordinate otherwise it is inferred, by default None
+    ycoord : str, optional
+        Name of y-coordinate otherwise it is inferred, by default None
+
+    Returns
+    -------
+    xarray.core.DataArray
+        Sliced data array
+
+    """
+    if xcoord is None:
+        xcoord = arr.cf.coordinates["longitude"][0]
+    if ycoord is None:
+        ycoord = arr.cf.coordinates["latitude"][0]
+
+    xdim = arr[xcoord].dims[-1]
+
+    j, i = get_indices(arr[ycoord], arr[xcoord], arr[ycoord].mean(), lon_0)
+
+    result = arr.isel({xdim: i})
+
+    return result
+
+def standard_grid_area(lat_b, lon_b, rad_earth=6371.0e3):
+    """Function to calculate the cell areas for a standard grid
+
+    Parameters
+    ----------
+    lat_b : list or numpy.ndarray
+        1-D vector of latitude cell bounds
+    lon_b : list or numpy.ndarray
+        1-D vector of longitude cell bounds
+    rad_earth : float, optional
+        Radius of the Earth in meters, by default 6371.0e3
+
+    Returns
+    -------
+    numpy.ndarray
+        2-dimensional array of cell areas
+    """
+
+    lat_b = np.array(lat_b)
+    lon_b = np.array(lon_b)
+
+    sin_lat_b = np.sin(np.radians(lat_b))
+
+    dy = np.abs(sin_lat_b[1:] - sin_lat_b[0:-1])
+    dx = np.abs(lon_b[1:] - lon_b[0:-1])
+
+    dy2d, dx2d = np.meshgrid(dx, dy)
+
+    area = (np.pi / 180.0) * (rad_earth**2) * dy2d * dx2d
+
+    return area
+
+def infer_bounds(centers, start=None, end=None):
+    """Function to infer cell bounds from cell centers
+
+    This function takes a vector of cell centers. Assuming a standard grid,
+    the cell bounds are inferred. Optional caps at the start and end can be
+    applied if specified.
+
+    Paramters
+    ---------
+    centers : np.ndarray
+        Vector of cell centers
+    start : float, optional
+        Starting limit of bounds (e.g. -90.), by default None
+    end : float, optional
+        Starting limit of bounds (e.g. -90.), by default None
+
+    Returns
+    -------
+    numpy.ndarray
+        Vector of cell bounds with a shape of len(centers)+1
+    """
+
+    midpoints = (centers[1:] + centers[:-1]) / 2.0
+    front = centers[0] - np.abs(centers[0] - midpoints[0])
+    end = centers[-1] + np.abs(centers[-1] - midpoints[-1])
+    midpoints = np.insert(midpoints, 0, front)
+    midpoints = np.append(midpoints, end)
+    return np.clip(midpoints, start, end)
 
 # Tests
 if __name__ == '__main__':
