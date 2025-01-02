@@ -178,7 +178,7 @@ def main(stream=False):
            'start_date': args.start_date,
            'end_date': args.end_date}
   add_global_attrs(pv,attrs)
-
+  pv = pv.rename('pv')
   print('Saving netCDF files...')
   pv.to_netcdf('ncfiles/'+str(args.casename)+'_AAIW_PV.nc')
 
