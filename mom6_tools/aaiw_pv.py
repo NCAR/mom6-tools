@@ -186,6 +186,7 @@ def main(stream=False):
     print('Releasing workers...')
     client.close(); cluster.close()
 
+  print('{} was run successfully!'.format(os.path.basename(__file__)))
   return
 
 def plot_aaiw_pv_obs(dsobs, levels, colors):

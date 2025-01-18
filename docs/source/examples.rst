@@ -16,6 +16,7 @@ Examples
     examples/meridional_overturning.ipynb
     examples/poleward_heat_transport.ipynb
     examples/aaiw_pv.ipynb
+    examples/enso.ipynb
     examples/section_transports.ipynb
     examples/seaice.ipynb
     examples/combining-tiles.ipynb

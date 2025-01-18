@@ -21,4 +21,5 @@ ncar_jobqueue
 PyYAML
 intake
 nc_time_axis
-momlevel
+momlevel @ git+https://github.com/jkrasting/momlevel
+xwavelet @ git+https://github.com/jkrasting/xwavelet
