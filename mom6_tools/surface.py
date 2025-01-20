@@ -10,6 +10,7 @@ from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery
+from mom6_tools.m6toolbox import weighted_temporal_mean
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from distributed import Client
@@ -125,8 +126,11 @@ def driver(args):
   # BLD
   get_BLD(ds, 'oml', grd, args)
 
-  # TODO: SSH
-  #get_SSH(ds, 'SSH', grd, args)
+  # SSH
+  get_SSH(ds, 'SSH', grd, args)
+
+  # Speed
+  get_speed(ds, 'speed', grd, args)
 
   if parallel:
     print('\n Releasing workers...')
@@ -136,73 +140,128 @@ def driver(args):
 
   return
 
-def get_SSH(ds, var, grd, args):
+def get_speed(ds, var, grd, args):
   '''
-  Compute a sea level anomaly climatology and compare against obs.
+  Compute sea surface speed climatology.
   '''
 
-  if args.savefigs:
-    if not os.path.isdir('PNG/SLA'):
-      print('Creating a directory to place figures (PNG/SLA)... \n')
-      os.system('mkdir -p PNG/SLA')
+  #if args.savefigs:
+  #  if not os.path.isdir('PNG/SPEED'):
+  #    print('Creating a directory to place figures (PNG/SPEED)... \n')
+  #    os.system('mkdir -p PNG/SPEED')
+
+  print('Computing yearly means...')
+  startTime = datetime.now()
+  ds_ann =  weighted_temporal_mean(ds,var)
+  print('Time elasped: ', datetime.now() - startTime)
+
+  print('Computing time mean...')
+  startTime = datetime.now()
+  ds_mean = ds_ann.mean('time').compute()
+  print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing mean sea level climatology...')
   startTime = datetime.now()
-  mean_sl_model =ds[var].mean(dim='time').compute()
+  speed_month_clima = ds[var].groupby("time.month").mean('time').compute()
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Computing monthly SLA climatology...')
+  # Combine into a Dataset
+  ds_out = xr.Dataset(
+    {
+        "mean_speed": ds_mean,
+        "speed_climatology": speed_month_clima
+    }
+  )
+  attrs = {'start_date': args.start_date,
+           'end_date': args.end_date,
+           'casename': args.casename,
+           'description': 'Surface speed mean and climatology ',
+           'module': os.path.basename(__file__)}
+  add_global_attrs(ds_out,attrs)
+  ds_out.to_netcdf('ncfiles/'+str(args.casename)+'_sfc_speed.nc')
+  return
+
+def get_SSH(ds, var, grd, args):
+  '''
+  Compute sea surface height climatology.
+  '''
+
+  #if args.savefigs:
+  #  if not os.path.isdir('PNG/SSH'):
+  #    print('Creating a directory to place figures (PNG/SSH)... \n')
+  #    os.system('mkdir -p PNG/SSH')
+
+  print('Computing yearly means...')
   startTime = datetime.now()
-  rms_sla_model = np.sqrt(((ds[var]-ds[var].mean(dim='time'))**2).mean(dim='time')).compute()
+  ds_ann =  weighted_temporal_mean(ds,var)
   print('Time elasped: ', datetime.now() - startTime)
+
+  print('Computing time mean...')
+  startTime = datetime.now()
+  ds_mean = ds_ann.mean('time').compute()
+  print('Time elasped: ', datetime.now() - startTime)
+
+  print('Computing mean sea level climatology...')
+  startTime = datetime.now()
+  ssh_month_clima = ds[var].groupby("time.month").mean('time').compute()
+  print('Time elasped: ', datetime.now() - startTime)
+
+  # Combine into a Dataset
+  ds_out = xr.Dataset(
+    {
+        "mean_ssh": ds_mean,
+        "ssh_climatology": ssh_month_clima
+    }
+  )
+
+  #print('Computing monthly SLA climatology...')
+  #startTime = datetime.now()
+  #rms_sla_model = np.sqrt(((ds[var]-ds[var].mean(dim='time'))**2).mean(dim='time')).compute()
+  #print('Time elasped: ', datetime.now() - startTime)
 
   # fix month values using pandas. We just want something that xarray an understand
   #mld_model['month'] = pd.date_range('2000-01-15', '2001-01-01',  freq='2SMS')
 
   # read obs
-  filepath = '/glade/work/gmarques/cesm/datasets/Aviso/rms_sla_climatology_remaped_to_tx0.6v1.nc'
-  print('\n Reading climatology from: ', filepath)
-  rms_sla_aviso = xr.open_dataset(filepath)
+  #filepath = '/glade/work/gmarques/cesm/datasets/Aviso/rms_sla_climatology_remaped_to_tx0.6v1.nc'
+  #print('\n Reading climatology from: ', filepath)
+  #rms_sla_aviso = xr.open_dataset(filepath)
 
-  print('\n Plotting...')
-  model = np.ma.masked_invalid(rms_sla_model.values)
-  aviso = np.ma.masked_invalid(rms_sla_aviso.rms_sla.values)
+  #print('\n Plotting...')
+  #model = np.ma.masked_invalid(rms_sla_model.values)
+  #aviso = np.ma.masked_invalid(rms_sla_aviso.rms_sla.values)
 
-  try:
-    area = grd.area_t
-  except:
-    area = grd.areacello
+  #try:
+  #  area = grd.area_t
+  #except:
+  #  area = grd.areacello
 
-  fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(14,24))
-  xyplot(model, grd.geolon, grd.geolat, area=area,
-         axis=ax[0], suptitle='RMS of SSH anomaly [m]', clim=(0,0.4),
-         title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
-  xyplot(aviso, grd.geolon, grd.geolat, area=area,
-         axis=ax[1], clim=(0,0.4), title='RMS of SSH anomaly (AVISO, 1993-2018)')
-  xyplot(model - aviso, grd.geolon, grd.geolat, area=area,
-         axis=ax[2], title='model - AVISO', clim=(-0.2,0.2))
+  #fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(14,24))
+  #xyplot(model, grd.geolon, grd.geolat, area=area,
+  #       axis=ax[0], suptitle='RMS of SSH anomaly [m]', clim=(0,0.4),
+  #       title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
+  #xyplot(aviso, grd.geolon, grd.geolat, area=area,
+  #       axis=ax[1], clim=(0,0.4), title='RMS of SSH anomaly (AVISO, 1993-2018)')
+  #xyplot(model - aviso, grd.geolon, grd.geolat, area=area,
+  #       axis=ax[2], title='model - AVISO', clim=(-0.2,0.2))
 
-  if args.savefigs:
-    plt.savefig('PNG/SLA/'+str(args.casename)+'_RMS_SLA_vs_AVISO.png')
-  plt.close()
+  #if args.savefigs:
+  #  plt.savefig('PNG/SLA/'+str(args.casename)+'_RMS_SLA_vs_AVISO.png')
+  #plt.close()
 
   # create dataarays
-  model_rms_sla_da = xr.DataArray(model, dims=['yh','xh'],
-                           coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('rms_sla')
+  #model_ssh = xr.DataArray(model, dims=['yh','xh'],
+  #                         coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('mean_ssh')
 
   attrs = {'start_date': args.start_date,
            'end_date': args.end_date,
            'casename': args.casename,
-           'description': 'RMS of SSH anomaly (AVISO, 1993-2018)',
-           'obs': 'AVISO',
+           'description': 'SSH mean and climatology ',
+           #'obs': 'AVISO',
            'module': os.path.basename(__file__)}
-  add_global_attrs(model_rms_sla_da,attrs)
-  model_rms_sla_da.to_netcdf('ncfiles/'+str(args.casename)+'_RMS_SLA.nc')
+  add_global_attrs(ds_out,attrs)
+  ds_out.to_netcdf('ncfiles/'+str(args.casename)+'_SSH.nc')
 
-  model_mean_sl_da = xr.DataArray(mean_sl_model.values, dims=['yh','xh'],
-                           coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('mean_sl')
-  attrs['description'] = 'Mean sea level climatology'
-  model_mean_sl_da.to_netcdf('ncfiles/'+str(args.casename)+'_mean_sea_level.nc')
 
   return
 
