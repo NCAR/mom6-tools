@@ -154,15 +154,14 @@ def main(stream=False):
   })
 
   levels, colors = ml.util.get_pv_colormap()
-  pv = geoslice(pv, x=(-180,-120),y=(-65,0), xcoord="longitude", ycoord="latitude")
+  pv = geoslice(pv, x=(-180,-70),y=(-65,0), xcoord="longitude", ycoord="latitude")
   yindex = pv.latitude.mean("xh")
 
   # Calcualte volume
-  volcello = geoslice(ds_mean.volcello, x=(-180,-120),y=(-65,0),
+  volcello = geoslice(ds_mean.volcello, x=(-180,-70),y=(-65,0),
                              xcoord="longitude", ycoord="latitude")
   volume = xr.where(pv > 60.0, volcello, np.nan).sel(z_l=slice(700, None)).sum()
   volume = volume.load()
-  print(f"Volume of water with PV > 60 cm-2 s-1: {float(volume/1.0e15)} x 1.0e^15")
 
   # Make zonal mean plot
   pv = pv.weighted(grd.areacello.fillna(0)).mean("xh")
@@ -170,7 +169,7 @@ def main(stream=False):
 
   # plot
   args.label = args.label + ', average between ' + args.start_date + ' and ' + args.end_date
-  plot_aaiw_pv(yindex, pv.z_l, pv, levels, colors, args)
+  plot_aaiw_pv(yindex, pv.z_l, pv, volume, levels, colors, args)
 
   description = 'buoyancy contribution to potential vorticity over the Pacific Sector of the Southern Ocean'
   attrs = {'description': description,
@@ -194,7 +193,7 @@ def plot_aaiw_pv_obs(dsobs, levels, colors):
     vorticity over the Pacific Sector of the Southern Ocean using \
     dsobs.'''
 
-  dsobs = dsobs.sel(xh=slice(180, 240)).sel(yh=slice(None, 0))
+  dsobs = dsobs.sel(xh=slice(180, 290)).sel(yh=slice(None, 0))
   zeta = 0.0
   coriolis = ml.derived.calc_coriolis(dsobs.geolat)
   n2 = ml.derived.calc_n2(dsobs.thetao, dsobs.so)
@@ -233,7 +232,7 @@ def plot_aaiw_pv_obs(dsobs, levels, colors):
   ax.set_ylim(0, 1800.0)
   ax.invert_yaxis()
 
-  _ = ax.set_xlabel("Latitude [deegrees]\n(Averaged over 180W to 120W)")
+  _ = ax.set_xlabel("Latitude [deegrees]\n(Averaged over 180W to 70W)")
   _ = ax.set_ylabel("Depth [m]")
 
   ax.hlines(
@@ -269,7 +268,11 @@ def plot_aaiw_pv_obs(dsobs, levels, colors):
 
   return
 
-def plot_aaiw_pv(y, zl, pv, levels, colors, args):
+def plot_aaiw_pv(y, zl, volume, pv, levels, colors, args):
+
+  volume = xr.where(pv > 60.0, volcello, np.nan).sel(z_l=slice(700, None)).sum()
+  volume = volume.load()
+  print(f"Volume of water with PV > 60 cm-2 s-1: {float(volume/1.0e15)} x 1.0e^15")
 
   fig = plt.figure(figsize=(8, 4), dpi=100)
   ax = plt.subplot(1, 1, 1)
@@ -278,7 +281,7 @@ def plot_aaiw_pv(y, zl, pv, levels, colors, args):
   ax.set_ylim(0, 1800.0)
   ax.invert_yaxis()
 
-  _ = ax.set_xlabel("Latitude [deegrees]\n(Averaged over 180W to 120W)")
+  _ = ax.set_xlabel("Latitude [deegrees]\n(Averaged over 180W to 70W)")
   _ = ax.set_ylabel("Depth [m]")
 
   ax.hlines(
