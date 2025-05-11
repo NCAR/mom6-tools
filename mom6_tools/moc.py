@@ -42,7 +42,7 @@ def main():
     print('Creating a directory to place figures (PNG/MOC)... \n')
     os.system('mkdir -p PNG/MOC')
   if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place figures (ncfiles)... \n')
+    print('Creating a directory to place output (ncfiles)... \n')
     os.system('mkdir ncfiles')
 
   # Read in the yaml file
@@ -105,11 +105,6 @@ def main():
     return ds[variables]
 
   ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel, preprocess=preprocess)
-
-  # use datetime
-  #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
-
-  #ds = preprocess(ds1)
 
   print('Time elasped: ', datetime.now() - startTime)
 

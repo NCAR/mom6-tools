@@ -5,10 +5,41 @@ import numpy as np
 import numpy.ma as ma
 import itertools
 import tarfile
+import nbformat
 from scipy.io import netcdf
 import xarray as xr
 from collections import OrderedDict
 import warnings, subprocess
+
+def filter_vars_2D_tracers(ds):
+    """Keep only 2D variables at tracer points."""
+    allowed_dims = {
+      ('time', 'yh', 'xh')
+    }
+    return ds.drop_vars([var for var in ds.data_vars if tuple(ds[var].dims) not in allowed_dims])
+
+def filter_vars(ds):
+    """Keep only variables with allowed dimensions."""
+    allowed_dims = {
+      ('time'),
+      ('time', 'yh', 'xh'),
+      ('time', 'yh', 'xq'),
+      ('time', 'yq', 'xh'),
+      ('time', 'yq', 'xq'),
+      ('time', 'z_i', 'yh', 'xh'),
+      ('time', 'zi', 'yh', 'xh'),
+      ('time', 'zl', 'yh', 'xh'),
+      ('time', 'z_l', 'yh', 'xh'),
+      ('time', 'zl', 'yh', 'xq'),
+      ('time', 'z_l', 'yh', 'xq'),
+      ('time', 'zl', 'yq', 'xh'),
+      ('time', 'z_l', 'yq', 'xh'),
+      ('time', 'zi', 'yh', 'xh'),
+      ('time', 'rho2_l', 'yh', 'xh'),
+      ('time', 'rho2_l', 'yq', 'xh'),
+      ('time', 'rho2_l', 'yh', 'xq')
+    }
+    return ds.drop_vars([var for var in ds.data_vars if tuple(ds[var].dims) not in allowed_dims])
 
 def cime_xmlquery(caseroot, varname):
   """run CIME's xmlquery for varname in the directory caseroot, return the value"""
@@ -23,6 +54,42 @@ def cime_xmlquery(caseroot, varname):
         ["./xmlquery", "--value", varname], stderr=subprocess.STDOUT, cwd=caseroot
     )
   return value.decode()
+
+
+def replace_cell_content(notebook_filename, variable, output_filename=None):
+    """
+    Replaces '# template' with '# variable' in a Jupyter notebook markdown cells.
+
+    Parameters:
+    - notebook_filename: str, the path to the notebook file to modify.
+    - variable: str, the dynamic value to replace '# template' with.
+    - output_filename: str, the path to save the modified notebook.
+      If None, the input notebook is overwritten.
+
+    Returns:
+    - None
+    """
+
+    # Load the notebook
+    with open(notebook_filename, 'r') as f:
+        notebook = nbformat.read(f, as_version=4)
+
+    # Loop through the cells and replace content
+    for cell in notebook.cells:
+        if cell.cell_type == 'markdown' and '# template' in cell.source:
+            # Replace "# template" with "# variable"
+            cell.source = cell.source.replace('# template', f'# {variable}')
+
+    # Define output filename
+    if output_filename is None:
+        output_filename = notebook_filename
+
+    # Save the modified notebook
+    with open(output_filename, 'w') as f:
+        nbformat.write(notebook, f)
+
+    print(f"Notebook saved as {output_filename}")
+    return
 
 def check_time_interval(ti,tf,nc):
  ''' Checks if year_start and year_end are within the time interval of the dataset'''
@@ -80,10 +147,10 @@ def weighted_temporal_mean(ds, var):
     ones = xr.where(cond, 0.0, 1.0)
 
     # Calculate the numerator
-    obs_sum = (obs * wgts).resample(time="AS").sum(dim="time")
+    obs_sum = (obs * wgts).resample(time="YS").sum(dim="time")
 
     # Calculate the denominator
-    ones_out = (ones * wgts).resample(time="AS").sum(dim="time")
+    ones_out = (ones * wgts).resample(time="YS").sum(dim="time")
 
     # Return the weighted average
     return obs_sum / ones_out
@@ -673,6 +740,49 @@ def genBasinMasks(x,y,depth,verbose=False, xda=False):
   code1[rmask_od['HudsonBay']>0] = 0.
   rmask_od['BaffinBay'] = xr.where(code1 == 13, 1.0, 0.0)
 
+  wet = ice9(x, y, depth, (0,-35)) # All ocean points seeded from South Atlantic
+  if verbose: print('Processing East Greenland - Iceland ...')
+  tmp = wet * ((southOf(x, y, (-40., 70.), (-15., 70.)))  # Northern bound
+    * (southOf(x, y, (-44., 60.), (-44., 68.)))  # Western bound
+    * (1 - southOf(x, y, (-15., 60.), (-15., 68.)))  # Eastern bound
+    * (1 - southOf(x, y, (-40., 56.), (-15., 56.))))  # Southern bound
+
+  tmp = ice9(x, y, tmp, (-30., 63.))  # Flood-fill from the center
+  code1[tmp > 0] = 14
+  rmask_od['EGreenlandIceland'] = xr.where(code1 == 14, 1.0, 0.0)
+
+  wet = ice9(x, y, depth, (-90., 25.))  # Seed point in the central Gulf of Mexico
+  if verbose: print('Processing Gulf of Mexico ...')
+
+  tmp = wet * (
+    (southOf(x, y, (-97.9, 30.4), (-80.5, 30.4)))  # Northern boundary
+    * (southOf(x, y, (-97.9, 18.2), (-97.9, 30.4)))  # Western boundary
+    * (1 - southOf(x, y, (-80.5, 18.2), (-80.5, 30.4)))  # Eastern boundary
+    * (1 - southOf(x, y, (-87.9, 21.8), (-80.5, 21.8))))  # Southern boundary
+
+  tmp = ice9(x, y, tmp, (-90., 25.))  # Flood-fill from the center
+
+  wet = ice9(x, y, depth, (-93., 20.))
+  tmp2 = wet * ((southOf(x, y, (-97.9, 21.8), (-80.5, 21.8))))  # Northern boundary
+  tmp2 = ice9(x, y, tmp2, (-93., 20.))  # Flood-fill from the center
+  code1[tmp+tmp2 > 0] = 15
+  rmask_od['GulfOfMexico'] = xr.where(code1 == 15, 1.0, 0.0)
+
+  # GMM, not working properly
+  #x_fixed = xr.where(x < -180, x + 360, x)
+  #wet = ice9(x_fixed, y, depth, (0, -35))  # Seed ocean points in the region
+  #if verbose: print('Processing Maritime...')
+
+  #tmp = wet * ((southOf(x_fixed, y, (90., 25.), (150., 25.)))  # Northern bound
+  #  * (southOf(x_fixed, y, (90., -20.), (90., 25.)))  # Western bound
+  #  * (1 - southOf(x_fixed, y, (150., -20.), (150., 25.)))  # Eastern bound
+  #  * (1 - southOf(x_fixed, y, (90., -20.), (150., -20.))))  # Southern bound
+
+  #tmp = ice9(x_fixed, y, tmp, (120., 5.))  # Flood-fill from the center
+  #code1[:] = 0
+  #code1[tmp > 0] = 15
+  #rmask_od['Maritime'] = xr.where(code1 == 15, 1.0, 0.0)
+
   if verbose:
     print("""
   Basin codes:
@@ -684,8 +794,9 @@ def genBasinMasks(x,y,depth,verbose=False, xda=False):
   (4) Arctic Ocean        (11) Persian Gulf
   (5) Indian Ocean        (12) Lab Sea
   (6) Mediterranean Sea   (13) Baffin Bay
+                          (14) E Greenland
 
-  Important: basin codes overlap. Code 12 and 13 are only loaded if xda=True.
+  Important: basin codes overlap. Code 12 to 14 are only loaded if xda=True.
 
     """)
 

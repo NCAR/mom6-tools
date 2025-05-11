@@ -596,13 +596,15 @@ def main(stream=False):
   # Get masking for different regions
   # remove Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
-  basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
+  #basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
+  # GMM
+  basins = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc').to_array()
 
   #select a few basins, namely, Global, MedSea,BalticSea,HudsonBay Arctic,
   # Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
   #basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
   # use all basins available
-  basins = basin_code
+  #basins = basin_code
 
   # load obs
   catalog = intake.open_catalog(diag_config_yml['oce_cat'])
@@ -681,13 +683,7 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  # Compute climatologies
-  attrs =  {
-         'description': 'Annual mean climatology for '+var,
-         'reduction_method': 'annual mean weighted by days in each month',
-         'casename': args.casename
-         }
-
+  # Compute annual mean time series
   model = weighted_temporal_mean(ds,var)
 
   # set coordinates to the same as the model's
@@ -709,7 +705,8 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
     print('\n {}...'.format(description))
     startTime = datetime.now()
     vname = '{}_drift'.format(var)
-    drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+    drift = (diff * basins).weighted((area3d_masked * basins).fillna(0)).mean(dim=["yh", "xh"]).squeeze('variable').transpose('region', 'time', 'z_l').rename(vname)
+    #drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
     print('Time elasped: ', datetime.now() - startTime)
 
   if args.rms:
@@ -718,7 +715,8 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
     print('\n {}...'.format(description))
     startTime = datetime.now()
     vname = '{}_rms'.format(var)
-    rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+    rms = np.sqrt(((diff * basins)**2).weighted((area3d_masked * basins).fillna(0)).mean(dim=["yh", "xh"])).squeeze('variable').transpose('region', 'time', 'z_l').rename(vname)
+    #rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
     print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
