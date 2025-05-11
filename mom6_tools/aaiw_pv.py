@@ -266,12 +266,38 @@ def plot_aaiw_pv_obs(dsobs, levels, colors):
 
   plt.colorbar(cb, ticks=[5, 20, 60, 80, 100, 200], label=r"cm$^{-2}$ s$^{-1}$")
 
+  # T & S
+  thetao = dsobs.thetao.weighted(area).mean("xh").sel(z_l=slice(0,1800.))
+  so = dsobs.so.weighted(area).mean("xh").sel(z_l=slice(0,1800.))
+
+  fig, ax = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+
+  # Plot potential temperature
+  cf1 = ax[0].contourf(thetao.yh, -thetao.z_l, thetao, levels=20, cmap='RdYlBu_r', extend='both')
+  c1 = ax[0].contour(thetao.yh, -thetao.z_l, thetao, levels=10, colors='k', linewidths=0.5)
+  ax[0].clabel(c1, inline=True, fontsize=8)
+  ax[0].set_ylabel('Depth (m)')
+  ax[1].set_xlabel('Latitude')
+  ax[0].set_title('Potential Temperature (°C)')
+  ax[0].invert_yaxis()
+  plt.colorbar(cf1, ax=ax[0], label='Thetao (°C)', orientation='horizontal')
+
+  # Plot salinity
+  cf2 = ax[1].contourf(so.yh, -so.z_l, so, levels=20, cmap='viridis', extend='both')
+  c2 = ax[1].contour(so.yh, -so.z_l, so, levels=10, colors='k', linewidths=0.5)
+  ax[1].clabel(c2, inline=True, fontsize=8)
+  ax[1].set_xlabel('Latitude')
+  ax[1].set_title('Salinity (PSU)')
+  ax[1].invert_yaxis()
+  plt.colorbar(cf2, ax=ax[1], label='Salinity (PSU)', orientation='horizontal')
+  plt.suptitle('Roemmich and Gilson Gridded Argo Climatology - 2004 to 2018',fontsize=10)
+  # Adjust layout for clarity
+  plt.tight_layout()
+
   return
 
-def plot_aaiw_pv(y, zl, volume, pv, levels, colors, args):
+def plot_aaiw_pv(y, zl, pv, volume, levels, colors, args):
 
-  volume = xr.where(pv > 60.0, volcello, np.nan).sel(z_l=slice(700, None)).sum()
-  volume = volume.load()
   print(f"Volume of water with PV > 60 cm-2 s-1: {float(volume/1.0e15)} x 1.0e^15")
 
   fig = plt.figure(figsize=(8, 4), dpi=100)
