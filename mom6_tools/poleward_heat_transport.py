@@ -19,8 +19,6 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for plotting poleward heat transport.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  #parser.add_argument('-v', '--variables', nargs='+', default=['T_ady_2d, T_diffy_2d, T_lbd_diffy_2d, T_hbd_diffy_2d'],
-  #                   help='''Variables to be processed (default=['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d', 'T_hbd_diffy_2d'])''')
   parser.add_argument('-sd','--start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-ed','--end_date', type=str, default='',
@@ -55,7 +53,7 @@ def main(stream=False):
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  variables = ['T_ady_2d', 'T_diffy_2d', 'T_lbd_diffy_2d', 'T_hbd_diffy_2d']
+  variables = ['T_ady_2d', 'T_diffy_2d', 'T_hbd_diffy_2d']
   args.savefigs = True; args.outdir = 'PNG/HT'
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
@@ -86,6 +84,7 @@ def main(stream=False):
   # remote Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
   basin_code = genBasinMasks(grd.geolon, grd.geolat, depth)
+  basin_code_xr = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
 
   parallel = False
   if nw > 1:
@@ -144,12 +143,49 @@ def main(stream=False):
   ds_mean = ds_ann.mean('time').load()
   print('Time elasped: ', datetime.now() - startTime)
 
+  print('Extract time series at 26.5 (Atlantic)...')
+  startTime = datetime.now()
+  # Heat Transport Time Series at 26.5°N (Atlantic)
+  ds_atl_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=26.5,
+                method='nearest').sum('xh').drop(['yq', 'region'])
+  # Build a rename mapping
+  rename_dict = {var: f"{var}_rapid" for var in ds_atl_ts.data_vars}
+  # Apply renaming
+  ds_atl_ts = ds_atl_ts.rename(rename_dict)
+  print('Time elasped: ', datetime.now() - startTime)
+
+  print('Extract time series at the Equator (Global and Atlantic)...')
+  startTime = datetime.now()
+  # Heat Transport Time Series at the Equator (Global)
+  ds_global_eq_ts =  ds.sel(yq=0.0, method='nearest').sum('xh').drop('yq')
+  # Build a rename mapping
+  rename_dict = {var: f"{var}_global_eq" for var in ds_global_eq_ts.data_vars}
+  # Apply renaming
+  ds_global_eq_ts = ds_global_eq_ts.rename(rename_dict)
+  # Heat Transport Time Series at the Equator (Atlantic)
+  ds_atl_eq_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=0.0,
+                  method='nearest').sum('xh').drop(['yq','region'])
+  # Build a rename mapping
+  rename_dict = {var: f"{var}_atl_eq" for var in ds_atl_eq_ts.data_vars}
+  # Apply renaming
+  ds_atl_eq_ts = ds_atl_eq_ts.rename(rename_dict)
+  print('Time elasped: ', datetime.now() - startTime)
+
+  # save time series
+  # Merge along time dimension
+  ds_ts = xr.merge([ds_atl_ts, ds_atl_eq_ts, ds_global_eq_ts])
+  varName = 'T_ady_2d'
+  print('Saving time series...')
+  attrs = {'description': 'Time series of poleward heat transport by components at 26.5 N (Atlantic) \
+           and Equator (Global and Atlantic).','units': ds[varName].units, 'casename': args.casename}
+  add_global_attrs(ds_ts,attrs)
+  ds_ts.to_netcdf('ncfiles/'+args.casename+'_heat_transport_ts.nc')
+
   if parallel:
     print('Releasing workers...')
     client.close(); cluster.close()
 
-  varName = 'T_ady_2d'
-  print('Saving netCDF files...')
+  print('Saving time mean...')
   attrs = {'description': 'Time-mean poleward heat transport by components ', 'units': ds[varName].units,
        'start_date': args.start_date, 'end_date': args.end_date, 'casename': args.casename}
   add_global_attrs(ds_mean,attrs)
