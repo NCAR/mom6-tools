@@ -1,14 +1,13 @@
 # case info
 Case:
-  CASEROOT: /glade/work/gmarques/cesm.cases/G/g.e30_a03c.GJRAv4.TL319_t232_wgx3_hycom1_N75.2024.079/
-  OCN_DIAG_ROOT: ncfiles/
-  SNAME: "079"
+  CASEROOT: /glade/work/gmarques/cesm.cases/G/g.e30_a07c_cesm.GJRAv4.TL319_t232_wgx3_hycom1_N75.2025.130/
+  OCN_DIAG_ROOT: /glade/u/home/gmarques/Notebooks/CESM_MOM6/G/g.e30_a07c_cesm.GJRAv4.TL319_t232_wgx3_hycom1_N75.2025.130/ncfiles/
+  SNAME: "130"
 
 # start and end dates to perform averages
 Avg:
-  end_date: '0062-01-01'
-  start_date: '0031-01-01'
-
+  start_date: '0006-01-01'
+  end_date: '0021-01-01'
 # cesm hist fname conventions
 Fnames:
   rho2:   '.mom6.h.rho2.????-??.nc'
@@ -18,7 +17,7 @@ Fnames:
   ice:    '.cice.h.????-??.nc'
   static: '.mom6.h.static.nc'
   geom:   '.mom6.h.ocean_geometry.nc'
-  
+
 # sections where transports are computed online
 # Format: file name stream (e.g., Drake_Passage), transport
 # component (umo or vmo), observational estimate (optional)
