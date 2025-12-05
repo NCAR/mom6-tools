@@ -110,7 +110,7 @@ def driver(args):
     cluster.scale(nw)
     client = Client(cluster)
 
-  print('Reading surface dataset...')
+  print('Reading dataset...')
   startTime = datetime.now()
 
   def preprocess(ds):
