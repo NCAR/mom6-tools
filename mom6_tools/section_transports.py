@@ -72,12 +72,6 @@ class Transport():
       ds = xr.open_mfdataset(inFileName, combine='by_coords', parallel=args.parallel)
       #ds['time'] = ds.indexes['time'].to_datetimeindex()
       if debug: print(ds)
-      # select time range requested
-      ds = ds.sel(time=slice(args.start_date, args.end_date))
-      if debug: print('sd,ed,time[0],time[-1]',args.start_date,args.end_date, ds.time.data[0], ds.time.data[-1])
-      # yearly mean
-      #ds = ds.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', keep_attrs=True).load()
-      #if debug: print('Yearly mean: sd,ed,time[0],time[-1]',args.start_date,args.end_date, ds.time.data[0], ds.time.data[-1])
       if var in ds.variables:
         missing_var = False
         if t == 0: total = numpy.ones(ds.variables[var][:].shape[0])*0.0
