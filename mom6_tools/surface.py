@@ -32,8 +32,8 @@ def parseCommandLine():
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-ed','--end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-mld_obs','--mld_obs', type=str, default='mld-deboyer-tx2_3v2',
-                      help='''Name of the observation-based MLD dataset in the oce-catalog. Default is mld-deboyer-tx2_3v2''')
+  parser.add_argument('-mld_obs','--mld_obs', type=str, default='mld-deboyer-2023-tx2_3v2',
+                      help='''Name of the observation-based MLD dataset in the oce-catalog. Default is mld-deboyer-2023-tx2_3v2''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
@@ -68,6 +68,7 @@ def driver(args):
   avg = diag_config_yml['Avg']
   if not args.start_date : args.start_date = avg['start_date']
   if not args.end_date : args.end_date = avg['end_date']
+  args.sfc = args.casename+diag_config_yml['Fnames']['sfc']
   args.native = args.casename+diag_config_yml['Fnames']['native']
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
@@ -103,17 +104,17 @@ def driver(args):
         ds[v] = xr.zeros_like(ds.SSH)
     return ds[variables]
 
+  # load monthly means
   ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, parallel=parallel)
-  # use datetime
-  #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
-
+  # load daily means
+  ds_daily = xr.open_mfdataset(OUTDIR+'/'+args.sfc, parallel=parallel)
   ds = preprocess(ds1)
-
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   startTime = datetime.now()
   ds = ds.sel(time=slice(args.start_date, args.end_date))
+  ds_daily = ds_daily.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   # load obs-based mld from oce-catalog
@@ -127,7 +128,7 @@ def driver(args):
   get_BLD(ds, 'oml', grd, args)
 
   # SSH
-  get_SSH(ds, 'SSH', grd, args)
+  get_SSH(ds, ds_daily, 'SSH', grd, args)
 
   # Speed
   get_speed(ds, 'speed', grd, args)
@@ -181,19 +182,14 @@ def get_speed(ds, var, grd, args):
   ds_out.to_netcdf('ncfiles/'+str(args.casename)+'_sfc_speed.nc')
   return
 
-def get_SSH(ds, var, grd, args):
+def get_SSH(ds1, ds2, var, grd, args):
   '''
-  Compute sea surface height climatology.
+  Compute sea surface height mean and variance climatology.
+  ds1 is the monthly dataset and ds2 is the daily dataset
   '''
-
-  #if args.savefigs:
-  #  if not os.path.isdir('PNG/SSH'):
-  #    print('Creating a directory to place figures (PNG/SSH)... \n')
-  #    os.system('mkdir -p PNG/SSH')
-
   print('Computing yearly means...')
   startTime = datetime.now()
-  ds_ann =  weighted_temporal_mean(ds,var)
+  ds_ann =  weighted_temporal_mean(ds1,var)
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing time mean...')
@@ -203,60 +199,32 @@ def get_SSH(ds, var, grd, args):
 
   print('Computing mean sea level climatology...')
   startTime = datetime.now()
-  ssh_month_clima = ds[var].groupby("time.month").mean('time').compute()
+  ssh_month_clima = ds1[var].groupby("time.month").mean('time').compute()
+  print('Time elasped: ', datetime.now() - startTime)
+
+  print('Computing variance...')
+  startTime = datetime.now()
+  nt=int(np.size(ds2.time.values)/5.)
+  # TODO: replace hard-coded zos below
+  ssh_5day = ds2['zos'][:nt,:,:].resample(time="5D").mean(dim='time')
+  ssh_bar=ssh_5day.mean('time')
+  ssh_prime = ssh_5day - ssh_bar
+  ssh_v=(ssh_prime**2).mean('time')
   print('Time elasped: ', datetime.now() - startTime)
 
   # Combine into a Dataset
   ds_out = xr.Dataset(
     {
         "mean_ssh": ds_mean,
+        "ssh_variance": ssh_v,
         "ssh_climatology": ssh_month_clima
     }
   )
 
-  #print('Computing monthly SLA climatology...')
-  #startTime = datetime.now()
-  #rms_sla_model = np.sqrt(((ds[var]-ds[var].mean(dim='time'))**2).mean(dim='time')).compute()
-  #print('Time elasped: ', datetime.now() - startTime)
-
-  # fix month values using pandas. We just want something that xarray an understand
-  #mld_model['month'] = pd.date_range('2000-01-15', '2001-01-01',  freq='2SMS')
-
-  # read obs
-  #filepath = '/glade/work/gmarques/cesm/datasets/Aviso/rms_sla_climatology_remaped_to_tx0.6v1.nc'
-  #print('\n Reading climatology from: ', filepath)
-  #rms_sla_aviso = xr.open_dataset(filepath)
-
-  #print('\n Plotting...')
-  #model = np.ma.masked_invalid(rms_sla_model.values)
-  #aviso = np.ma.masked_invalid(rms_sla_aviso.rms_sla.values)
-
-  #try:
-  #  area = grd.area_t
-  #except:
-  #  area = grd.areacello
-
-  #fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(14,24))
-  #xyplot(model, grd.geolon, grd.geolat, area=area,
-  #       axis=ax[0], suptitle='RMS of SSH anomaly [m]', clim=(0,0.4),
-  #       title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
-  #xyplot(aviso, grd.geolon, grd.geolat, area=area,
-  #       axis=ax[1], clim=(0,0.4), title='RMS of SSH anomaly (AVISO, 1993-2018)')
-  #xyplot(model - aviso, grd.geolon, grd.geolat, area=area,
-  #       axis=ax[2], title='model - AVISO', clim=(-0.2,0.2))
-
-  #if args.savefigs:
-  #  plt.savefig('PNG/SLA/'+str(args.casename)+'_RMS_SLA_vs_AVISO.png')
-  #plt.close()
-
-  # create dataarays
-  #model_ssh = xr.DataArray(model, dims=['yh','xh'],
-  #                         coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('mean_ssh')
-
   attrs = {'start_date': args.start_date,
            'end_date': args.end_date,
            'casename': args.casename,
-           'description': 'SSH mean and climatology ',
+           'description': 'SSH mean, variance and mean climatology ',
            #'obs': 'AVISO',
            'module': os.path.basename(__file__)}
   add_global_attrs(ds_out,attrs)

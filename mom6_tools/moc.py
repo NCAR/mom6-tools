@@ -86,6 +86,7 @@ def main():
   # remote Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
+  basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, verbose=False, xda=True)
 
   parallel = False
   if nw > 1:
@@ -170,7 +171,8 @@ def main():
   # create dataset to store results
   moc = xr.Dataset(data_vars={ 'moc' :    (('zl','yq'), psiPlot),
                             'amoc' :   (('zl','yq'), np.zeros((psiPlot.shape))),
-                            'moc_FFM' :   (('zl','yq'), np.zeros((psiPlot.shape))),
+                            'ipmoc' :   (('zl','yq'), np.zeros((psiPlot.shape))),
+                            'moc_FFH' :   (('zl','yq'), np.zeros((psiPlot.shape))),
                             'moc_GM' : (('zl','yq'), np.zeros((psiPlot.shape))),
                             'amoc_45' : (('time'), np.zeros((ds_ann.time.shape))),
                             'moc_GM_ACC' : (('time'), np.zeros((ds_ann.time.shape))),
@@ -180,10 +182,27 @@ def main():
        'end_date': avg['end_date'], 'casename': args.casename}
   m6toolbox.add_global_attrs(moc,attrs)
 
+  m6plot.setFigureSize([16,9],576,debug=False)
+  cmap = plt.get_cmap('dunnePM')
+  atl = 0*basin_code; atl[(basin_code==2) | (basin_code==4) | (basin_code==6) | (basin_code==7) | (basin_code==8)]=1
+  m = basin_code_xr.sel(region='Global').values - atl
+  ci=m6plot.pmCI(0.,22.,2.)
+  z = (m*Zmod).min(axis=-1); psiPlot = MOCpsi(VHmod, vmsk=m*np.roll(m,-1,axis=-2))*conversion_factor
+  psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
+  yy = grd.geolat_c[:,:].max(axis=-1)+0*z
+  plotPsi(yy, z, psiPlot, ci, 'Indo-Pacific MOC [Sv]')
+  plt.xlabel(r'Latitude [$\degree$N]')
+  plt.suptitle(casename)
+  plt.xlim((-34.5,50))
+  plt.gca().invert_yaxis()
+  objOut = args.outdir+str(casename)+'_MOC_IndoPacific.png'
+  plt.savefig(objOut,format='png')
+  moc['ipmoc'].data = psiPlot
 
   # Atlantic MOC
   m6plot.setFigureSize([16,9],576,debug=False)
   cmap = plt.get_cmap('dunnePM')
+  # 2 - Atlatic; 4 - Arctic; 6 - Med; 7 - Baltic; 8 - Hudson Bay;
   m = 0*basin_code; m[(basin_code==2) | (basin_code==4) | (basin_code==6) | (basin_code==7) | (basin_code==8)]=1
   ci=m6plot.pmCI(0.,22.,2.)
   z = (m*Zmod).min(axis=-1)
@@ -337,7 +356,7 @@ def main():
   plt.gca().invert_yaxis()
   objOut = args.outdir+str(casename)+'_FFH_MOC_global.png'
   plt.savefig(objOut)
-  moc['moc_FFM'].data = psiPlot
+  moc['moc_FFH'].data = psiPlot
 
   # GM-induced Global MOC
   class C(np.ndarray): pass
