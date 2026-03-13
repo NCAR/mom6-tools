@@ -284,7 +284,7 @@ def plot_enso_obs(obs, label='oisstv2', basetime="1970-01-01T00:00:00Z"):
   plt.axhline(-0.4, color='black', linewidth=0.5, linestyle='dotted')
   plt.title('OiSSTv2, Niño 3.4 Index');
 
-  return
+  return nino34_obs, normalized_index_nino34_rolling_mean
 
 if __name__ == '__main__':
   main()
