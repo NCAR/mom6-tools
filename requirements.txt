@@ -23,4 +23,4 @@ intake
 nc_time_axis
 momlevel @ git+https://github.com/jkrasting/momlevel
 xwavelet @ git+https://github.com/jkrasting/xwavelet
-setuptools==68.0.0
+setuptools==78.1.1
