@@ -15,19 +15,25 @@ documentation_ for more information.
 Installation 
 ----------------------------
 
-To install mom6-tools from source, clone the repository from `github
-<https://github.com/NCAR/mom6-tools>`_::
-
+1. Clone the repository from `github <https://github.com/NCAR/mom6-tools>`_::
 
     git clone https://github.com/NCAR/mom6-tools.git
+
+2. Create a new conda environment and install required packages::
+
     cd mom6-tools
-    pip install -e .
+    conda env create --file environment.yml
 
-You can also install directly from git master branch::
+3. Install MOM6-tools::
 
-    pip install git+https://github.com/NCAR/mom6-tools
+    conda activate mom6-tools
+    python setup.py install
 
+4. Add ``mom6-tools/mom6_tools`` to path, e.g., add this line to ``~/.bashrc``::
 
+    export PATH=$PATH:/glade/work/${USER}/mom6-tools/mom6_tools/
 
+5. Make sure the project account is added to ``~/.config/dask/ncar-jobqueue.yaml``
 
+6. Optional: run ``pytest``
 
