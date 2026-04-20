@@ -35,3 +35,4 @@ dependencies:
     - ncar-jobqueue @ git+https://github.com/NCAR/ncar-jobqueue
     - momlevel @ git+https://github.com/jkrasting/momlevel
     - xwavelet @ git+https://github.com/jkrasting/xwavelet
+    - -e .
