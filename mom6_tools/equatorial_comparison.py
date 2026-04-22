@@ -200,9 +200,9 @@ def driver(args):
   tmp, lonh = shiftgrid(thetao.xh[-1].values, thetao[0,0,:].values, ds.thetao.xh.values)
   tmp, lonq = shiftgrid(uo.xq[-1].values, uo[0,0,:].values, uo.xq.values)
 
-  thetao['xh'].values[:] = lonh
-  so['xh'].values[:] = lonh
-  uo['xq'].values[:] = lonq
+  thetao = thetao.assign_coords(xh=lonh)
+  so = so.assign_coords(xh=lonh)
+  uo = uo.assign_coords(xq=lonq)
 
   # y and z from obs
   y_obs = johnson.YLAT11_101.values

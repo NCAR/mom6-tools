@@ -519,7 +519,7 @@ def ocean_stats(args):
     data_vars.update({var:(('time'), df[var], {"units" : unit})})
 
   # load ocean.stats.nc
-  ds = xr.open_dataset(args.rundir+"/ocean.stats.nc").rename({"Time" : "time"})
+  ds = xr.open_dataset(args.rundir+"/ocean.stats.nc", decode_times=False).rename({"Time" : "time"})
 
   # variables to be added
   variables = [ 'En', 'Ntrunc','Mass', 'Mass_chg', 'Mass_anom', 'max_CFL_trans',
@@ -549,7 +549,9 @@ def ocean_stats(args):
            "date" : datetime.now().isoformat(),
            "created_using" : os.path.basename(__file__),
            "url" : os.path.basename(__file__) + msg}
-  stats = xr.decode_cf(xr.Dataset(data_vars=data_vars, coords=coords, attrs = attrs))
+
+  stats = xr.Dataset(data_vars=data_vars, coords=coords, attrs=attrs)
+
   stats.to_netcdf('ncfiles/{}_ocean.stats.nc'.format(args.casename))
 
   return stats
