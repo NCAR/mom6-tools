@@ -17,9 +17,10 @@ jupyter
 cmocean
 cartopy
 distributed
-ncar_jobqueue
+ncar_jobqueue @ git+https://github.com/NCAR/ncar-jobqueue
 PyYAML
 intake
 nc_time_axis
 momlevel @ git+https://github.com/jkrasting/momlevel
 xwavelet @ git+https://github.com/jkrasting/xwavelet
+setuptools==78.1.1

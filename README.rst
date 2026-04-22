@@ -15,19 +15,32 @@ documentation_ for more information.
 Installation 
 ----------------------------
 
-To install mom6-tools from source, clone the repository from `github
-<https://github.com/NCAR/mom6-tools>`_::
-
+1. Clone the repository from `github <https://github.com/NCAR/mom6-tools>`_::
 
     git clone https://github.com/NCAR/mom6-tools.git
+
+2. Install required packages and ``mom6-tools`` in a brand new conda environment::
+
     cd mom6-tools
-    pip install -e .
+    conda env create --file environment.yml
 
-You can also install directly from git master branch::
+3. Add ``mom6-tools/mom6_tools`` to path, e.g., add this line to ``~/.bashrc``::
 
-    pip install git+https://github.com/NCAR/mom6-tools
-
-
+    export PATH=$PATH:/glade/work/${USER}/mom6-tools/mom6_tools/
 
 
+Notes 
+----------------------------
+
+1. Make sure the project account is added to ``~/.config/dask/ncar-jobqueue.yaml``.
+
+2. There is a known issue with ``ncar-jobqueue``. Until fixed, if running on Casper,
+   change ``casper`` to ``casper-dav`` in ``~/.config/dask/ncar-jobqueue.yaml``.
+
+3. There is also a known issue with netCDF4 support. A temporary fix is to add the
+   following to each dataset in ``reference-datasets.yml``::
+
+     args:
+       xarray_kwargs:
+         engine: netcdf4
 
