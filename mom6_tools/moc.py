@@ -19,8 +19,6 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for plotting meridional overturning circulation.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  #parser.add_argument('-v', '--var', nargs='+', default=['vmo'],
-  #                   help='''Variable to be processed (default=['vmo'])''')
   parser.add_argument('-sd','--start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-ed','--end_date', type=str, default='',
@@ -31,19 +29,14 @@ def options():
                       action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
-  main(cmdLineArgs)
 
 def main():
   # Get options
   args = options()
 
   nw = args.number_of_workers
-  if not os.path.isdir('PNG/MOC'):
-    print('Creating a directory to place figures (PNG/MOC)... \n')
-    os.system('mkdir -p PNG/MOC')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place output (ncfiles)... \n')
-    os.system('mkdir ncfiles')
+  os.makedirs('PNG/MOC', exist_ok=True)
+  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
@@ -83,7 +76,7 @@ def main():
     depth = grd.depth_ocean
   except:
     depth = grd.deptho
-  # remote Nan's, otherwise genBasinMasks won't work
+  # remove Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
   basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, verbose=False, xda=True)
@@ -106,18 +99,17 @@ def main():
     return ds[variables]
 
   ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel, preprocess=preprocess)
-
   print('Time elasped: ', datetime.now() - startTime)
 
   # compute yearly means first since this will be used in the time series
-  attrs =  {
+  attrs = {
          'description': 'Annual mean meridional thickness flux by components ',
          'reduction_method': 'annual mean weighted by days in each month',
          'casename': args.casename
          }
   print('Computing yearly means...')
   startTime = datetime.now()
-  ds_ann =  m6toolbox.weighted_temporal_mean_vars(ds,attrs=attrs)
+  ds_ann = m6toolbox.weighted_temporal_mean_vars(ds, attrs=attrs)
   print('Time elasped: ', datetime.now() - startTime)
 
   startTime = datetime.now()
@@ -132,15 +124,16 @@ def main():
 
   # create a ndarray subclass
   class C(np.ndarray): pass
-  varName = 'vmo'; conversion_factor = 1.e-9
+  conversion_factor = 1.e-9
+
+  varName = 'vmo'
   tmp = np.ma.masked_invalid(ds_mean[varName].values)
   tmp = tmp[:].filled(0.)
   VHmod = tmp.view(C)
   VHmod.units = ds[varName].units
-  Zmod = m6toolbox.get_z(ds, depth, varName) # same here
+  Zmod = m6toolbox.get_z(ds, depth, varName)
 
-  if args.casename != '':  casename = args.casename
-  else: casename = ''
+  casename = args.casename if args.casename != '' else ''
 
   # Global MOC
   m6plot.setFigureSize([16,9],576,debug=False)
@@ -162,25 +155,27 @@ def main():
   plt.savefig(objOut)
 
   if 'zl' in ds:
-    zl=ds.zl.values
+    zl = ds.zl.values
   elif 'z_l' in ds:
-    zl=ds.z_l.values
+    zl = ds.z_l.values
   else:
     raise ValueError("Dataset does not have vertical coordinate zl or z_l")
 
   # create dataset to store results
-  moc = xr.Dataset(data_vars={ 'moc' :    (('zl','yq'), psiPlot),
-                            'amoc' :   (('zl','yq'), np.zeros((psiPlot.shape))),
-                            'ipmoc' :   (('zl','yq'), np.zeros((psiPlot.shape))),
-                            'moc_FFH' :   (('zl','yq'), np.zeros((psiPlot.shape))),
-                            'moc_GM' : (('zl','yq'), np.zeros((psiPlot.shape))),
-                            'amoc_45' : (('time'), np.zeros((ds_ann.time.shape))),
-                            'moc_GM_ACC' : (('time'), np.zeros((ds_ann.time.shape))),
-                            'amoc_26' : (('time'), np.zeros((ds_ann.time.shape))) },
-                            coords={'zl': zl, 'yq':ds.yq, 'time':ds_ann.time})
-  attrs = {'description': 'MOC time-mean sections and time-series', 'units': 'Sv', 'start_date': avg['start_date'],
-       'end_date': avg['end_date'], 'casename': args.casename}
-  m6toolbox.add_global_attrs(moc,attrs)
+  moc = xr.Dataset(data_vars={ 'moc' :       (('zl','yq'), psiPlot),
+                                'amoc' :      (('zl','yq'), np.zeros(psiPlot.shape)),
+                                'ipmoc' :     (('zl','yq'), np.zeros(psiPlot.shape)),
+                                'moc_FFH' :   (('zl','yq'), np.zeros(psiPlot.shape)),
+                                'moc_GM' :    (('zl','yq'), np.zeros(psiPlot.shape)),
+                                'amoc_45' :   (('time'), np.zeros(ds_ann.time.shape)),
+                                'moc_GM_ACC': (('time'), np.zeros(ds_ann.time.shape)),
+                                'moc_70S' :   (('time'), np.zeros(ds_ann.time.shape)),
+                                'moc_35S' :   (('time'), np.zeros(ds_ann.time.shape)),
+                                'amoc_26' :   (('time'), np.zeros(ds_ann.time.shape)) },
+                            coords={'zl': zl, 'yq': ds.yq, 'time': ds_ann.time})
+  attrs = {'description': 'MOC time-mean sections and time-series', 'units': 'Sv',
+           'start_date': avg['start_date'], 'end_date': avg['end_date'], 'casename': args.casename}
+  m6toolbox.add_global_attrs(moc, attrs)
 
   m6plot.setFigureSize([16,9],576,debug=False)
   cmap = plt.get_cmap('dunnePM')
@@ -248,34 +243,49 @@ def main():
   objOut = args.outdir+str(casename)+'_MOC_profile_26N.png'
   plt.savefig(objOut,format='png')
 
-  print('Computing time series...')
+  # --- Vectorized time series computation ---
+  # Precompute Atlantic vmsk (m is the Atlantic mask from above)
+  vmsk_atl = m * np.roll(m, -1, axis=-2)
+
+  print('Computing time series (vectorized)...')
   startTime = datetime.now()
-  # time-series
-  dtime = ds_ann.time
-  amoc_26 = np.zeros(len(dtime))
-  amoc_45 = np.zeros(len(dtime))
-  moc_GM_ACC = np.zeros(len(dtime))
-  if args.debug: startTime = datetime.now()
-  # loop in time
-  for t in range(len(dtime)):
-    tmp = np.ma.masked_invalid(ds_ann[varName][t,:].values)
-    tmp = tmp[:].filled(0.)
-    # m is still Atlantic ocean
-    psi = MOCpsi(tmp, vmsk=m*np.roll(m,-1,axis=-2))*conversion_factor
-    psi = 0.5 * (psi[0:-1,:]+psi[1::,:])
-    amoc_26[t] = findExtrema(yy, z, psi, min_lat=min_lat_rapid, max_lat=max_lat_rapid, plot=False, min_depth=250.)
-    amoc_45[t] = findExtrema(yy, z, psi, min_lat=44., max_lat=46., plot=False, min_depth=250.)
-    tmp_GM = np.ma.masked_invalid(ds_ann['vhGM'][t,:].values)
-    tmp_GM = tmp_GM[:].filled(0.)
-    psiGM = MOCpsi(tmp_GM)*conversion_factor
-    psiGM = 0.5 * (psiGM[0:-1,:]+psiGM[1::,:])
-    moc_GM_ACC[t] = findExtrema(yyg, zg, psiGM, min_lat=-65., max_lat=-30, mult=-1., plot=False)
+
+  # Load all annual data at once — one dask graph evaluation vs T separate ones
+  vmo_all  = np.ma.filled(np.ma.masked_invalid(ds_ann['vmo'].values),  0.)  # (T,K,J,I)
+  vhGM_all = np.ma.filled(np.ma.masked_invalid(ds_ann['vhGM'].values), 0.)  # (T,K,J,I)
+
+  # Compute streamfunctions for all time steps at once
+  psi_atl_all = MOCpsi(vmo_all, vmsk=vmsk_atl) * conversion_factor   # (T,K+1,J)
+  psi_atl_all = 0.5 * (psi_atl_all[:, :-1, :] + psi_atl_all[:, 1:, :])  # (T,K,J)
+
+  psiGM_all = MOCpsi(vhGM_all) * conversion_factor                    # (T,K+1,J)
+  psiGM_all = 0.5 * (psiGM_all[:, :-1, :] + psiGM_all[:, 1:, :])    # (T,K,J)
+
+  psi_global_all = MOCpsi(vmo_all) * conversion_factor                # (T,K+1,J)
+  psi_global_all = 0.5 * (psi_global_all[:, :-1, :] + psi_global_all[:, 1:, :])  # (T,K,J)
+
+  # Vectorized extrema extraction
+  amoc_26    = findExtrema_batch(yy,  z,  psi_atl_all, min_lat=min_lat_rapid, max_lat=max_lat_rapid, min_depth=250.)
+  amoc_45    = findExtrema_batch(yy,  z,  psi_atl_all, min_lat=44.,           max_lat=46.,           min_depth=250.)
+  moc_GM_ACC = findExtrema_batch(yyg, zg, psiGM_all,   min_lat=-65.,          max_lat=-30.,          mult=-1.)
+
+  # Global MOC at fixed lat/depth points — precompute indices to avoid xr.DataArray overhead per step
+  lat_1d = yyg[0, :]   # surface-level latitude for each j  (J,)
+  j_70S  = np.argmin(np.abs(lat_1d - (-70.)))
+  j_35S  = np.argmin(np.abs(lat_1d - (-35.)))
+  k_1000 = np.argmin(np.abs(zl - 1000.))
+  k_4000 = np.argmin(np.abs(zl - 4000.))
+  moc_70S = psi_global_all[:, k_1000, j_70S]
+  moc_35S = psi_global_all[:, k_4000, j_35S]
+
   print('Time elasped: ', datetime.now() - startTime)
 
   # add dataarays to the moc dataset
-  moc['amoc_26'].data = amoc_26
-  moc['amoc_45'].data = amoc_45
+  moc['amoc_26'].data    = amoc_26
+  moc['amoc_45'].data    = amoc_45
   moc['moc_GM_ACC'].data = moc_GM_ACC
+  moc['moc_70S'].data    = moc_70S
+  moc['moc_35S'].data    = moc_35S
 
   if parallel:
     print('Releasing workers ...')
@@ -289,59 +299,50 @@ def main():
   rapid = m6toolbox.weighted_temporal_mean_vars(catalog["transports-rapid"].to_dask())
 
   amoc_core_45 = catalog["moc-core2-45"].to_dask()
+  amoc_pop_45  = catalog["moc-pop-jra-45"].to_dask()
 
-  amoc_pop_45 = catalog["moc-pop-jra-45"].to_dask()
-
-  # plot
+  # plot AMOC @ 26N
   fig = plt.figure(figsize=(12, 6))
-  plt.plot(np.arange(len(moc.time))+1958.5 ,moc['amoc_26'].values, color='k', label=casename, lw=2)
-  # core data
+  plt.plot(np.arange(len(moc.time))+1958.5, moc['amoc_26'].values, color='k', label=casename, lw=2)
   core_mean = amoc_core_26['MOC'].mean(axis=0).data
-  core_std = amoc_core_26['MOC'].std(axis=0).data
-  plt.plot(amoc_core_26.time,core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=1)
+  core_std  = amoc_core_26['MOC'].std(axis=0).data
+  plt.plot(amoc_core_26.time, core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=1)
   plt.fill_between(amoc_core_26.time, core_mean-core_std, core_mean+core_std,
     alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
-  # pop data
-  plt.plot(np.arange(len(amoc_pop_26.time))+1958.5 ,amoc_pop_26.AMOC_26n.values, color='r', label='POP', lw=1)
-  # rapid
-  plt.plot(np.arange(len(rapid.time))+2004.5 ,rapid.moc_mar_hc10.values, color='green', label='RAPID', lw=1)
-
+  plt.plot(np.arange(len(amoc_pop_26.time))+1958.5, amoc_pop_26.AMOC_26n.values, color='r', label='POP', lw=1)
+  plt.plot(np.arange(len(rapid.time))+2004.5, rapid.moc_mar_hc10.values, color='green', label='RAPID', lw=1)
   plt.title('AMOC @ 26 $^o$ N', fontsize=16)
   plt.ylim(5,20)
-  plt.xlim(1948,1958.5+len(moc.time))
+  plt.xlim(1948, 1958.5+len(moc.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=13, ncol=2)
   objOut = args.outdir+str(casename)+'_MOC_26N_time_series.png'
-  plt.savefig(objOut,format='png')
+  plt.savefig(objOut, format='png')
 
-  # plot
+  # plot AMOC @ 45N
   fig = plt.figure(figsize=(12, 6))
-  plt.plot(np.arange(len(moc.time))+1958.5 ,moc['amoc_45'], color='k', label=casename, lw=2)
-  # core data
+  plt.plot(np.arange(len(moc.time))+1958.5, moc['amoc_45'], color='k', label=casename, lw=2)
   core_mean = amoc_core_45['MOC'].mean(axis=0).data
-  core_std = amoc_core_45['MOC'].std(axis=0).data
-  plt.plot(amoc_core_45.time,core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=2)
+  core_std  = amoc_core_45['MOC'].std(axis=0).data
+  plt.plot(amoc_core_45.time, core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=2)
   plt.fill_between(amoc_core_45.time, core_mean-core_std, core_mean+core_std,
     alpha=0.25, edgecolor='#1B2ACC', facecolor='#089FFF')
-  # pop data
-  plt.plot(np.arange(len(amoc_pop_45.time))+1958.5 ,amoc_pop_45.AMOC_45n.values, color='r', label='POP', lw=1)
-
+  plt.plot(np.arange(len(amoc_pop_45.time))+1958.5, amoc_pop_45.AMOC_45n.values, color='r', label='POP', lw=1)
   plt.title('AMOC @ 45 $^o$ N', fontsize=16)
   plt.ylim(5,20)
-  plt.xlim(1948,1958+len(moc.time))
+  plt.xlim(1948, 1958+len(moc.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
   objOut = args.outdir+str(casename)+'_MOC_45N_time_series.png'
-  plt.savefig(objOut,format='png')
+  plt.savefig(objOut, format='png')
 
   # Submesoscale-induced Global MOC
-  class C(np.ndarray): pass
-  varName = 'vhml'; conversion_factor = 1.e-9
+  varName = 'vhml'
   tmp = np.ma.masked_invalid(ds_mean[varName].values)
   tmp = tmp[:].filled(0.)
   VHml = tmp.view(C)
   VHml.units = ds[varName].units
-  Zmod = m6toolbox.get_z(ds, depth, varName) # same here
+  Zmod = m6toolbox.get_z(ds, depth, varName)
   m6plot.setFigureSize([16,9],576,debug=False)
   axis = plt.gca()
   cmap = plt.get_cmap('dunnePM')
@@ -359,13 +360,12 @@ def main():
   moc['moc_FFH'].data = psiPlot
 
   # GM-induced Global MOC
-  class C(np.ndarray): pass
-  varName = 'vhGM'; conversion_factor = 1.e-9
+  varName = 'vhGM'
   tmp = np.ma.masked_invalid(ds_mean[varName].values)
   tmp = tmp[:].filled(0.)
   VHGM = tmp.view(C)
   VHGM.units = ds[varName].units
-  Zmod = m6toolbox.get_z(ds, depth, varName) # same here
+  Zmod = m6toolbox.get_z(ds, depth, varName)
   m6plot.setFigureSize([16,9],576,debug=False)
   axis = plt.gca()
   cmap = plt.get_cmap('dunnePM')
@@ -389,25 +389,65 @@ def main():
 
   return
 
+
 def MOCpsi(vh, vmsk=None):
-  """Sums 'vh' zonally and cumulatively in the vertical to yield an overturning stream function, psi(y,z)."""
-  shape = list(vh.shape); shape[-3] += 1
-  psi = np.zeros(shape[:-1])
-  if len(shape)==3:
-    for k in range(shape[-3]-1,0,-1):
-      if vmsk is None: psi[k-1,:] = psi[k,:] - vh[k-1].sum(axis=-1)
-      else: psi[k-1,:] = psi[k,:] - (vmsk*vh[k-1]).sum(axis=-1)
-  else:
-    for n in range(shape[0]):
-      for k in range(shape[-3]-1,0,-1):
-        if vmsk is None: psi[n,k-1,:] = psi[n,k,:] - vh[n,k-1].sum(axis=-1)
-        else: psi[n,k-1,:] = psi[n,k,:] - (vmsk*vh[n,k-1]).sum(axis=-1)
+  """Sums 'vh' zonally and cumulatively in the vertical to yield an overturning stream function, psi(y,z).
+
+  Uses a fully vectorized cumulative-sum approach that avoids Python loops over
+  the vertical levels (and, for 4-D inputs, over time), giving a significant
+  speedup compared to the original iterative implementation.
+
+  Parameters
+  ----------
+  vh : ndarray, shape (..., K, J, I)
+      Meridional thickness flux.
+  vmsk : ndarray broadcastable to vh, optional
+      Basin mask.  Applied by element-wise multiplication before the zonal sum.
+
+  Returns
+  -------
+  psi : ndarray, shape (..., K+1, J)
+      Overturning stream function.  psi[..., K, :] == 0 (no-flow at the bottom).
+  """
+  if vmsk is not None:
+    vh = vmsk * vh
+  # Zonal integral: (..., K, J)
+  zonal = vh.sum(axis=-1)
+  # psi[..., k, :] = -sum(zonal[..., k:, :])  =>  reverse cumsum along K axis
+  rev_cs = np.cumsum(zonal[..., ::-1, :], axis=-2)[..., ::-1, :]
+  psi_inner = -rev_cs  # (..., K, J)
+  # Append psi = 0 at the bottom (K index)
+  zeros_shape = list(psi_inner.shape)
+  zeros_shape[-2] = 1
+  psi = np.concatenate([psi_inner, np.zeros(zeros_shape)], axis=-2)  # (..., K+1, J)
   return psi
+
+
+def findExtrema_batch(y, z, psi_batch, min_lat=-90., max_lat=90., min_depth=0., mult=1.):
+  """Vectorized extremum finder for a batch of time steps.
+
+  Parameters
+  ----------
+  y, z : ndarray, shape (K, J)
+      Latitude and elevation arrays.
+  psi_batch : ndarray, shape (T, K, J)
+      Streamfunction time series.
+  min_lat, max_lat, min_depth, mult : float
+      Same semantics as in findExtrema.
+
+  Returns
+  -------
+  result : ndarray, shape (T,)
+  """
+  mask = (y >= min_lat) & (y <= max_lat) & (z < -min_depth)  # (K, J)
+  # Broadcast mask over time, fill non-masked region with -inf so max() ignores it
+  psi_masked = np.where(mask, mult * psi_batch, -np.inf)      # (T, K, J)
+  return mult * psi_masked.reshape(psi_batch.shape[0], -1).max(axis=1)  # (T,)
+
 
 def plotPsi(y, z, psi, ci, title='', zval=[0.,-2000.,-6500.]):
   """
   General function to plot the meridional overturning streamfunction, in Sv.
-
 
   Parameters
   ----------
@@ -428,9 +468,6 @@ def plotPsi(y, z, psi, ci, title='', zval=[0.,-2000.,-6500.]):
 
   zval : 1D numpy array, optional
      Array with 3 values used to set the split vertical scale. Default '[0.,-2000.,-6500.]'.
-
-  Returns
-  -------
   """
   cmap = plt.get_cmap('dunnePM')
   plt.contourf(y, z, psi, levels=ci, cmap=cmap, extend='both')
@@ -440,15 +477,16 @@ def plotPsi(y, z, psi, ci, title='', zval=[0.,-2000.,-6500.]):
   plt.title(title)
   cbar.set_label('[Sv]'); plt.ylabel('Elevation [m]')
 
-def findExtrema(y, z, psi, min_lat=-90., max_lat=90., min_depth=0., mult=1., plot = True):
+
+def findExtrema(y, z, psi, min_lat=-90., max_lat=90., min_depth=0., mult=1., plot=True):
   psiMax = mult*np.amax( mult * np.ma.array(psi)[(y>=min_lat) & (y<=max_lat) & (z<-min_depth)] )
   idx = np.argmin(np.abs(psi-psiMax))
   (j,i) = np.unravel_index(idx, psi.shape)
   if plot:
-    #plt.plot(y[j,i],z[j,i],'kx',hold=True)
     plt.plot(y[j,i],z[j,i],'kx')
     plt.text(y[j,i],z[j,i],'%.1f'%(psi[j,i]),color='red', fontsize=12)
   else:
     return psi[j,i]
+
 if __name__ == '__main__':
   main()
