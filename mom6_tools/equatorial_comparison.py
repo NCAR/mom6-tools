@@ -96,7 +96,7 @@ def driver(args):
   obs['yh'] = grd['yh']
   thetao_obs = obs.thetao
   salt_obs = obs.so
-  obs_label = catalog[args.obs].metadata['prefix']+' '+str(catalog[args.obs].metadata['version'])
+  #obs_label = catalog[args.obs].metadata['prefix']+' '+str(catalog[args.obs].metadata['version'])
 
   # load johnson_pmel
   johnson =catalog['eq-uvts-johnson'].to_dask()
@@ -170,14 +170,14 @@ def driver(args):
   figname = 'PNG/Equatorial/'+str(args.casename)+'_'
   yzcompare(temp_eq , thetao_obs_eq, x, -Z,
             title1 = 'model temperature', ylabel='Longitude', yunits='',
-            title2 = 'observed temperature ({})'.format(obs_label), #contour=True,
+            title2 = 'observed temperature', #({})'.format(obs_label), #contour=True,
             suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
             extend='neither', dextend='neither', clim=(6,31.), dlim=(-5,5), dcolormap=plt.cm.bwr,
             save=figname+'Equatorial_Global_temperature.png')
 
   yzcompare(salt_eq , salt_obs_eq, x, -Z,
         title1 = 'model salinity', ylabel='Longitude', yunits='',
-        title2 = 'observed salinity ({})'.format(obs_label), #contour=True,
+        title2 = 'observed salinity', #({})'.format(obs_label), #contour=True,
         suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
         extend='neither', dextend='neither', clim=(33.5,37.), dlim=(-1,1), dcolormap=plt.cm.bwr,
         save=figname+'Equatorial_Global_salinity.png')

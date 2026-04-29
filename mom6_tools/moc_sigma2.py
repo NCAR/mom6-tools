@@ -102,7 +102,7 @@ def main():
       'Y': ["dyt", "dyCu", "dyCv"]
   }
 
-  grid = Grid(grd_xr, coords=coords, periodic=['X'])
+  grid = Grid(grd_xr, coords=coords, periodic=['X'], autoparse_metadata=False)
 
   parallel = False
   if nw > 1:

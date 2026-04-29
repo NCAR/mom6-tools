@@ -28,6 +28,7 @@ dependencies:
   - nc-time-axis
   - intake-xarray
   - setuptools=68.0.0
+  - ipykernel
   - pip
   - pip:
     - setuptools-scm
@@ -35,4 +36,5 @@ dependencies:
     - ncar-jobqueue @ git+https://github.com/NCAR/ncar-jobqueue
     - momlevel @ git+https://github.com/jkrasting/momlevel
     - xwavelet @ git+https://github.com/jkrasting/xwavelet
+    - papermill
     - -e .
