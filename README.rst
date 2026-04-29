@@ -28,19 +28,15 @@ Installation
 
     export PATH=$PATH:/glade/work/${USER}/mom6-tools/mom6_tools/
 
+4. Register ``mom6-tools`` in ``ipykernel``::
+
+    conda run -n mom6-tools python -m ipykernel install --user --name mom6-tools
+
 
 Notes 
 ----------------------------
 
 1. Make sure the project account is added to ``~/.config/dask/ncar-jobqueue.yaml``.
 
-2. There is a known issue with ``ncar-jobqueue``. Until fixed, if running on Casper,
-   change ``casper`` to ``casper-dav`` in ``~/.config/dask/ncar-jobqueue.yaml``.
-
-3. There is also a known issue with netCDF4 support. A temporary fix is to add the
-   following to each dataset in ``reference-datasets.yml``::
-
-     args:
-       xarray_kwargs:
-         engine: netcdf4
+2. If running on Casper, change ``casper`` to ``casper-dav`` in ``~/.config/dask/ncar-jobqueue.yaml``.
 
