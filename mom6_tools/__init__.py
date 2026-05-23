@@ -7,7 +7,7 @@ It relies on the following python packages:
  - etc
 '''
 
-from pkg_resources import DistributionNotFound, get_distribution
+from importlib.metadata import PackageNotFoundError, version
 
 #from MOM6grid import *
 #from section_transports import *
@@ -15,7 +15,7 @@ from pkg_resources import DistributionNotFound, get_distribution
 #from poleward_heat_transport import *
 
 try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
+    __version__ = version('mom6-tools')
+except PackageNotFoundError:
     # package is not installed
     pass
