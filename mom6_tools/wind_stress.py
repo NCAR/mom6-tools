@@ -38,7 +38,7 @@ def parseCommandLine():
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   optCmdLineArgs = parser.parse_args()
-  driver(optCmdLineArgs)
+  return optCmdLineArgs
 
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
@@ -153,6 +153,16 @@ def driver(args):
 
   return
 
-# Invoke parseCommandLine(), the top-level prodedure
-if __name__ == '__main__': parseCommandLine()
+
+
+def main():
+  '''
+  Main procedure that calls the driver.
+  '''
+  args = parseCommandLine()
+  driver(args)
+
+# Invoke main() which calls parseCommandLine() and the driver.
+if __name__ == '__main__':
+  main()
 
