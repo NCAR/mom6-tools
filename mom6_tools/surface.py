@@ -73,7 +73,7 @@ def driver(args):
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
   args.label = diag_config_yml['Case']['SNAME']
-  args.savefigs = True
+  args.savefigs = False
 
   # read grid info
   geom_file = OUTDIR+'/'+args.geom
@@ -118,8 +118,12 @@ def driver(args):
   print('Time elasped: ', datetime.now() - startTime)
 
   # load obs-based mld from oce-catalog
-  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
-  mld_obs = catalog[args.mld_obs].to_dask()
+  try:
+    catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+    mld_obs = catalog[args.mld_obs].to_dask()
+  except:
+    print("No obs available, check config file.")
+    mld_obs = None
 
   # MLD
   get_MLD(ds, 'mlotst', mld_obs, grd, args)
@@ -326,8 +330,9 @@ def get_MLD(ds, var, mld_obs, grd, args):
   # JFM, starting from 0
   months = [0,1,2]
   model_JFM = np.ma.masked_invalid(mld_model.isel(month=months).mean('month').values)
-  obs_JFM = np.ma.masked_invalid(mld_obs.mld.isel(time=months).mean('time').values)
-  obs_JFM = np.ma.masked_where(grd.wet == 0, obs_JFM)
+  if mld_obs:
+    obs_JFM = np.ma.masked_invalid(mld_obs.mld.isel(time=months).mean('time').values)
+    obs_JFM = np.ma.masked_where(grd.wet == 0, obs_JFM)
   month = 'JFM'
   if args.savefigs:
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
@@ -341,8 +346,9 @@ def get_MLD(ds, var, mld_obs, grd, args):
   # JAS, starting from 0
   months = [6,7,8]
   model_JAS = np.ma.masked_invalid(mld_model.isel(month=months).mean('month').values)
-  obs_JAS = np.ma.masked_invalid(mld_obs.mld.isel(time=months).mean('time').values)
-  obs_JAS = np.ma.masked_where(grd.wet == 0, obs_JAS)
+  if mld_obs:
+    obs_JAS = np.ma.masked_invalid(mld_obs.mld.isel(time=months).mean('time').values)
+    obs_JAS = np.ma.masked_where(grd.wet == 0, obs_JAS)
   month = 'JAS'
   if args.savefigs:
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
@@ -354,10 +360,13 @@ def get_MLD(ds, var, mld_obs, grd, args):
             save = fname)
 
   # Winter, JFM (NH) and JAS (SH)
-  model_winter = model_JAS.copy(); obs_winter = obs_JAS.copy()
+  model_winter = model_JAS.copy(); 
+  if mld_obs: obs_winter = obs_JAS.copy()
   # find point closest to eq. and select data
   j = np.abs( grd.geolat[:,0] - 0. ).argmin()
-  model_winter[j::,:] = model_JFM[j::,:]; obs_winter[j::,:] = obs_JFM[j::,:]
+  model_winter[j::,:] = model_JFM[j::,:]; 
+  
+  if mld_obs: obs_winter[j::,:] = obs_JFM[j::,:]
   # create dataarays
   model_winter_da = xr.DataArray(model_winter, dims=['yh','xh'],
                            coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('MLD_winter')
@@ -388,8 +397,11 @@ def get_MLD(ds, var, mld_obs, grd, args):
               ' JFM (NH), JAS (SH)')
 
   # Summer, JFM (SH) and JAS (NH)
-  model_summer = model_JAS.copy(); obs_summer = obs_JAS.copy()
-  model_summer[0:j,:] = model_JFM[0:j,:]; obs_summer[0:j,:] = obs_JFM[0:j,:]
+  model_summer = model_JAS.copy()
+  model_summer[0:j,:] = model_JFM[0:j,:]
+  if mld_obs: 
+    obs_summer = obs_JAS.copy()
+    obs_summer[0:j,:] = obs_JFM[0:j,:]
   # create dataarays
   model_summer_da = xr.DataArray(model_summer, dims=['yh','xh'],
                            coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('MLD_summer')

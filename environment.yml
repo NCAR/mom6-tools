@@ -1,4 +1,4 @@
-name: mom6-tools
+name: mom6-tools-legacy
 channels:
   - conda-forge
   - defaults
