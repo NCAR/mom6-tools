@@ -7,13 +7,11 @@ import warnings, os, yaml, argparse
 import pandas as pd
 import dask, intake
 from datetime import datetime, date
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import get_cluster
 from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery
 from mom6_tools.m6toolbox import weighted_temporal_mean
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
-from distributed import Client
 
 def parseCommandLine():
   """
@@ -85,9 +83,7 @@ def driver(args):
   parallel = False
   if nw > 1:
     parallel = True
-    cluster = NCARCluster()
-    cluster.scale(args.number_of_workers)
-    client = Client(cluster)
+    cluster, client = get_cluster(args.number_of_workers)
 
   print('Reading surface dataset...')
   startTime = datetime.now()

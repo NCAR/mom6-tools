@@ -6,8 +6,7 @@ import numpy as np
 import warnings, dask, netCDF4, intake
 from datetime import datetime, date
 import xarray as xr
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import get_cluster
 from mom6_tools import m6plot
 from mom6_tools.m6toolbox import genBasinMasks, weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import cime_xmlquery
@@ -89,9 +88,7 @@ def main(stream=False):
   parallel = False
   if nw > 1:
     parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+    cluster, client = get_cluster(nw)
 
   print('Reading dataset...')
   startTime = datetime.now()

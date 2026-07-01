@@ -13,8 +13,7 @@ from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from datetime import datetime
-from distributed import Client
-from ncar_jobqueue import NCARCluster
+from mom6_tools.jobqueue import get_cluster
 from collections import OrderedDict
 import yaml, os
 
@@ -639,9 +638,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
   parallel = False
   if args.number_of_workers > 1:
     parallel = True
-    cluster = NCARCluster()
-    cluster.scale(args.number_of_workers)
-    client = Client(cluster)
+    cluster, client = get_cluster(args.number_of_workers)
 
   def preprocess(ds):
     if 'thetao' not in ds.variables:

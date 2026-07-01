@@ -15,8 +15,7 @@ from mom6_tools.MOM6grid import MOM6grid
 import pandas as pd
 import getpass
 from datetime import datetime
-from distributed import Client
-from ncar_jobqueue import NCARCluster
+from mom6_tools.jobqueue import get_cluster
 from collections import OrderedDict
 import yaml, os
 
@@ -580,9 +579,7 @@ def extract_time_series(fname, variables, area, args):
   parallel = False
   if args.nw > 1:
     parallel = True
-    cluster = NCARCluster()
-    cluster.scale(args.nw)
-    client = Client(cluster)
+    cluster, client = get_cluster(args.nw)
 
   def preprocess(ds):
     ''' Return the dataset with variables'''
@@ -652,9 +649,7 @@ def xystats(fname, variables, grd, basins, args):
   parallel = False
   if args.nw > 1:
     parallel = True
-    cluster = NCARCluster()
-    cluster.scale(args.nw)
-    client = Client(cluster)
+    cluster, client = get_cluster(args.nw)
 
   try:
     area = grd.area_t.where(grd.wet > 0)

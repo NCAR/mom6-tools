@@ -244,21 +244,18 @@ def request_workers(nw):
   '''
   if nw>0:
     try:
-      from ncar_jobqueue import NCARCluster
+      from mom6_tools.jobqueue import get_cluster
       import dask
-      from dask.distributed import Client
     except:
       nw = 0
-      warnings.warn("Unable to import the following: ncar_jobqueue, dask and dask.distributed. \
+      warnings.warn("Unable to import the following: dask_jobqueue, dask and dask.distributed. \
              The script will run in serial. Please install these modules if you want \
              to run in parallel.")
 
   if nw>0:
     print('Requesting {} workers... \n'.format(nw))
-    cluster = NCARCluster(project='NCGD0011')
-    cluster.scale(nw)
     dask.config.set({'distributed.dashboard.link': '/proxy/{port}/status'})
-    client = Client(cluster)
+    cluster, client = get_cluster(nw)
     print(cluster.dashboard_link)
     parallel = True
   else:

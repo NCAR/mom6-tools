@@ -10,8 +10,7 @@ import warnings, os, yaml, argparse
 import pandas as pd
 import dask, intake
 from datetime import datetime, date
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import get_cluster
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import weighted_temporal_mean, mom6_latlon2ij, cime_xmlquery
 
@@ -93,9 +92,7 @@ def driver(args):
     parallel = False
     if nw > 1:
         parallel = True
-        cluster = NCARCluster()
-        cluster.scale(nw)
-        client = Client(cluster)
+        cluster, client = get_cluster(nw)
 
     print('Reading monthly dataset ...')
     startTime = datetime.now()

@@ -8,8 +8,7 @@ import nc_time_axis
 import matplotlib.pyplot as plt
 import os, yaml
 from mom6_tools.m6toolbox import cime_xmlquery
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import get_cluster
 from datetime import datetime
 
 try: import argparse
@@ -152,9 +151,7 @@ def main(stream=False):
   parallel = False
   if nw > 1:
     parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+    cluster, client = get_cluster(nw)
 
   args.parallel = parallel
   args.infile = OUTDIR
