@@ -577,11 +577,7 @@ def main(stream=False):
     os.system('mkdir ncfiles')
 
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True)
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
   try:
     area = np.ma.masked_where(grd.wet == 0,grd.area_t)

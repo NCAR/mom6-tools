@@ -66,6 +66,8 @@ def driver(args):
   dcase = DiagsCase(diag_config_yml['Case'])
   RUNDIR = dcase.get_value('RUNDIR')
   args.casename = dcase.casename
+  args.static = args.casename+diag_config_yml['Fnames']['static']
+  args.geom = args.casename+diag_config_yml['Fnames']['geom']
   print('Run directory is:', RUNDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
@@ -76,7 +78,7 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  grd = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc')
+  grd = MOM6grid(RUNDIR+'/'+args.static, RUNDIR+'/'+args.geom)
 
   parallel = False
   if nw > 1:

@@ -80,11 +80,7 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True)
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
   # select Equatorial region
   grd_eq = grd.sel(yh=slice(-10,10))

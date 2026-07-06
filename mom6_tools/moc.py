@@ -66,11 +66,7 @@ def main():
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
 
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file)
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
 
   try:
     depth = grd.depth_ocean

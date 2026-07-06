@@ -76,11 +76,7 @@ def driver(args):
   args.savefigs = True
 
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file)
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
 
   parallel = False
   if nw > 1:

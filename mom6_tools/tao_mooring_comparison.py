@@ -77,11 +77,7 @@ def driver(args):
 
 
     # read grid info
-    geom_file = OUTDIR+'/'+args.geom
-    if os.path.exists(geom_file):
-      grd = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True)
-    else:
-      grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
+    grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
     # Get index for equator on model grid
     jeq = np.abs(grd['geolat'][:,0]).argmin().values

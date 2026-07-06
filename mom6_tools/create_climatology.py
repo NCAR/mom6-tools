@@ -222,11 +222,7 @@ def main():
                        )
 
       # read grid info
-      geom_file = OUTDIR+'/'+args.geom
-      if os.path.exists(geom_file):
-        grd_xr = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True);
-      else:
-        grd_xr = MOM6grid(OUTDIR+'/'+args.static, xrformat=True);
+      grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
       # Process variable in dataset
       process_dataset(ds, grd_xr, start_date, end_date, ocn_diag_root, args.casename, fname)
