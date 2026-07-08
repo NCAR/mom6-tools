@@ -53,12 +53,13 @@ def main(stream=False):
   if not os.path.isdir('PNG/ENSO'):
     print('Creating a directory to place figures (PNG/ENSO)... \n')
     os.system('mkdir -p PNG/ENSO')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to store netcdf files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
+  if not os.path.isdir(ocn_diag_root):
+    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
+    os.system('mkdir ' + ocn_diag_root)
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -213,8 +214,8 @@ def main(stream=False):
     plt.close()
 
   print('Saving netCDF files...')
-  normalized_index_nino34_model_rolling_mean.to_netcdf('ncfiles/'+str(args.casename)+'_nino34_index.nc')
-  fname = "ncfiles/" + str(args.casename)+'_nino34_composite.pkl'
+  normalized_index_nino34_model_rolling_mean.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_nino34_index.nc')
+  fname = ocn_diag_root + "/" + str(args.casename)+'_nino34_composite.pkl'
   with open(fname, "wb") as file:
     pickle.dump(result_model, file)
 

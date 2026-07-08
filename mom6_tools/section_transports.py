@@ -131,14 +131,15 @@ def main(stream=False):
   start = datetime.now()
   # Get options
   args = options()
-  if args.save_ncfile:
-    if not os.path.isdir('ncfiles'):
-      print('Creating a directory to place netCDF file (ncfiles)... \n')
-      os.system('mkdir ncfiles')
 
   nw = args.number_of_workers
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
+  if not os.path.isdir(ocn_diag_root):
+    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
+    os.system('mkdir ' + ocn_diag_root)
+
   # load sections where transports are computed online
   sections = diag_config_yml['Transports']['sections']
   caseroot = diag_config_yml['Case']['CASEROOT']
@@ -191,7 +192,7 @@ def main(stream=False):
     for n in range(len(plotSections)):
       ds.transport.values[n,:] = plotSections[n].data
 
-    ds.to_netcdf('ncfiles/'+args.casename+'_section_transports.nc')
+    ds.to_netcdf(ocn_diag_root+'/'+args.casename+'_section_transports.nc')
 
   print('Plotting {} sections...\n'.format(len(plotSections)))
   imgbufs = []

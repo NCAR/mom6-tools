@@ -47,12 +47,13 @@ def driver(args):
   if not os.path.isdir('PNG/Equatorial'):
     print('Creating a directory to place figures (PNG/Equatorial)... \n')
     os.system('mkdir -p PNG/Equatorial')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
+  if not os.path.isdir(ocn_diag_root):
+    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
+    os.system('mkdir ' + ocn_diag_root)
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -189,12 +190,12 @@ def driver(args):
   attrs = {'casename': args.casename,
            'module': os.path.basename(__file__)}
   add_global_attrs(temp_eq_da,attrs)
-  temp_eq_da.to_netcdf('ncfiles/'+str(args.casename)+'_temp_eq.nc')
+  temp_eq_da.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_temp_eq.nc')
 
   salt_eq_da = xr.DataArray(salt_eq, dims=['zl','xh'],
                            coords={'zl' : z[:,0], 'xh' : x[:]}).rename('salt_eq')
   add_global_attrs(salt_eq_da,attrs)
-  salt_eq_da.to_netcdf('ncfiles/'+str(args.casename)+'_salt_eq.nc')
+  salt_eq_da.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_salt_eq.nc')
 
   # Shift model data to compare against obs
   tmp, lonh = shiftgrid(thetao.xh[-1].values, thetao[0,0,:].values, ds.thetao.xh.values)

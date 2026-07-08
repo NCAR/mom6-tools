@@ -49,12 +49,13 @@ def driver(args):
   if not os.path.isdir('PNG/TS_levels'):
     print('Creating a directory to place figures (PNG)... \n')
     os.system('mkdir -p PNG/TS_levels')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
+  if not os.path.isdir(ocn_diag_root):
+    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
+    os.system('mkdir ' + ocn_diag_root)
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -257,9 +258,9 @@ def driver(args):
            'module': os.path.basename(__file__)}
   # create dataset to store results
   add_global_attrs(temp_stats,attrs)
-  temp_stats.to_netcdf('ncfiles/'+str(args.casename)+'_thetao_bias_ann_mean_stats.nc')
+  temp_stats.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_thetao_bias_ann_mean_stats.nc')
   add_global_attrs(salt_stats,attrs)
-  salt_stats.to_netcdf('ncfiles/'+str(args.casename)+'_so_bias_ann_mean_stats.nc')
+  salt_stats.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_so_bias_ann_mean_stats.nc')
 
   thetao = xr.DataArray(thetao_mean, dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('thetao')
@@ -269,7 +270,7 @@ def driver(args):
                             coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
   add_global_attrs(ds_thetao,attrs)
 
-  ds_thetao.to_netcdf('ncfiles/'+str(args.casename)+'_thetao_time_mean.nc')
+  ds_thetao.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_thetao_time_mean.nc')
   so = xr.DataArray(ds.so.mean('time'), dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('so')
   salt_bias = np.ma.masked_invalid(so.values - obs_salt.values)
@@ -277,7 +278,7 @@ def driver(args):
                             'so_bias' :     (('z_l','yh','xh'), salt_bias)},
                             coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
   add_global_attrs(ds_so,attrs)
-  ds_so.to_netcdf('ncfiles/'+str(args.casename)+'_so_time_mean.nc')
+  ds_so.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_so_time_mean.nc')
   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:

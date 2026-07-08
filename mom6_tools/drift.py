@@ -553,6 +553,7 @@ def main(stream=False):
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
   caseroot = diag_config_yml['Case']['CASEROOT']
+  args.ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
   # Create the case instance
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
@@ -572,9 +573,9 @@ def main(stream=False):
   if not os.path.isdir('PNG/Drift'):
     print('Creating a directory to place figures (PNG)... \n')
     os.system('mkdir -p PNG/Drift')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
+  if not os.path.isdir(args.ocn_diag_root):
+    print('Creating a directory to place netCDF files ({})... \n'.format(args.ocn_diag_root))
+    os.system('mkdir ' + args.ocn_diag_root)
 
   # read grid info
   geom_file = OUTDIR+'/'+args.geom
@@ -731,11 +732,11 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
 
   if args.drift:
     add_global_attrs(drift,attrs)
-    drift.to_netcdf('ncfiles/'+str(args.casename)+'_{}_drift.nc'.format(var))
+    drift.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_{}_drift.nc'.format(var))
 
   if args.rms:
     add_global_attrs(rms,attrs)
-    rms.to_netcdf('ncfiles/'+str(args.casename)+'_{}_rmse.nc'.format(var))
+    rms.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_{}_rmse.nc'.format(var))
 
   if args.savefig:
     # save plots

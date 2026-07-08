@@ -49,12 +49,13 @@ def main(stream=False):
   if not os.path.isdir('PNG/AAIW_PV'):
     print('Creating a directory to place figures (PNG/AAIW_PV)... \n')
     os.system('mkdir -p PNG/AAIW_PV')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to store netcdf files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
+  if not os.path.isdir(ocn_diag_root):
+    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
+    os.system('mkdir ' + ocn_diag_root)
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -179,7 +180,7 @@ def main(stream=False):
   add_global_attrs(pv,attrs)
   pv = pv.rename('pv')
   print('Saving netCDF files...')
-  pv.to_netcdf('ncfiles/'+str(args.casename)+'_AAIW_PV.nc')
+  pv.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_AAIW_PV.nc')
 
   if parallel:
     print('Releasing workers...')

@@ -38,12 +38,13 @@ def main(stream=False):
   if not os.path.isdir('PNG/HT'):
     print('Creating a directory to place figures (PNG/HT)... \n')
     os.system('mkdir -p PNG/HT')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to store netcdf files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
+  if not os.path.isdir(ocn_diag_root):
+    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
+    os.system('mkdir ' + ocn_diag_root)
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -179,7 +180,7 @@ def main(stream=False):
   attrs = {'description': 'Time series of poleward heat transport by components at 26.5 N (Atlantic) \
            and Equator (Global and Atlantic).','units': ds[varName].units, 'casename': args.casename}
   add_global_attrs(ds_ts,attrs)
-  ds_ts.to_netcdf('ncfiles/'+args.casename+'_heat_transport_ts.nc')
+  ds_ts.to_netcdf(ocn_diag_root+'/'+args.casename+'_heat_transport_ts.nc')
 
   if parallel:
     print('Releasing workers...')
@@ -190,7 +191,7 @@ def main(stream=False):
        'start_date': args.start_date, 'end_date': args.end_date, 'casename': args.casename}
   add_global_attrs(ds_mean,attrs)
 
-  ds_mean.to_netcdf('ncfiles/'+args.casename+'_heat_transport.nc')
+  ds_mean.to_netcdf(ocn_diag_root+'/'+args.casename+'_heat_transport.nc')
   # create a ndarray subclass
   class C(np.ndarray): pass
 

@@ -45,12 +45,13 @@ def driver(args):
     if not os.path.isdir('PNG/TAOMooring'):
         print('Creating a directory to place figures (PNG/TAOMooring)... \n')
         os.system('mkdir -p PNG/TAOMooring')
-    if not os.path.isdir('ncfiles'):
-        print('Creating a directory to place netCDF files (ncfiles)... \n')
-        os.system('mkdir ncfiles')
 
     # Read in the yaml file
     diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+    ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
+    if not os.path.isdir(ocn_diag_root):
+      print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
+      os.system('mkdir ' + ocn_diag_root)
 
     caseroot = diag_config_yml['Case']['CASEROOT']
     args.casename = cime_xmlquery(caseroot, 'CASE')

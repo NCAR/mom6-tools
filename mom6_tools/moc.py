@@ -36,10 +36,13 @@ def main():
 
   nw = args.number_of_workers
   os.makedirs('PNG/MOC', exist_ok=True)
-  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
+  if not os.path.isdir(ocn_diag_root):
+    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
+    os.system('mkdir ' + ocn_diag_root)
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -383,7 +386,7 @@ def main():
   moc['moc_GM'].data = psiPlot
 
   print('Saving netCDF files...')
-  moc.to_netcdf('ncfiles/'+str(casename)+'_MOC.nc')
+  moc.to_netcdf(ocn_diag_root+'/'+str(casename)+'_MOC.nc')
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
