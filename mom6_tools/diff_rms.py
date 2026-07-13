@@ -546,7 +546,6 @@ def main(stream=False):
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
   # set avg dates
   avg = diag_config_yml['Avg']
   if not args.start_date : args.start_date = avg['start_date']
@@ -554,6 +553,7 @@ def main(stream=False):
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
+  args.ocn_diag_root = dcase.create_output_dir()
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
@@ -567,9 +567,6 @@ def main(stream=False):
   if not os.path.isdir('PNG/Horizontal_mean_biases'):
     print('Creating a directory to place figures (PNG)... \n')
     os.system('mkdir -p PNG/Horizontal_mean_biases')
-  if not os.path.isdir(ocn_diag_root):
-    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
-    os.system('mkdir ' + ocn_diag_root)
 
   # read grid
   grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc', xrformat=True)
@@ -740,13 +737,13 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
            'obs': args.obs,
            'module': os.path.basename(__file__)}
   add_global_attrs(temp_bias,attrs)
-  temp_bias.to_netcdf('diag'+str(dcase.casename)+'_temp_bias.nc')
+  temp_bias.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_temp_bias.nc')
   add_global_attrs(salt_bias,attrs)
-  salt_bias.to_netcdf(ocn_diag_root+'/'+str(dcase.casename)+'_salt_bias.nc')
+  salt_bias.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_salt_bias.nc')
   add_global_attrs(temp_rms,attrs)
-  temp_rms.to_netcdf(ocn_diag_root+'/'+str(dcase.casename)+'_temp_rms.nc')
+  temp_rms.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_temp_rms.nc')
   add_global_attrs(salt_rms,attrs)
-  salt_rms.to_netcdf(ocn_diag_root+'/'+str(dcase.casename)+'_salt_rms.nc')
+  salt_rms.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_salt_rms.nc')
 
   # temperature
   for reg in temp_bias.region:

@@ -12,6 +12,7 @@ from mom6_tools.ClimoGenerator import ClimoGenerator
 from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 import pandas as pd
 import getpass
 from datetime import datetime
@@ -381,10 +382,8 @@ def main(stream=False):
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  args.ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
-  if not os.path.isdir(args.ocn_diag_root):
-    print('Creating a directory to store netcdf files ({})... \n'.format(args.ocn_diag_root))
-    os.system('mkdir ' + args.ocn_diag_root)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  args.ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   # Create the case instance

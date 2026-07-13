@@ -44,13 +44,10 @@ def driver(args):
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
-  if not os.path.isdir(ocn_diag_root):
-    print('Creating a directory to store netCDF files ({})... \n'.format(ocn_diag_root))
-    os.system('mkdir ' + ocn_diag_root)
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'

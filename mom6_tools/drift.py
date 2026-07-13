@@ -12,6 +12,7 @@ from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs, weighted_tempo
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 from datetime import datetime
 from distributed import Client
 from ncar_jobqueue import NCARCluster
@@ -553,7 +554,8 @@ def main(stream=False):
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
   caseroot = diag_config_yml['Case']['CASEROOT']
-  args.ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
+  dcase = DiagsCase(diag_config_yml['Case'])
+  args.ocn_diag_root = dcase.create_output_dir()
   # Create the case instance
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
@@ -573,9 +575,6 @@ def main(stream=False):
   if not os.path.isdir('PNG/Drift'):
     print('Creating a directory to place figures (PNG)... \n')
     os.system('mkdir -p PNG/Drift')
-  if not os.path.isdir(args.ocn_diag_root):
-    print('Creating a directory to place netCDF files ({})... \n'.format(args.ocn_diag_root))
-    os.system('mkdir ' + args.ocn_diag_root)
 
   # read grid info
   geom_file = OUTDIR+'/'+args.geom

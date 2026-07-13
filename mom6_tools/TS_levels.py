@@ -14,6 +14,7 @@ from mom6_tools.m6toolbox import add_global_attrs, genBasinMasks, weighted_tempo
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.m6plot import xycompare, polarcomparison, chooseColorLevels
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.stats import stats_to_ds, min_da, max_da, mean_da, rms_da, std_da
 
 def parseCommandLine():
@@ -52,10 +53,8 @@ def driver(args):
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
-  if not os.path.isdir(ocn_diag_root):
-    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
-    os.system('mkdir ' + ocn_diag_root)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')

@@ -19,6 +19,7 @@ from mom6_tools.m6toolbox import weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import geoslice
 import matplotlib.pyplot as plt
 import yaml, os, intake, pickle
+from mom6_tools.DiagsCase import DiagsCase
 
 
 def options():
@@ -56,10 +57,8 @@ def main(stream=False):
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
-  if not os.path.isdir(ocn_diag_root):
-    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
-    os.system('mkdir ' + ocn_diag_root)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')

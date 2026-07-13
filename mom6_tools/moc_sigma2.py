@@ -13,6 +13,7 @@ from dask.distributed import Client
 from mom6_tools import m6plot
 from mom6_tools  import m6toolbox
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 
 def options():
   try: import argparse
@@ -45,10 +46,8 @@ def main():
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
-  if not os.path.isdir(ocn_diag_root):
-    print('Creating a directory to store netCDF files ({})... \n'.format(ocn_diag_root))
-    os.system('mkdir ' + ocn_diag_root)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')

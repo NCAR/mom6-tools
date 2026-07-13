@@ -50,13 +50,11 @@ def main():
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  ocn_diag_root = diag_config_yml['Case']['OCN_DIAG_ROOT']
-  if not os.path.isdir(ocn_diag_root):
-    print('Creating a directory to store netcdf files ({})... \n'.format(ocn_diag_root))
-    os.system('mkdir ' + ocn_diag_root)
+  case_config['Case']['OCN_DIAG_ROOT'] = diag_config_yml['Case']['OCN_DIAG_ROOT']
 
   # Create the case instance
   dcase = DiagsCase(case_config['Case'])
+  ocn_diag_root = dcase.create_output_dir()
   RUNDIR = dcase.get_value('RUNDIR')
   DOUT_S_ROOT = dcase.get_value('DOUT_S_ROOT')
   if args.debug:
