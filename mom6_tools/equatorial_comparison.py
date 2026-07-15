@@ -100,10 +100,7 @@ def driver(args):
   # load johnson_pmel
   johnson =catalog['eq-uvts-johnson'].to_dask()
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster, client = get_cluster(nw)
+  parallel, cluster, client = get_cluster(nw)
 
   print('Reading monthly dataset...')
   startTime = datetime.now()

@@ -94,10 +94,7 @@ def main(stream=False):
   except:
     depth = grd.deptho
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster, client = get_cluster(nw)
+  parallel, cluster, client = get_cluster(nw)
 
   def preprocess(ds):
     ''' Return a dataset desired variables'''

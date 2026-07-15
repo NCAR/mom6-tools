@@ -103,10 +103,7 @@ def main():
 
   grid = Grid(grd_xr, coords=coords, periodic=['X'], autoparse_metadata=False)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster, client = get_cluster(nw)
+  parallel, cluster, client = get_cluster(nw)
 
   print('Reading {} dataset...'.format(args.sigma2))
   startTime = datetime.now()

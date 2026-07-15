@@ -85,10 +85,7 @@ def main(stream=False):
   basin_code = genBasinMasks(grd.geolon, grd.geolat, depth)
   basin_code_xr = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster, client = get_cluster(nw)
+  parallel, cluster, client = get_cluster(nw)
 
   print('Reading dataset...')
   startTime = datetime.now()

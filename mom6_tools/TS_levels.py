@@ -102,10 +102,7 @@ def driver(args):
   obs_temp = obs.thetao
   obs_salt = obs.so
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster, client = get_cluster(nw)
+  parallel, cluster, client = get_cluster(nw)
 
   print('Reading dataset...')
   startTime = datetime.now()

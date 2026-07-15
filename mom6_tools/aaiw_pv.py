@@ -93,10 +93,7 @@ def main(stream=False):
   # Coriolis
   coriolis = ml.derived.calc_coriolis(grd.geolat)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster, client = get_cluster(nw)
+  parallel, cluster, client = get_cluster(nw)
 
   def preprocess(ds):
     ''' Return a dataset desired variables'''

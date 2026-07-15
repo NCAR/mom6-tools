@@ -80,10 +80,7 @@ def driver(args):
   else:
     grd = MOM6grid(OUTDIR+'/'+args.static)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster, client = get_cluster(args.number_of_workers)
+  parallel, cluster, client = get_cluster(args.number_of_workers)
 
   print('Reading surface dataset...')
   startTime = datetime.now()

@@ -66,10 +66,7 @@ def driver(args):
   # read grid info
   grd = MOM6grid(RUNDIR+'/'+args.casename+'.mom6.static.nc')
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster, client = get_cluster(args.number_of_workers)
+  parallel, cluster, client = get_cluster(args.number_of_workers)
 
   print('Reading {} dataset...'.format(args.file_name))
   startTime = datetime.now()

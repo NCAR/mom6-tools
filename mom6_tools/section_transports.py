@@ -148,10 +148,7 @@ def main(stream=False):
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster, client = get_cluster(nw)
+  parallel, cluster, client = get_cluster(nw)
 
   args.parallel = parallel
   args.infile = OUTDIR
@@ -210,6 +207,9 @@ def main(stream=False):
 
   print('Total time elasped: ', datetime.now() - start)
   print('{} was run successfully!'.format(os.path.basename(__file__)))
+  
+  # release workers
+  client.close(); cluster.close()
 
   if stream is True: imgbufs.append(objOut)
 

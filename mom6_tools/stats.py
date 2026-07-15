@@ -576,10 +576,7 @@ def extract_time_series(fname, variables, area, args):
     NetCDF file with annual means.
 
   '''
-  parallel = False
-  if args.nw > 1:
-    parallel = True
-    cluster, client = get_cluster(args.nw)
+  parallel, cluster, client = get_cluster(args.nw)
 
   def preprocess(ds):
     ''' Return the dataset with variables'''
@@ -646,10 +643,7 @@ def xystats(fname, variables, grd, basins, args):
     Plots min, max, mean, std and rms for variables provided and for different basins.
 
   '''
-  parallel = False
-  if args.nw > 1:
-    parallel = True
-    cluster, client = get_cluster(args.nw)
+  parallel, cluster, client = get_cluster(args.nw)
 
   try:
     area = grd.area_t.where(grd.wet > 0)

@@ -9,7 +9,7 @@ import nbformat
 from scipy.io import netcdf
 import xarray as xr
 from collections import OrderedDict
-import warnings, subprocess
+import subprocess
 
 def filter_vars_2D_tracers(ds):
     """Keep only 2D variables at tracer points."""
@@ -236,33 +236,6 @@ def shiftgrid(lon0,datain,lonsin,start=True,cyclic=360.0):
         lonsout[i0_shift:] = lonsin[start_idx:i0+start_idx]
     dataout[...,i0_shift:] = datain[...,start_idx:i0+start_idx]
     return dataout,lonsout
-
-def request_workers(nw):
-  '''
-  If nw > 0, load appropriate modules, requests nw workers, and returns parallel = True,
-  and objects for cluster and client. Otherwise, do nothing and returns parallel = False.
-  '''
-  if nw>0:
-    try:
-      from mom6_tools.jobqueue import get_cluster
-      import dask
-    except:
-      nw = 0
-      warnings.warn("Unable to import the following: dask_jobqueue, dask and dask.distributed. \
-             The script will run in serial. Please install these modules if you want \
-             to run in parallel.")
-
-  if nw>0:
-    print('Requesting {} workers... \n'.format(nw))
-    dask.config.set({'distributed.dashboard.link': '/proxy/{port}/status'})
-    cluster, client = get_cluster(nw)
-    print(cluster.dashboard_link)
-    parallel = True
-  else:
-    print('No workers requested... \n')
-    parallel = False
-    cluster = None; client = None
-  return parallel, cluster, client
 
 def section2quadmesh(x, z, q, representation='pcm'):
   """

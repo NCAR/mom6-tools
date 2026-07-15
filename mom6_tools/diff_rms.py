@@ -635,10 +635,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
 
   if args.debug: print('OUTDIR:', OUTDIR)
 
-  parallel = False
-  if args.number_of_workers > 1:
-    parallel = True
-    cluster, client = get_cluster(args.number_of_workers)
+  parallel, cluster, client = get_cluster(args.number_of_workers)
 
   def preprocess(ds):
     if 'thetao' not in ds.variables:

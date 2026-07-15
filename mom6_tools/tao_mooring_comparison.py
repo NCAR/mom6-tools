@@ -89,10 +89,7 @@ def driver(args):
     # load obs
     path_obs = '/glade/campaign/cgd/oce/datasets/obs/TAO_adcp_mon'
 
-    parallel = False
-    if nw > 1:
-        parallel = True
-        cluster, client = get_cluster(nw)
+    parallel, cluster, client = get_cluster(nw)
 
     print('Reading monthly dataset ...')
     startTime = datetime.now()

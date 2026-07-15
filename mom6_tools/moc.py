@@ -80,10 +80,7 @@ def main():
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
   basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, verbose=False, xda=True)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster, client = get_cluster(nw)
+  parallel, cluster, client = get_cluster(nw)
 
   print('Reading {} dataset...'.format(args.monthly))
   startTime = datetime.now()
