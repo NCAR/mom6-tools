@@ -27,8 +27,9 @@ dependencies:
   - intake
   - nc-time-axis
   - intake-xarray
-  - setuptools=68.0.0
+  - setuptools=78.1.1
   - ipykernel
+  - jupyter-book<2
   - pip
   - pip:
     - setuptools-scm

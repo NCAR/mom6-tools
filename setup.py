@@ -50,4 +50,31 @@ setup(
     use_scm_version={'version_scheme': 'post-release', 'local_scheme': 'dirty-tag'},
     setup_requires=['setuptools_scm', 'setuptools>=30.3.0'],
     zip_safe=False,
+    entry_points={
+        'console_scripts': [
+            'mom6-tools_aaiw_pv=mom6_tools.aaiw_pv:main',
+            'mom6-tools_buoyancy_flux=mom6_tools.buoyancy_flux:main',
+            'mom6-tools_compute_basin_reductions=mom6_tools.compute_basin_reductions:main',
+            'mom6-tools_create_cesm_diagnostics=mom6_tools.create_cesm_diagnostics:main',
+            'mom6-tools_create_climatology=mom6_tools.create_climatology:main',
+            'mom6-tools_create_mom6_tools=mom6_tools.create_mom6_tools:main',
+            'mom6-tools_diff_rms=mom6_tools.diff_rms:main',
+            'mom6-tools_drift=mom6_tools.drift:main',
+            'mom6-tools_enso=mom6_tools.enso:main',
+            'mom6-tools_equatorial_comparison=mom6_tools.equatorial_comparison:main',
+            'mom6-tools_forcing=mom6_tools.forcing:main',
+            'mom6-tools_latlon_analysis=mom6_tools.latlon_analysis:main',
+            'mom6-tools_moc=mom6_tools.moc:main',
+            'mom6-tools_moc_sigma2=mom6_tools.moc_sigma2:main',
+            'mom6-tools_mom6_xyplot=mom6_tools.mom6_xyplot:main',
+            'mom6-tools_poleward_heat_transport=mom6_tools.poleward_heat_transport:main',
+            'mom6-tools_section_transports=mom6_tools.section_transports:main',
+            'mom6-tools_stats=mom6_tools.stats:main',
+            'mom6-tools_surface=mom6_tools.surface:main',
+            'mom6-tools_tao_mooring_comparison=mom6_tools.tao_mooring_comparison:main',
+            'mom6-tools_TS_levels=mom6_tools.TS_levels:main',
+            'mom6-tools_verticalvelocity=mom6_tools.verticalvelocity:main',
+            'mom6-tools_wind_stress=mom6_tools.wind_stress:main',
+        ]
+    }
 )

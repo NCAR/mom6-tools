@@ -39,7 +39,7 @@ def parseCommandLine():
                               to compare against. Default is woa-2018-tx2_3v2-annual-all''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   optCmdLineArgs = parser.parse_args()
-  driver(optCmdLineArgs)
+  return optCmdLineArgs
 
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
@@ -427,6 +427,16 @@ def score_plot2(x,y,vals, cmin=None, cmap=plt.cm.bwr,title='',nbins=50, units=''
 
   plt.close()
   return
-# Invoke parseCommandLine(), the top-level prodedure
-if __name__ == '__main__': parseCommandLine()
+
+
+def main():
+  '''
+  Main procedure that calls the driver.
+  '''
+  args = parseCommandLine()
+  driver(args)
+
+# Invoke main() which calls parseCommandLine() and the driver.
+if __name__ == '__main__':
+  main()
 
