@@ -143,25 +143,23 @@ def main(stream=False):
   ds_mean = ds_ann.mean('time').load()
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Extract time series at 26.5 (Atlantic)...')
+  print('Extracting time series (Global and Atlantic)...')
   startTime = datetime.now()
-  # Heat Transport Time Series at 26.5°N (Atlantic)
-  ds_atl_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=26.5,
-                method='nearest').sum('xh').drop(['yq', 'region'])
-  # Build a rename mapping
-  rename_dict = {var: f"{var}_rapid" for var in ds_atl_ts.data_vars}
-  # Apply renaming
-  ds_atl_ts = ds_atl_ts.rename(rename_dict)
-  print('Time elasped: ', datetime.now() - startTime)
 
-  print('Extract time series at the Equator (Global and Atlantic)...')
-  startTime = datetime.now()
   # Heat Transport Time Series at the Equator (Global)
   ds_global_eq_ts =  ds.sel(yq=0.0, method='nearest').sum('xh').drop('yq')
   # Build a rename mapping
   rename_dict = {var: f"{var}_global_eq" for var in ds_global_eq_ts.data_vars}
   # Apply renaming
   ds_global_eq_ts = ds_global_eq_ts.rename(rename_dict)
+
+  # Heat Transport Time Series at 60S (Global)
+  ds_global_60S_ts =  ds.sel(yq=-60.0, method='nearest').sum('xh').drop('yq')
+  # Build a rename mapping
+  rename_dict = {var: f"{var}_global_60S" for var in ds_global_60S_ts.data_vars}
+  # Apply renaming
+  ds_global_60S_ts = ds_global_60S_ts.rename(rename_dict)
+
   # Heat Transport Time Series at the Equator (Atlantic)
   ds_atl_eq_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=0.0,
                   method='nearest').sum('xh').drop(['yq','region'])
@@ -169,15 +167,33 @@ def main(stream=False):
   rename_dict = {var: f"{var}_atl_eq" for var in ds_atl_eq_ts.data_vars}
   # Apply renaming
   ds_atl_eq_ts = ds_atl_eq_ts.rename(rename_dict)
+
+  # Heat Transport Time Series at 26.5°N (Atlantic)
+  ds_atl_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=26.5,
+                method='nearest').sum('xh').drop(['yq', 'region'])
+  # Build a rename mapping
+  rename_dict = {var: f"{var}_rapid" for var in ds_atl_ts.data_vars}
+  # Apply renaming
+  ds_atl_ts = ds_atl_ts.rename(rename_dict)
+
+  # Heat Transport Time Series at 75N (Atlantic)
+  ds_atl_75N_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=75.0,
+                  method='nearest').sum('xh').drop(['yq','region'])
+  # Build a rename mapping
+  rename_dict = {var: f"{var}_atl_75N" for var in ds_atl_75N_ts.data_vars}
+  # Apply renaming
+  ds_atl_75N_ts = ds_atl_75N_ts.rename(rename_dict)
+
   print('Time elasped: ', datetime.now() - startTime)
 
   # save time series
   # Merge along time dimension
-  ds_ts = xr.merge([ds_atl_ts, ds_atl_eq_ts, ds_global_eq_ts])
+  ds_ts = xr.merge([ds_atl_ts, ds_atl_eq_ts, ds_global_eq_ts, ds_atl_75N_ts, ds_global_60S_ts])
   varName = 'T_ady_2d'
   print('Saving time series...')
-  attrs = {'description': 'Time series of poleward heat transport by components at 26.5 N (Atlantic) \
-           and Equator (Global and Atlantic).','units': ds[varName].units, 'casename': args.casename}
+  attrs = {'description': 'Time series of poleward heat transport by components at Eq., 26.5 N and 75N (Atlantic) '
+                          'and Eq. and 60S (Global).',
+                          'units': ds[varName].units, 'casename': args.casename}
   add_global_attrs(ds_ts,attrs)
   ds_ts.to_netcdf('ncfiles/'+args.casename+'_heat_transport_ts.nc')
 
