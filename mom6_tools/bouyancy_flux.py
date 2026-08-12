@@ -55,15 +55,13 @@ def driver(args):
   g = args.gravity
   rho_0 = args.mean_density
   c_p = args.heat_capacity
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
   RUNDIR = dcase.get_value('RUNDIR')
   args.casename = dcase.casename
   args.static = args.casename+diag_config_yml['Fnames']['static']
@@ -129,7 +127,7 @@ def driver(args):
   # beta [kg m-3 PSU-1] need to divide by rho_0 to get PSU-1
   beta = beta_wright_eos(state.tos,state.sos,np.zeros(state.sos.shape))/rho_0
 
-  alpha.to_netcdf('ncfiles/'+str(args.casename)+'_alpha.nc')
+  alpha.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_alpha.nc')
   # BHF [m s-3], alpha is negative so we need a - sign below
   BHF = -alpha * g * frc.hfds / (c_p * rho_0)
 
@@ -186,7 +184,7 @@ def driver(args):
              )
 
   #add_global_attrs(bflux_da,attrs)
-  bflux_da.to_netcdf('ncfiles/'+str(args.casename)+'_bouyancy_flux.nc')
+  bflux_da.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_bouyancy_flux.nc')
 
   if parallel:
     print('\n Releasing workers...')

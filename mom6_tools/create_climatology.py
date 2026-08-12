@@ -42,10 +42,10 @@ def submit_pbs_script(var, stream, fname):
     #PBS -o {fname}/{fname}_{var}.o
     #PBS -j oe
 
-    source ~/.bashrc
-    conda activate /glade/work/gmarques/conda-envs/mom6-tools
+    module load conda
+    conda activate mom6-tools
 
-    create_climatology.py diag_config.yml -v {var} -s {stream} -f {fname}
+    mom6-tools_create_climatology diag_config.yml -v {var} -s {stream} -f {fname}
     """)
 
     # Create the directory if it does not exist

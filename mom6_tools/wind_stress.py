@@ -45,15 +45,13 @@ def parseCommandLine():
 def driver(args):
   nw = args.number_of_workers
   fname = args.file_name
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
   RUNDIR = dcase.get_value('RUNDIR')
   args.casename = dcase.casename
   args.static = args.casename+diag_config_yml['Fnames']['static']
@@ -147,7 +145,7 @@ def driver(args):
                       'module': os.path.basename(__file__)}
              )
 
-  wind_da.to_netcdf('ncfiles/'+str(args.casename)+'_wind_stress.nc')
+  wind_da.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_wind_stress.nc')
 
   if parallel:
     print('\n Releasing workers...')

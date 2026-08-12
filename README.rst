@@ -24,11 +24,7 @@ Installation
     cd mom6-tools
     conda env create --file environment.yml
 
-3. Add ``mom6-tools/mom6_tools`` to path, e.g., add this line to ``~/.bashrc``::
-
-    export PATH=$PATH:/glade/work/${USER}/mom6-tools/mom6_tools/
-
-4. Register ``mom6-tools`` in ``ipykernel``::
+3. Register ``mom6-tools`` in ``ipykernel``::
 
     conda run -n mom6-tools python -m ipykernel install --user --name mom6-tools
 

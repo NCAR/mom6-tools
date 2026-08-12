@@ -14,6 +14,7 @@ from mom6_tools.m6toolbox import add_global_attrs, genBasinMasks, weighted_tempo
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.m6plot import xycompare, polarcomparison, chooseColorLevels
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.stats import stats_to_ds, min_da, max_da, mean_da, rms_da, std_da
 
 def parseCommandLine():
@@ -49,12 +50,11 @@ def driver(args):
   if not os.path.isdir('PNG/TS_levels'):
     print('Creating a directory to place figures (PNG)... \n')
     os.system('mkdir -p PNG/TS_levels')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -252,9 +252,9 @@ def driver(args):
            'module': os.path.basename(__file__)}
   # create dataset to store results
   add_global_attrs(temp_stats,attrs)
-  temp_stats.to_netcdf('ncfiles/'+str(args.casename)+'_thetao_bias_ann_mean_stats.nc')
+  temp_stats.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_thetao_bias_ann_mean_stats.nc')
   add_global_attrs(salt_stats,attrs)
-  salt_stats.to_netcdf('ncfiles/'+str(args.casename)+'_so_bias_ann_mean_stats.nc')
+  salt_stats.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_so_bias_ann_mean_stats.nc')
 
   thetao = xr.DataArray(thetao_mean, dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('thetao')
@@ -264,7 +264,7 @@ def driver(args):
                             coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
   add_global_attrs(ds_thetao,attrs)
 
-  ds_thetao.to_netcdf('ncfiles/'+str(args.casename)+'_thetao_time_mean.nc')
+  ds_thetao.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_thetao_time_mean.nc')
   so = xr.DataArray(ds.so.mean('time'), dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('so')
   salt_bias = np.ma.masked_invalid(so.values - obs_salt.values)
@@ -272,7 +272,7 @@ def driver(args):
                             'so_bias' :     (('z_l','yh','xh'), salt_bias)},
                             coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
   add_global_attrs(ds_so,attrs)
-  ds_so.to_netcdf('ncfiles/'+str(args.casename)+'_so_time_mean.nc')
+  ds_so.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_so_time_mean.nc')
   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:

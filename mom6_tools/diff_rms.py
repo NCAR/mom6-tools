@@ -556,6 +556,7 @@ def main(stream=False):
   args.casename = dcase.casename
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.ocn_diag_root = dcase.create_output_dir()
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
@@ -569,9 +570,6 @@ def main(stream=False):
   if not os.path.isdir('PNG/Horizontal_mean_biases'):
     print('Creating a directory to place figures (PNG)... \n')
     os.system('mkdir -p PNG/Horizontal_mean_biases')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # read grid
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
@@ -742,13 +740,13 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
            'obs': args.obs,
            'module': os.path.basename(__file__)}
   add_global_attrs(temp_bias,attrs)
-  temp_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_bias.nc')
+  temp_bias.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_temp_bias.nc')
   add_global_attrs(salt_bias,attrs)
-  salt_bias.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_bias.nc')
+  salt_bias.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_salt_bias.nc')
   add_global_attrs(temp_rms,attrs)
-  temp_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_temp_rms.nc')
+  temp_rms.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_temp_rms.nc')
   add_global_attrs(salt_rms,attrs)
-  salt_rms.to_netcdf('ncfiles/'+str(dcase.casename)+'_salt_rms.nc')
+  salt_rms.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_salt_rms.nc')
 
   # temperature
   for reg in temp_bias.region:

@@ -28,7 +28,7 @@ def parse_args():
         "over specified basin masks to extract and average/integrate the variable within each region.")
     parser.add_argument('config_yml', type=str, help='Path to YAML configuration file.')
     parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty, it will process all 2D variables on tracer points).')
-    parser.add_argument('-s', '--stream', type=str, default='.mom6.h.native.????-??.nc', help='History file stream (default is .mom6.h.native.????-??.nc)')
+    parser.add_argument('-s', '--stream', type=str, default='.mom6.h.native.*.nc', help='History file stream (default is .mom6.h.native.*.nc)')
     parser.add_argument('-f', '--fname', type=str, default='native', help='Name of the history file stream (default is native)')
     parser.add_argument('-sd', '--start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
     parser.add_argument('-ed', '--end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
