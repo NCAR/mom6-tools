@@ -8,8 +8,7 @@ import nc_time_axis
 import matplotlib.pyplot as plt
 import os, yaml
 from mom6_tools.m6toolbox import cime_xmlquery
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import get_cluster
 from datetime import datetime
 
 try: import argparse
@@ -149,12 +148,7 @@ def main(stream=False):
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw)
 
   args.parallel = parallel
   args.infile = OUTDIR
@@ -213,6 +207,9 @@ def main(stream=False):
 
   print('Total time elasped: ', datetime.now() - start)
   print('{} was run successfully!'.format(os.path.basename(__file__)))
+  
+  # release workers
+  client.close(); cluster.close()
 
   if stream is True: imgbufs.append(objOut)
 

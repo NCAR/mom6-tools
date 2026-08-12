@@ -8,8 +8,7 @@ import warnings, os, yaml, argparse
 import pandas as pd
 import dask, intake
 from datetime import datetime, date
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import get_cluster
 from mom6_tools.m6plot import yzcompare, yzplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import shiftgrid, add_global_attrs, weighted_temporal_mean_vars
@@ -101,12 +100,7 @@ def driver(args):
   # load johnson_pmel
   johnson =catalog['eq-uvts-johnson'].to_dask()
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw)
 
   print('Reading monthly dataset...')
   startTime = datetime.now()

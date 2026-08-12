@@ -9,8 +9,6 @@ import textwrap
 import subprocess
 import argparse, warnings
 from datetime import datetime
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import cime_xmlquery, filter_vars, replace_cell_content
 from mom6_tools.MOM6grid import MOM6grid

@@ -36,7 +36,6 @@ Installation
 Notes 
 ----------------------------
 
-1. Make sure the project account is added to ``~/.config/dask/ncar-jobqueue.yaml``.
-
-2. If running on Casper, change ``casper`` to ``casper-dav`` in ``~/.config/dask/ncar-jobqueue.yaml``.
+1. If running on HPC, make sure the project account is added to ``~/.config/dask/jobqueue.yaml``. Or set a default account as an environment variable that your scheduler can access. 
+2. If you want to use a local cluster instead, you can use ```cluster, client = get_cluster(n_workers, cluster_class=LocalCluster)``` and additional kwargs to bypass dask_jobqueue's cluster options.
 

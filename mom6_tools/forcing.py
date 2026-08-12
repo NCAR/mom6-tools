@@ -7,13 +7,11 @@ import warnings, os, yaml, argparse
 import pandas as pd
 import dask
 from datetime import datetime, date
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import get_cluster
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import add_global_attrs
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
-from distributed import Client
 
 def parseCommandLine():
   """
@@ -69,12 +67,7 @@ def driver(args):
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc')
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(args.number_of_workers)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(args.number_of_workers)
 
   print('Reading forcing dataset...')
   startTime = datetime.now()

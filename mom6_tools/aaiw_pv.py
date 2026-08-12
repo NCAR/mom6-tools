@@ -6,8 +6,7 @@ import numpy as np
 import warnings, dask, netCDF4, intake
 from datetime import datetime, date
 import xarray as xr
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import get_cluster
 import momlevel as ml
 from mom6_tools import m6plot
 from mom6_tools.m6toolbox import genBasinMasks
@@ -94,12 +93,7 @@ def main(stream=False):
   # Coriolis
   coriolis = ml.derived.calc_coriolis(grd.geolat)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw)
 
   def preprocess(ds):
     ''' Return a dataset desired variables'''

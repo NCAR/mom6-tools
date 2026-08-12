@@ -10,8 +10,9 @@ import warnings
 import os, yaml
 from mom6_tools import m6plot
 from mom6_tools.MOM6grid import MOM6grid
-from mom6_tools.m6toolbox import weighted_temporal_mean_vars, request_workers
+from mom6_tools.m6toolbox import weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.jobqueue import get_cluster
 
 class MyError(Exception):
   """
@@ -129,16 +130,11 @@ def plot_area_ave_stats(ds, var, args, aspect=[16,9], resolution=576, debug=Fals
 # -- time-average 2D latlon fields and call plotting function
 def time_mean_latlon(args, grd, variables=[]):
 
-  if args.nw>1:
-    parallel, cluster, client = request_workers(args.nw)
+  parallel, cluster, client = get_cluster(args.nw)
 
-    ds = xr.open_mfdataset(args.infile, \
-         parallel=True, data_vars='minimal', chunks={'time': 12},\
-         coords='minimal', compat='override')
-  else:
-    ds = xr.open_mfdataset(args.infile, \
-         data_vars='minimal', chunks={'time': 12},\
-         coords='minimal', compat='override')
+  ds = xr.open_mfdataset(args.infile, \
+       parallel=parallel, data_vars='minimal', chunks={'time': 12},\
+       coords='minimal', compat='override')
 
   if len(variables) == 0:
     # plot all 2D varialbles in the dataset
@@ -197,7 +193,7 @@ def time_mean_latlon(args, grd, variables=[]):
       #if args.to_netcdf:
       # save in a netcdf file
       #ds.to_netcdf('ncfiles/'+args.case_name+'_stats.nc')
-  if args.nw>1:
+  if parallel:
     client.close(); cluster.close()
 
   return

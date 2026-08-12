@@ -7,8 +7,7 @@ import warnings, dask, intake
 from datetime import datetime
 import xarray as xr
 from mom6_tools.m6toolbox import cime_xmlquery
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import get_cluster
 from mom6_tools import m6plot
 from mom6_tools  import m6toolbox
 from mom6_tools.MOM6grid import MOM6grid
@@ -81,12 +80,7 @@ def main():
   basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
   basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, verbose=False, xda=True)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw)
 
   print('Reading {} dataset...'.format(args.monthly))
   startTime = datetime.now()

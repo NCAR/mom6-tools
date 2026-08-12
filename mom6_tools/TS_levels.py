@@ -8,8 +8,7 @@ import pandas as pd
 from collections import OrderedDict
 import dask
 from datetime import datetime, date
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import get_cluster
 from mom6_tools.m6toolbox import add_global_attrs, genBasinMasks, weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.m6plot import xycompare, polarcomparison, chooseColorLevels
@@ -103,12 +102,7 @@ def driver(args):
   obs_temp = obs.thetao
   obs_salt = obs.so
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw)
 
   print('Reading dataset...')
   startTime = datetime.now()

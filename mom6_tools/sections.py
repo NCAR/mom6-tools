@@ -146,7 +146,7 @@ def cfconcat(dsets, axis, join="outer", **kwargs):
     Dataset
     """
 
-    import cf_xarray
+    # import cf_xarray
     import tqdm
 
     assert ndimlist(dsets) == 1
@@ -195,7 +195,7 @@ def visualize_tile(da):
     -------
     None
     """
-    import cf_xarray
+    # import cf_xarray
     import matplotlib.pyplot as plt
 
     x = da.cf["X"]
@@ -274,7 +274,7 @@ def combine_manual(raw_files, debug=False):
     -------
     xarray.Dataset
     """
-    import cf_xarray
+    # import cf_xarray
 
     trimmed = trim_row(raw_files, axis="X", debug=debug)
     trimmed = transpose(trim_row(transpose(trimmed), axis="Y", debug=debug))
