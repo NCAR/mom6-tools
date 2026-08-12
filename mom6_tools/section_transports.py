@@ -8,6 +8,7 @@ import nc_time_axis
 import matplotlib.pyplot as plt
 import os, yaml
 from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.DiagsCase import DiagsCase
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from datetime import datetime
@@ -131,12 +132,13 @@ def main(stream=False):
   start = datetime.now()
   # Get options
   args = options()
-  
-  os.makedirs('ncfiles', exist_ok=True)
 
   nw = args.number_of_workers
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
+
   # load sections where transports are computed online
   sections = diag_config_yml['Transports']['sections']
   caseroot = diag_config_yml['Case']['CASEROOT']
@@ -189,7 +191,7 @@ def main(stream=False):
     for n in range(len(plotSections)):
       ds.transport.values[n,:] = plotSections[n].data
 
-    ds.to_netcdf('ncfiles/'+args.casename+'_section_transports.nc')
+    ds.to_netcdf(ocn_diag_root+'/'+args.casename+'_section_transports.nc')
 
   print('Plotting {} sections...\n'.format(len(plotSections)))
   imgbufs = []

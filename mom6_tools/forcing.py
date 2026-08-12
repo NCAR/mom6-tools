@@ -35,20 +35,19 @@ def parseCommandLine():
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   optCmdLineArgs = parser.parse_args()
-  driver(optCmdLineArgs)
+  return optCmdLineArgs
 
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
 def driver(args):
   nw = args.number_of_workers
-  
-  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
@@ -56,6 +55,8 @@ def driver(args):
     OUTDIR = dcase.get_value('RUNDIR')
 
   args.casename = dcase.casename
+  args.static = args.casename+diag_config_yml['Fnames']['static']
+  args.geom = args.casename+diag_config_yml['Fnames']['geom']
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
@@ -66,7 +67,7 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.casename+'.mom6.static.nc')
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
 
   parallel = False
   if nw > 1:
@@ -99,6 +100,16 @@ def driver(args):
 
   return
 
-# Invoke parseCommandLine(), the top-level prodedure
-if __name__ == '__main__': parseCommandLine()
+
+
+def main():
+  '''
+  Main procedure that calls the driver.
+  '''
+  args = parseCommandLine()
+  driver(args)
+
+# Invoke main() which calls parseCommandLine() and the driver.
+if __name__ == '__main__':
+  main()
 

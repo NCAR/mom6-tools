@@ -13,6 +13,7 @@ from dask.distributed import Client
 from mom6_tools import m6plot
 from mom6_tools  import m6toolbox
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 
 def options():
   try: import argparse
@@ -41,10 +42,11 @@ def main():
   nw = args.number_of_workers
   
   os.makedirs('PNG/MOC', exist_ok=True)
-  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -71,13 +73,8 @@ def main():
   args.label = diag_config_yml['Case']['SNAME']
 
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file)
-    grd_xr = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True)
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static)
-    grd_xr = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
   try:
     depth = grd.depth_ocean
@@ -517,7 +514,7 @@ def main():
   moc = moc.assign_coords({"amoc_depth": (["rho2_l","yq"], psi['depth'].data)})
 
   print('Saving netCDF files...')
-  moc.to_netcdf('ncfiles/'+str(casename)+'_MOC_sigma2.nc')
+  moc.to_netcdf(ocn_diag_root+'/'+str(casename)+'_MOC_sigma2.nc')
 
   if parallel:
     print('Releasing workers ...')

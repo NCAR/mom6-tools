@@ -70,12 +70,15 @@ class DiagsCase(object,):
         dout_s_root_provided = "DOUT_S_ROOT" in self._config
         caseroot_provided = "CASEROOT" in self._config
         cimeroot_provided = "CIMEROOT" in self._config
+        output_root_provided = "OCN_DIAG_ROOT" in self._config
 
         # check if required keywords are in diag_config.yml
         if not (rundir_provided or dout_s_root_provided):
-            assert (caseroot_provided and cimeroot_provided),\
-                    "If 'RUNDIR' or 'DOUT_S_ROOT' are not provided,"\
-                    " both 'CASEROOT' and 'CIMEROOT' must be provided."
+            if not ((caseroot_provided and cimeroot_provided) or output_root_provided):
+                raise AssertionError(
+                    "If 'RUNDIR' or 'DOUT_S_ROOT' are not provided,"
+                    " either 'CASEROOT' and 'CIMEROOT' or 'OCN_DIAG_ROOT' must be provided."
+                )
 
     # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None
     @property
@@ -144,6 +147,30 @@ class DiagsCase(object,):
         log.info(f"get_value::\n\trequsted variable: {var} \n\treturning value: {val}"\
                  f"\n\ttype: {type(val)}")
         return val
+
+    def create_output_dir(self, subdir=None):
+        """Create and return the directory used for diagnostic outputs.
+
+        Parameters
+        ----------
+        subdir : str, optional
+            Optional subdirectory appended beneath OCN_DIAG_ROOT.
+
+        Returns
+        -------
+        str
+            Path to the output directory.
+        """
+
+        output_dir = self.get_value('OCN_DIAG_ROOT')
+        if not output_dir:
+            raise KeyError("OCN_DIAG_ROOT is not defined in the case configuration.")
+
+        if subdir:
+            output_dir = os.path.join(output_dir, subdir)
+
+        os.makedirs(output_dir, exist_ok=True)
+        return output_dir
 
     @staticmethod
     def convert_prefix_to_regex(prefix):
@@ -289,22 +316,24 @@ class DiagsCase(object,):
 
         return all_matched_files
 
+    # William Xu: I'm not seeing this being used anywhere, so I'm commenting it out instead of fixing it for now.
+    # The file names for *static.nc and *ocean_geometry.nc should be read from diag_config.yml, instead of hard-coded.
+    # def _generate_grid(self):
+    #     dout_s = dcase.get_value('DOUT_S')
+    #     if dout_s:
+    #       outdir = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+    #     else:
+    #       outdir = dcase.get_value('RUNDIR')
+    #     static_file_path = os.path.join(outdir, f"{self.casename}.mom6.static.nc")
+    #     geom_file_path = os.path.join(outdir, f"{self.casename}.mom6.ocean_geometry.nc")
+    #     self._grid = MOM6grid(static_file_path, geom_file_path, self.xrformat)
 
-    def _generate_grid(self):
-        dout_s = dcase.get_value('DOUT_S')
-        if dout_s:
-          outdir = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
-        else:
-          outdir = dcase.get_value('RUNDIR')
-        static_file_path = os.path.join(outdir, f"{self.casename}.mom6.static.nc")
-        self._grid = MOM6grid(static_file_path, self.xrformat)
-
-    @property
-    def grid(self):
-        """ MOM6grid instance """
-        if not self._grid:
-            self._generate_grid()
-        return self._grid
+    # @property
+    # def grid(self):
+    #     """ MOM6grid instance """
+    #     if not self._grid:
+    #         self._generate_grid()
+    #     return self._grid
 
 
     def stage_dset(self, fields:list):

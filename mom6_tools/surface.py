@@ -13,6 +13,7 @@ from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery
 from mom6_tools.m6toolbox import weighted_temporal_mean
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 from distributed import Client
 
 def parseCommandLine():
@@ -39,16 +40,17 @@ def parseCommandLine():
   parser.add_argument('--savefigs', action='store_true', default=False,)
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   optCmdLineArgs = parser.parse_args()
-  driver(optCmdLineArgs)
+  return optCmdLineArgs
 
 # This is where all the action happends, i.e., functions for each diagnostic are called.
 
 def driver(args):
   nw = args.number_of_workers
-  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -75,11 +77,7 @@ def driver(args):
   if not args.savefigs: args.savefigs = diag_config_yml['Misc']['savefigs']
 
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file)
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
 
   parallel = False
   if nw > 1:
@@ -552,6 +550,15 @@ def get_BLD(ds, var, grd, args):
          title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
               ' JFM (SH), JAS (NH)')
   return
-# Invoke parseCommandLine(), the top-level prodedure
-if __name__ == '__main__': parseCommandLine()
+
+def main():
+  '''
+  Main procedure that calls the driver.
+  '''
+  args = parseCommandLine()
+  driver(args)
+
+# Invoke main() which calls parseCommandLine() and the driver.
+if __name__ == '__main__':
+  main()
 

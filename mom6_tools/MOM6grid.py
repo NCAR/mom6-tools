@@ -1,7 +1,7 @@
 import xarray as xr
 
 # -- return MOM6 grid object
-def MOM6grid(grd_file, geom_file=None, xrformat=False):
+def MOM6grid(grd_file, geom_file, xrformat=False):
     """
     Return an object or xarray Dataset with the MOM6 grid data.
 
@@ -10,8 +10,8 @@ def MOM6grid(grd_file, geom_file=None, xrformat=False):
     grd_file : str
     Path to the static file.
 
-    geom_file : str, optional
-    If provided, override the coordinates in grd_file using those from this file. This is necessary when
+    geom_file : str
+    Override the coordinates in grd_file using those from this file. This is necessary when
     land-block elimination is enabled, which leads to NaNs in grd_file.
 
     xrformat : boolean, optional
@@ -26,13 +26,12 @@ def MOM6grid(grd_file, geom_file=None, xrformat=False):
     try: nc = xr.open_dataset(grd_file, decode_times=False)
     except: raise Exception('Could not find file', grd_file)
 
-    if geom_file:
-      try: geom = xr.open_dataset(geom_file, decode_times=False)
-      except: raise Exception('Could not find file', geom_file)
-      nc['geolat'].values = geom.geolat.values
-      nc['geolon'].values = geom.geolon.values
-      nc['geolat_c'].values = geom.geolatb.values
-      nc['geolon_c'].values = geom.geolonb.values
+    try: geom = xr.open_dataset(geom_file, decode_times=False)
+    except: raise Exception('Could not find file', geom_file)
+    nc['geolat'].values = geom.geolat.values
+    nc['geolon'].values = geom.geolon.values
+    nc['geolat_c'].values = geom.geolatb.values
+    nc['geolon_c'].values = geom.geolonb.values
 
     # fixes non-monotonic longitudes
     mgeolon = xr.where(nc.geolon < nc.geolon[-1,0],nc.geolon+360,nc.geolon).rename({'mgeolon'})

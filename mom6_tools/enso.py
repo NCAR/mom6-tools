@@ -19,6 +19,7 @@ from mom6_tools.m6toolbox import weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import geoslice
 import matplotlib.pyplot as plt
 import yaml, os, intake, pickle
+from mom6_tools.DiagsCase import DiagsCase
 
 
 def options():
@@ -52,10 +53,11 @@ def main(stream=False):
   nw = args.number_of_workers
   
   os.makedirs("PNG/ENSO", exist_ok=True)
-  os.makedirs("ncfiles", exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -81,11 +83,7 @@ def main(stream=False):
   args.outdir = 'PNG/ENSO/'
 
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True)
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
   try:
     depth = grd.depth_ocean
@@ -210,8 +208,8 @@ def main(stream=False):
     plt.close()
 
   print('Saving netCDF files...')
-  normalized_index_nino34_model_rolling_mean.to_netcdf('ncfiles/'+str(args.casename)+'_nino34_index.nc')
-  fname = "ncfiles/" + str(args.casename)+'_nino34_composite.pkl'
+  normalized_index_nino34_model_rolling_mean.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_nino34_index.nc')
+  fname = ocn_diag_root + "/" + str(args.casename)+'_nino34_composite.pkl'
   with open(fname, "wb") as file:
     pickle.dump(result_model, file)
 

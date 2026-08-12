@@ -10,6 +10,7 @@ import dask, intake
 from datetime import datetime, date
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
+from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6plot import yzcompare, yzplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import shiftgrid, add_global_attrs, weighted_temporal_mean_vars
@@ -38,7 +39,7 @@ def parseCommandLine():
                               to compare against. Default is woa-2018-tx2_3v2-annual-all''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   optCmdLineArgs = parser.parse_args()
-  driver(optCmdLineArgs)
+  return optCmdLineArgs
 
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
@@ -46,10 +47,11 @@ def driver(args):
   nw = args.number_of_workers
   
   os.makedirs('PNG/Equatorial', exist_ok=True)
-  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -77,11 +79,7 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True)
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
   # select Equatorial region
   grd_eq = grd.sel(yh=slice(-10,10))
@@ -186,12 +184,12 @@ def driver(args):
   attrs = {'casename': args.casename,
            'module': os.path.basename(__file__)}
   add_global_attrs(temp_eq_da,attrs)
-  temp_eq_da.to_netcdf('ncfiles/'+str(args.casename)+'_temp_eq.nc')
+  temp_eq_da.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_temp_eq.nc')
 
   salt_eq_da = xr.DataArray(salt_eq, dims=['zl','xh'],
                            coords={'zl' : z[:,0], 'xh' : x[:]}).rename('salt_eq')
   add_global_attrs(salt_eq_da,attrs)
-  salt_eq_da.to_netcdf('ncfiles/'+str(args.casename)+'_salt_eq.nc')
+  salt_eq_da.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_salt_eq.nc')
 
   # Shift model data to compare against obs
   tmp, lonh = shiftgrid(thetao.xh[-1].values, thetao[0,0,:].values, ds.thetao.xh.values)
@@ -286,6 +284,16 @@ def driver(args):
 
   return
 
-# Invoke parseCommandLine(), the top-level prodedure
-if __name__ == '__main__': parseCommandLine()
+
+
+def main():
+  '''
+  Main procedure that calls the driver.
+  '''
+  args = parseCommandLine()
+  driver(args)
+
+# Invoke main() which calls parseCommandLine() and the driver.
+if __name__ == '__main__':
+  main()
 

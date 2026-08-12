@@ -14,6 +14,7 @@ from mom6_tools.m6toolbox import add_global_attrs, genBasinMasks, weighted_tempo
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.m6plot import xycompare, polarcomparison, chooseColorLevels
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.stats import stats_to_ds, min_da, max_da, mean_da, rms_da, std_da
 
 def parseCommandLine():
@@ -39,7 +40,7 @@ def parseCommandLine():
                               to compare against. Default is woa-2018-tx2_3v2-annual-all''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   optCmdLineArgs = parser.parse_args()
-  driver(optCmdLineArgs)
+  return optCmdLineArgs
 
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
@@ -48,10 +49,11 @@ def driver(args):
   nw = args.number_of_workers
   
   os.makedirs('PNG/TS_levels', exist_ok=True)
-  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -76,13 +78,8 @@ def driver(args):
   if not args.end_date : args.end_date = avg['end_date']
 
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file)
-    grd_xr = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True);
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static)
-    grd_xr = MOM6grid(OUTDIR+'/'+args.static, xrformat=True);
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True);
 
   # create masks
   try:
@@ -254,9 +251,9 @@ def driver(args):
            'module': os.path.basename(__file__)}
   # create dataset to store results
   add_global_attrs(temp_stats,attrs)
-  temp_stats.to_netcdf('ncfiles/'+str(args.casename)+'_thetao_bias_ann_mean_stats.nc')
+  temp_stats.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_thetao_bias_ann_mean_stats.nc')
   add_global_attrs(salt_stats,attrs)
-  salt_stats.to_netcdf('ncfiles/'+str(args.casename)+'_so_bias_ann_mean_stats.nc')
+  salt_stats.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_so_bias_ann_mean_stats.nc')
 
   thetao = xr.DataArray(thetao_mean, dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('thetao')
@@ -266,7 +263,7 @@ def driver(args):
                             coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
   add_global_attrs(ds_thetao,attrs)
 
-  ds_thetao.to_netcdf('ncfiles/'+str(args.casename)+'_thetao_time_mean.nc')
+  ds_thetao.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_thetao_time_mean.nc')
   so = xr.DataArray(ds.so.mean('time'), dims=['z_l','yh','xh'],
               coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh}).rename('so')
   salt_bias = np.ma.masked_invalid(so.values - obs_salt.values)
@@ -274,7 +271,7 @@ def driver(args):
                             'so_bias' :     (('z_l','yh','xh'), salt_bias)},
                             coords={'z_l' : ds.z_l, 'yh' : grd.yh, 'xh' : grd.xh})
   add_global_attrs(ds_so,attrs)
-  ds_so.to_netcdf('ncfiles/'+str(args.casename)+'_so_time_mean.nc')
+  ds_so.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_so_time_mean.nc')
   print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
@@ -424,6 +421,16 @@ def score_plot2(x,y,vals, cmin=None, cmap=plt.cm.bwr,title='',nbins=50, units=''
 
   plt.close()
   return
-# Invoke parseCommandLine(), the top-level prodedure
-if __name__ == '__main__': parseCommandLine()
+
+
+def main():
+  '''
+  Main procedure that calls the driver.
+  '''
+  args = parseCommandLine()
+  driver(args)
+
+# Invoke main() which calls parseCommandLine() and the driver.
+if __name__ == '__main__':
+  main()
 
