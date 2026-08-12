@@ -45,9 +45,9 @@ def parseCommandLine():
 def driver(args):
   nw = args.number_of_workers
   fname = args.file_name
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
+  
+  os.makedirs('PNG/WSTRESS', exist_ok=True)
+  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
@@ -101,9 +101,6 @@ def driver(args):
   print('Time elasped: ', datetime.now() - startTime)
 
   print('\n Plotting...')
-  if not os.path.isdir('PNG/WSTRESS'):
-    print('Creating a directory to place figures (PNG/WSTRESS)... \n')
-    os.system('mkdir -p PNG/WSTRESS')
 
   taux_val = np.ma.masked_invalid(frc.tauuo.values)
   tauy_val = np.ma.masked_invalid(frc.tauvo.values)

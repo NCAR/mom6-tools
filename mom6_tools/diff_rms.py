@@ -563,12 +563,8 @@ def main(stream=False):
   print('Casename is:', dcase.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  if not os.path.isdir('PNG/Horizontal_mean_biases'):
-    print('Creating a directory to place figures (PNG)... \n')
-    os.system('mkdir -p PNG/Horizontal_mean_biases')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
+  os.makedirs('PNG/Horizontal_mean_biases', exist_ok=True)
+  os.makedirs('ncfiles', exist_ok=True)
 
   # read grid
   grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc', xrformat=True)

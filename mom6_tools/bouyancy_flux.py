@@ -55,9 +55,9 @@ def driver(args):
   g = args.gravity
   rho_0 = args.mean_density
   c_p = args.heat_capacity
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
+  
+  # Make directory for ncfiles
+  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
@@ -135,9 +135,7 @@ def driver(args):
   BFW = beta * state.sos * frc.PRCmE * g * 1.0e-3
 
   print('\n Plotting...')
-  if not os.path.isdir('PNG/BFLUX'):
-    print('Creating a directory to place figures (PNG/BFLUX)... \n')
-    os.system('mkdir -p PNG/BFLUX')
+  os.makedirs('PNG/BFLUX', exist_ok=True)
 
   bhf_val = np.ma.masked_invalid(BHF.values*1.0e8)
   bfw_val = np.ma.masked_invalid(BFW.values*1.0e8)

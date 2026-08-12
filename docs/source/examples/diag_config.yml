@@ -46,7 +46,7 @@ Transports:
            }
 
 # path to ocean-related datasets catalog
-oce_cat: /glade/u/home/gmarques/libs/oce-catalogs/reference-datasets.yml
+oce_cat: "reference-datasets.yml"
 
 # Miscellaneous Settings
 Misc:

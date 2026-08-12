@@ -41,9 +41,8 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
+  
+  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)

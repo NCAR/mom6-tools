@@ -68,8 +68,8 @@ def parseCommandLine():
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
 def driver(args):
-  os.system('mkdir PNG')
-  os.system('mkdir ncfiles')
+  os.makedirs('PNG', exist_ok=True)
+  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml_path = "diag_config.yml"

@@ -42,12 +42,9 @@ def parseCommandLine():
 def driver(args):
     nw = args.number_of_workers
     path_plt_out = 'PNG/TAOMooring/'
-    if not os.path.isdir('PNG/TAOMooring'):
-        print('Creating a directory to place figures (PNG/TAOMooring)... \n')
-        os.system('mkdir -p PNG/TAOMooring')
-    if not os.path.isdir('ncfiles'):
-        print('Creating a directory to place netCDF files (ncfiles)... \n')
-        os.system('mkdir ncfiles')
+    
+    os.makedirs(path_plt_out, exist_ok=True)
+    os.makedirs('ncfiles', exist_ok=True)
 
     # Read in the yaml file
     diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)

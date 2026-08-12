@@ -407,12 +407,8 @@ def main(stream=False):
   print('Casename is:', args.casename)
   print('Number of workers: ', args.nw)
 
-  if not os.path.isdir('PNG/Horizontal_mean_biases'):
-    print('Creating a directory to place figures (PNG)... \n')
-    os.system('mkdir -p PNG/Horizontal_mean_biases')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
+  os.makedirs('PNG/Horizontal_mean_biases', exist_ok=True)
+  os.makedirs('ncfiles', exist_ok=True)
 
   # read grid info
   geom_file = OUTDIR+'/'+args.geom

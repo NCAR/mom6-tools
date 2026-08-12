@@ -569,12 +569,8 @@ def main(stream=False):
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
 
-  if not os.path.isdir('PNG/Drift'):
-    print('Creating a directory to place figures (PNG)... \n')
-    os.system('mkdir -p PNG/Drift')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
+  os.makedirs("PNG/Drift", exist_ok=True)
+  os.makedirs("ncfiles", exist_ok=True)
 
   # read grid info
   geom_file = OUTDIR+'/'+args.geom

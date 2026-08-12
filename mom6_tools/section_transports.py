@@ -131,10 +131,8 @@ def main(stream=False):
   start = datetime.now()
   # Get options
   args = options()
-  if args.save_ncfile:
-    if not os.path.isdir('ncfiles'):
-      print('Creating a directory to place netCDF file (ncfiles)... \n')
-      os.system('mkdir ncfiles')
+  
+  os.makedirs('ncfiles', exist_ok=True)
 
   nw = args.number_of_workers
   # Read in the yaml file
@@ -206,8 +204,7 @@ def main(stream=False):
 
   if stream is True: objOut = io.BytesIO()
   else:
-    if not os.path.isdir(args.outdir):
-      os.system('mkdir -p '+args.outdir)
+    os.makedirs(args.outdir, exist_ok=True)
     objOut = args.outdir+'/'+args.casename+'_section_transports.png'
   plt.savefig(objOut)
 

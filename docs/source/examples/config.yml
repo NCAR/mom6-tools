@@ -159,9 +159,3 @@ compute_notebooks:
     parameter_groups:
       none:
         sname: *sname
-
-
-# Miscellaneous Settings
-Misc:
-  savefigs: False
-
