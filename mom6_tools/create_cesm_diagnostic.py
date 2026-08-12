@@ -4,7 +4,6 @@
 Create directory and template yaml file for a new case to be processed using mom6_tools.
 '''
 import os, yaml
-import subprocess # for running shell commands, os.system is deprecated
 from mom6_tools.DiagsCase import DiagsCase
 import socket
 
@@ -134,7 +133,7 @@ def make_run_script(casename):
   f.write(cmd + " scripts/rms_thetao.sh \n")
   f.write(cmd + " scripts/rms_so.sh \n")
   f.close()
-  subprocess.run(['chmod', '+x', casename+'/run_scripts.sh'])
+  os.chmod(casename+'/run_scripts.sh', 0o755)
   return
 
 def make_PBS_batch(casename, diag,run_prog, proj_code, cluster, conda_env):
