@@ -135,9 +135,7 @@ def driver(args):
   BFW = beta * state.sos * frc.PRCmE * g * 1.0e-3
 
   print('\n Plotting...')
-  if not os.path.isdir('PNG/BFLUX'):
-    print('Creating a directory to place figures (PNG/BFLUX)... \n')
-    os.system('mkdir -p PNG/BFLUX')
+  os.makedirs('PNG/BFLUX', exist_ok=True)
 
   bhf_val = np.ma.masked_invalid(BHF.values*1.0e8)
   bfw_val = np.ma.masked_invalid(BFW.values*1.0e8)

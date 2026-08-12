@@ -567,9 +567,7 @@ def main(stream=False):
   print('Casename is:', dcase.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  if not os.path.isdir('PNG/Horizontal_mean_biases'):
-    print('Creating a directory to place figures (PNG)... \n')
-    os.system('mkdir -p PNG/Horizontal_mean_biases')
+  os.makedirs('PNG/Horizontal_mean_biases', exist_ok=True)
 
   # read grid
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)

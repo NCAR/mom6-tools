@@ -159,7 +159,3 @@ compute_notebooks:
     parameter_groups:
       none:
         sname: *sname
-
-
-
-

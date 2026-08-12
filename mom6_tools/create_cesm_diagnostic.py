@@ -67,8 +67,9 @@ def main():
   #case_config['Case'].update({'DOUT_S_ROOT' : DOUT_S_ROOT})
   case_config['Case'].update({'OCN_DIAG_ROOT' : ocn_diag_root})
   if not os.path.isdir(dcase.casename):
-    print('Creating {}... \n'.format(dcase.casename))
-    os.system('mkdir -p {}/scripts'.format(dcase.casename))
+    
+    os.makedirs(dcase.casename, exist_ok=True)
+
     make_yaml(dcase.casename, case_config)
     # MOC
     cmd = 'moc.py diag_config.yml -nw 6 -fname .mom6.h_*.nc'
@@ -137,7 +138,7 @@ def make_run_script(casename):
   f.write(cmd + " scripts/rms_thetao.sh \n")
   f.write(cmd + " scripts/rms_so.sh \n")
   f.close()
-  os.system('chmod +x '+casename+'/run_scripts.sh')
+  os.chmod(casename+'/run_scripts.sh', 0o755)
   return
 
 def make_PBS_batch(casename, diag,run_prog, proj_code, cluster, conda_env):

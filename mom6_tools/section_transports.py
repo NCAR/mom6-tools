@@ -206,8 +206,7 @@ def main(stream=False):
 
   if stream is True: objOut = io.BytesIO()
   else:
-    if not os.path.isdir(args.outdir):
-      os.system('mkdir -p '+args.outdir)
+    os.makedirs(args.outdir, exist_ok=True)
     objOut = args.outdir+'/'+args.casename+'_section_transports.png'
   plt.savefig(objOut)
 
