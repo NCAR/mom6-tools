@@ -41,15 +41,13 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'

@@ -12,6 +12,7 @@ from dask.distributed import Client
 from mom6_tools import m6plot
 from mom6_tools  import m6toolbox
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 
 def options():
   try: import argparse
@@ -36,10 +37,11 @@ def main():
 
   nw = args.number_of_workers
   os.makedirs('PNG/MOC', exist_ok=True)
-  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -383,7 +385,7 @@ def main():
   moc['moc_GM'].data = psiPlot
 
   print('Saving netCDF files...')
-  moc.to_netcdf('ncfiles/'+str(casename)+'_MOC.nc')
+  moc.to_netcdf(ocn_diag_root+'/'+str(casename)+'_MOC.nc')
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

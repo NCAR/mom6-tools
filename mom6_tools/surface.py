@@ -13,6 +13,7 @@ from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery
 from mom6_tools.m6toolbox import weighted_temporal_mean
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 from distributed import Client
 
 def parseCommandLine():
@@ -44,12 +45,11 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')

@@ -12,6 +12,7 @@ from mom6_tools.ClimoGenerator import ClimoGenerator
 from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 import pandas as pd
 import getpass
 from datetime import datetime
@@ -381,6 +382,8 @@ def main(stream=False):
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  args.ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   # Create the case instance
@@ -410,9 +413,6 @@ def main(stream=False):
   if not os.path.isdir('PNG/Horizontal_mean_biases'):
     print('Creating a directory to place figures (PNG)... \n')
     os.system('mkdir -p PNG/Horizontal_mean_biases')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # read grid info
   geom_file = OUTDIR+'/'+args.geom
@@ -552,7 +552,7 @@ def ocean_stats(args):
 
   stats = xr.Dataset(data_vars=data_vars, coords=coords, attrs=attrs)
 
-  stats.to_netcdf('ncfiles/{}_ocean.stats.nc'.format(args.casename))
+  stats.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_ocean.stats.nc')
 
   return stats
 
@@ -613,7 +613,7 @@ def extract_time_series(fname, variables, area, args):
   # add attrs and save
   attrs = {'description': 'Monthly averages of global mean ocean properties.'}
   add_global_attrs(ds,attrs)
-  ds.to_netcdf('ncfiles/'+str(args.casename)+'_mon_ave_global_means.nc')
+  ds.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_mon_ave_global_means.nc')
   if parallel:
     # close processes
     print('Releasing workers...\n')
@@ -685,10 +685,10 @@ def xystats(fname, variables, grd, basins, args):
     # yearly mean
     ds_var = ds[var]
     stats = myStats_da(ds_var, dims=ds_var.dims[1::], weights=area, basins=basins)
-    stats.to_netcdf('ncfiles/'+args.casename+'_'+str(var)+'_stats.nc')
+    stats.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_'+str(var)+'_stats.nc')
     plot_stats_da(stats, var, ds_var.attrs['units'], save=savefig2)
     ds_var_mean = ds_var.mean(dim='time')
-    ds_var_mean.to_netcdf('ncfiles/'+args.casename+'_'+str(var)+'_time_ave.nc')
+    ds_var_mean.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_'+str(var)+'_time_ave.nc')
     dummy = np.ma.masked_invalid(ds_var_mean.values)
     xyplot(dummy, grd.geolon.values, grd.geolat.values, area.values, save=savefig1,
            suptitle=ds_var.attrs['long_name'] +' ['+ ds_var.attrs['units']+']',

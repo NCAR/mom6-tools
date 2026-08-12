@@ -12,6 +12,7 @@ from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs, weighted_tempo
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 from datetime import datetime
 from distributed import Client
 from ncar_jobqueue import NCARCluster
@@ -553,6 +554,8 @@ def main(stream=False):
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
 
   caseroot = diag_config_yml['Case']['CASEROOT']
+  dcase = DiagsCase(diag_config_yml['Case'])
+  args.ocn_diag_root = dcase.create_output_dir()
   # Create the case instance
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
@@ -572,9 +575,6 @@ def main(stream=False):
   if not os.path.isdir('PNG/Drift'):
     print('Creating a directory to place figures (PNG)... \n')
     os.system('mkdir -p PNG/Drift')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # read grid info
   geom_file = OUTDIR+'/'+args.geom
@@ -731,11 +731,11 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
 
   if args.drift:
     add_global_attrs(drift,attrs)
-    drift.to_netcdf('ncfiles/'+str(args.casename)+'_{}_drift.nc'.format(var))
+    drift.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_{}_drift.nc'.format(var))
 
   if args.rms:
     add_global_attrs(rms,attrs)
-    rms.to_netcdf('ncfiles/'+str(args.casename)+'_{}_rmse.nc'.format(var))
+    rms.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_{}_rmse.nc'.format(var))
 
   if args.savefig:
     # save plots
