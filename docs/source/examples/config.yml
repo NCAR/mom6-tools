@@ -161,5 +161,7 @@ compute_notebooks:
         sname: *sname
 
 
-
+# Miscellaneous Settings
+Misc:
+  savefigs: False
 

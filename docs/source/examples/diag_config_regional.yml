@@ -15,3 +15,7 @@ Fnames:
   sfc:    '.mom6.h.sfc.????-??.nc'
   static: '.mom6.h.static.nc'
   geom:   '.mom6.h.ocean_geometry.nc'
+
+# Miscellaneous Settings
+Misc:
+  savefigs: False

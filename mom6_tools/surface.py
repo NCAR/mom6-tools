@@ -4,6 +4,7 @@ import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
 import warnings, os, yaml, argparse
+import subprocess # os.system is deprecated, use subprocess.run instead
 import pandas as pd
 import dask, intake
 from datetime import datetime, date
@@ -36,17 +37,18 @@ def parseCommandLine():
                       help='''Name of the observation-based MLD dataset in the oce-catalog. Default is mld-deboyer-2023-tx2_3v2''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
+  parser.add_argument('--savefigs', action='store_true', default=False,)
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   optCmdLineArgs = parser.parse_args()
   driver(optCmdLineArgs)
 
-#-- This is where all the action happends, i.e., functions for each diagnostic are called.
+# This is where all the action happends, i.e., functions for each diagnostic are called.
 
 def driver(args):
   nw = args.number_of_workers
   if not os.path.isdir('ncfiles'):
     print('Creating a directory to place netCDF files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
+    subprocess.run(['mkdir', 'ncfiles'])
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
@@ -68,12 +70,12 @@ def driver(args):
   avg = diag_config_yml['Avg']
   if not args.start_date : args.start_date = avg['start_date']
   if not args.end_date : args.end_date = avg['end_date']
-  args.sfc = args.casename+diag_config_yml['Fnames']['sfc']
-  args.native = args.casename+diag_config_yml['Fnames']['native']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.sfc = args.casename +diag_config_yml['Fnames']['sfc']
+  args.native = args.casename + diag_config_yml['Fnames']['native']
+  args.static = args.casename + diag_config_yml['Fnames']['static']
+  args.geom = args.casename + diag_config_yml['Fnames']['geom']
   args.label = diag_config_yml['Case']['SNAME']
-  args.savefigs = False
+  if not args.savefigs: args.savefigs = diag_config_yml['Misc']['savefigs']
 
   # read grid info
   geom_file = OUTDIR+'/'+args.geom
@@ -123,7 +125,7 @@ def driver(args):
     mld_obs = catalog[args.mld_obs].to_dask()
   except:
     print("No obs available, check config file.")
-    mld_obs = None
+    mld_obs = False
 
   # MLD
   get_MLD(ds, 'mlotst', mld_obs, grd, args)
@@ -150,10 +152,10 @@ def get_speed(ds, var, grd, args):
   Compute sea surface speed climatology.
   '''
 
-  #if args.savefigs:
-  #  if not os.path.isdir('PNG/SPEED'):
-  #    print('Creating a directory to place figures (PNG/SPEED)... \n')
-  #    os.system('mkdir -p PNG/SPEED')
+  if args.savefigs:
+   if not os.path.isdir('PNG/SPEED'):
+     print('Creating a directory to place figures (PNG/SPEED)... \n')
+     subprocess.run(['mkdir', '-p', 'PNG/SPEED'])
 
   print('Computing yearly means...')
   startTime = datetime.now()
@@ -246,7 +248,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
   if args.savefigs:
     if not os.path.isdir('PNG/MLD'):
       print('Creating a directory to place figures (PNG/MLD)... \n')
-      os.system('mkdir -p PNG/MLD')
+      subprocess.run(['mkdir', '-p', 'PNG/MLD'])
 
   print('Computing monthly MLD climatology...')
   startTime = datetime.now()
@@ -273,7 +275,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     area = grd.areacello
 
   fname = None
-  if args.savefigs:
+  if args.savefigs and mld_obs:
     print('\n Plotting...')
 
     # MLD monthly climatology
@@ -334,7 +336,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     obs_JFM = np.ma.masked_invalid(mld_obs.mld.isel(time=months).mean('time').values)
     obs_JFM = np.ma.masked_where(grd.wet == 0, obs_JFM)
   month = 'JFM'
-  if args.savefigs:
+  if args.savefigs and mld_obs:
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
     xycompare(model_JFM , obs_JFM, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
@@ -350,7 +352,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     obs_JAS = np.ma.masked_invalid(mld_obs.mld.isel(time=months).mean('time').values)
     obs_JAS = np.ma.masked_where(grd.wet == 0, obs_JAS)
   month = 'JAS'
-  if args.savefigs:
+  if args.savefigs and mld_obs:
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
     xycompare(model_JAS , obs_JAS, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
@@ -379,7 +381,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
            'module': os.path.basename(__file__)}
   add_global_attrs(model_winter_da,attrs)
   model_winter_da.to_netcdf('ncfiles/'+str(args.casename)+'_MLD_'+month+'.nc')
-  if args.savefigs:
+  if args.savefigs and mld_obs:
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
     xycompare(model_winter , obs_winter, grd.geolon, grd.geolat, area=area,
             title1 = 'model, JFM (NH), JAS (SH)',
@@ -388,7 +390,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
             colormap=plt.cm.Spectral_r, dcolormap=plt.cm.bwr, clim = (0,1500), extend='max',
             save = fname)
 
-  if args.savefigs:
+  if args.savefigs and mld_obs:
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_model_'+str(month)+'.png'
     xyplot(model_winter, grd.geolon, grd.geolat, area=area,
          save=fname,
@@ -410,7 +412,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
   attrs['description'] = 'Summer MLD (m)'
   add_global_attrs(model_summer_da,attrs)
   model_summer_da.to_netcdf('ncfiles/'+str(args.casename)+'_MLD_'+month+'.nc')
-  if args.savefigs:
+  if args.savefigs and mld_obs:
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
     xycompare(model_summer , obs_summer, grd.geolon, grd.geolat, area=area,
             title1 = 'model, JFM (SH), JAS (NH)',
@@ -419,7 +421,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
             colormap=plt.cm.Spectral_r, dcolormap=plt.cm.bwr, clim = (0,150), extend='max',
             save = fname)
 
-  if args.savefigs:
+  if args.savefigs and mld_obs:
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_model_'+str(month)+'.png'
     xyplot(model_summer, grd.geolon, grd.geolat, area=area,
          save=fname,
@@ -432,10 +434,10 @@ def get_BLD(ds, var, grd, args):
   '''
   Compute and save surface BLD climatology.
   '''
-  if args.savefigs:
+  if args.savefigs and mld_obs:
     if not os.path.isdir('PNG/BLD'):
       print('Creating a directory to place figures (PNG/BLD)... \n')
-      os.system('mkdir -p PNG/BLD')
+      subprocess.run(['mkdir', '-p', 'PNG/BLD'])
 
   print('Computing monthly BLD climatology...')
   startTime = datetime.now()
