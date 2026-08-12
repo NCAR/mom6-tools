@@ -553,6 +553,9 @@ def main(stream=False):
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
+  args.casename = dcase.casename
+  args.static = args.casename+diag_config_yml['Fnames']['static']
+  args.geom = args.casename+diag_config_yml['Fnames']['geom']
   args.ocn_diag_root = dcase.create_output_dir()
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
@@ -569,8 +572,8 @@ def main(stream=False):
     os.system('mkdir -p PNG/Horizontal_mean_biases')
 
   # read grid
-  grd = MOM6grid(OUTDIR+'/'+dcase.casename+'.mom6.static.nc', xrformat=True)
-  #grd = MOM6grid('ocean.mom6.static.nc', xrformat=True)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+
   try:
     area = grd.area_t.where(grd.wet > 0)
   except:

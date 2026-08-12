@@ -316,22 +316,24 @@ class DiagsCase(object,):
 
         return all_matched_files
 
+    # William Xu: I'm not seeing this being used anywhere, so I'm commenting it out instead of fixing it for now.
+    # The file names for *static.nc and *ocean_geometry.nc should be read from diag_config.yml, instead of hard-coded.
+    # def _generate_grid(self):
+    #     dout_s = dcase.get_value('DOUT_S')
+    #     if dout_s:
+    #       outdir = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
+    #     else:
+    #       outdir = dcase.get_value('RUNDIR')
+    #     static_file_path = os.path.join(outdir, f"{self.casename}.mom6.static.nc")
+    #     geom_file_path = os.path.join(outdir, f"{self.casename}.mom6.ocean_geometry.nc")
+    #     self._grid = MOM6grid(static_file_path, geom_file_path, self.xrformat)
 
-    def _generate_grid(self):
-        dout_s = dcase.get_value('DOUT_S')
-        if dout_s:
-          outdir = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
-        else:
-          outdir = dcase.get_value('RUNDIR')
-        static_file_path = os.path.join(outdir, f"{self.casename}.mom6.static.nc")
-        self._grid = MOM6grid(static_file_path, self.xrformat)
-
-    @property
-    def grid(self):
-        """ MOM6grid instance """
-        if not self._grid:
-            self._generate_grid()
-        return self._grid
+    # @property
+    # def grid(self):
+    #     """ MOM6grid instance """
+    #     if not self._grid:
+    #         self._generate_grid()
+    #     return self._grid
 
 
     def stage_dset(self, fields:list):
