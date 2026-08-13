@@ -60,6 +60,7 @@ setup(
             'mom6-tools_create_mom6_tools=mom6_tools.create_mom6_tools:main',
             'mom6-tools_diff_rms=mom6_tools.diff_rms:main',
             'mom6-tools_drift=mom6_tools.drift:main',
+            'mom6-tools_dwbc=mom6_tools.dwbc:main',
             'mom6-tools_enso=mom6_tools.enso:main',
             'mom6-tools_equatorial_comparison=mom6_tools.equatorial_comparison:main',
             'mom6-tools_forcing=mom6_tools.forcing:main',

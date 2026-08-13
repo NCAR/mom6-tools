@@ -19,6 +19,7 @@ dependencies:
   - matplotlib
   - cftime
   - scipy
+  - gsw
   - jupyter
   - cmocean
   - cartopy
