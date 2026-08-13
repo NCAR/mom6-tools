@@ -52,7 +52,7 @@ def parseCommandLine():
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   optCmdLineArgs = parser.parse_args()
-  driver(optCmdLineArgs)
+  return optCmdLineArgs
 
 
 def driver(args):
@@ -257,5 +257,14 @@ def plot_hovmoller(da, y_dim, title, cbar_label, outfile,
   print(f'  Saved: {outfile}')
 
 
-# Invoke parseCommandLine(), the top-level procedure
-if __name__ == '__main__': parseCommandLine()
+def main():
+  '''
+  Main procedure that calls the driver.
+  '''
+  args = parseCommandLine()
+  driver(args)
+
+# Invoke main() which calls parseCommandLine() and the driver.
+if __name__ == '__main__':
+  main()
+
