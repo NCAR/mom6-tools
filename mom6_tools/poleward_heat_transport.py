@@ -9,6 +9,7 @@ import xarray as xr
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools import m6plot
+from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import genBasinMasks, weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.MOM6grid import MOM6grid
@@ -38,12 +39,11 @@ def main(stream=False):
   if not os.path.isdir('PNG/HT'):
     print('Creating a directory to place figures (PNG/HT)... \n')
     os.system('mkdir -p PNG/HT')
-  if not os.path.isdir('ncfiles'):
-    print('Creating a directory to store netcdf files (ncfiles)... \n')
-    os.system('mkdir ncfiles')
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
+  ocn_diag_root = dcase.create_output_dir()
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -71,11 +71,8 @@ def main(stream=False):
   args.savefigs = False
 
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file)
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  
   try:
     depth = grd.depth_ocean
   except:
@@ -195,7 +192,7 @@ def main(stream=False):
                           'and Eq. and 60S (Global).',
                           'units': ds[varName].units, 'casename': args.casename}
   add_global_attrs(ds_ts,attrs)
-  ds_ts.to_netcdf('ncfiles/'+args.casename+'_heat_transport_ts.nc')
+  ds_ts.to_netcdf(ocn_diag_root+'/'+args.casename+'_heat_transport_ts.nc')
 
   if parallel:
     print('Releasing workers...')
@@ -206,7 +203,7 @@ def main(stream=False):
        'start_date': args.start_date, 'end_date': args.end_date, 'casename': args.casename}
   add_global_attrs(ds_mean,attrs)
 
-  ds_mean.to_netcdf('ncfiles/'+args.casename+'_heat_transport.nc')
+  ds_mean.to_netcdf(ocn_diag_root+'/'+args.casename+'_heat_transport.nc')
   # create a ndarray subclass
   class C(np.ndarray): pass
 

@@ -42,10 +42,10 @@ def submit_pbs_script(var, stream, fname):
     #PBS -o {fname}/{fname}_{var}.o
     #PBS -j oe
 
-    source ~/.bashrc
-    conda activate /glade/work/gmarques/conda-envs/mom6-tools
+    module load conda
+    conda activate mom6-tools
 
-    create_climatology.py diag_config.yml -v {var} -s {stream} -f {fname}
+    mom6-tools_create_climatology diag_config.yml -v {var} -s {stream} -f {fname}
     """)
 
     # Create the directory if it does not exist
@@ -222,11 +222,7 @@ def main():
                        )
 
       # read grid info
-      geom_file = OUTDIR+'/'+args.geom
-      if os.path.exists(geom_file):
-        grd_xr = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True);
-      else:
-        grd_xr = MOM6grid(OUTDIR+'/'+args.static, xrformat=True);
+      grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
       # Process variable in dataset
       process_dataset(ds, grd_xr, start_date, end_date, ocn_diag_root, args.casename, fname)

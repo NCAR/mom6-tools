@@ -89,13 +89,8 @@ def driver(args):
   args.static = casename+diag_config_yml['Fnames']['static']
   args.geom =   casename+diag_config_yml['Fnames']['geom']
 
-  # mom6 grid
   # read grid info
-  geom_file = OUTDIR+'/'+args.geom
-  if os.path.exists(geom_file):
-    grd = MOM6grid(OUTDIR+'/'+args.static, geom_file)
-  else:
-    grd = MOM6grid(OUTDIR+'/'+args.static)
+  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
 
   variables = args.variables.split(',')
   time_mean_latlon(args,grd,variables)

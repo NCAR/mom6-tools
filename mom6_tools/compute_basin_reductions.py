@@ -184,11 +184,7 @@ def main():
     args.static = args.casename+config['Fnames']['static']
 
     # read grid info
-    geom_file = OUTDIR+'/'+args.geom
-    if os.path.exists(geom_file):
-      grd = MOM6grid(OUTDIR+'/'+args.static, geom_file, xrformat=True)
-    else:
-      grd = MOM6grid(OUTDIR+'/'+args.static, xrformat=True)
+    grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
     try:
       area = xr.where(grd.wet == 1, grd.area_t, 0.)

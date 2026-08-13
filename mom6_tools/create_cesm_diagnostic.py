@@ -48,8 +48,13 @@ def main():
   cluster = args.cluster
   conda_env = args.conda_env
 
+  # Read in the yaml file
+  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  case_config['Case']['OCN_DIAG_ROOT'] = diag_config_yml['Case']['OCN_DIAG_ROOT']
+
   # Create the case instance
   dcase = DiagsCase(case_config['Case'])
+  ocn_diag_root = dcase.create_output_dir()
   RUNDIR = dcase.get_value('RUNDIR')
   DOUT_S_ROOT = dcase.get_value('DOUT_S_ROOT')
   if args.debug:
@@ -57,10 +62,10 @@ def main():
     print('DOUT_S_ROOT:', DOUT_S_ROOT)
     print('Casename is:', dcase.casename)
   # Update dict
-  OCN_DIAG_ROOT = os.getcwd() +'/'+ str(dcase.casename) + '/ncfiles/'
+  #OCN_DIAG_ROOT = os.getcwd() +'/'+ str(dcase.casename) + '/ncfiles/'
   #case_config['Case'].update({'RUNDIR' : RUNDIR})
   #case_config['Case'].update({'DOUT_S_ROOT' : DOUT_S_ROOT})
-  case_config['Case'].update({'OCN_DIAG_ROOT' : OCN_DIAG_ROOT})
+  case_config['Case'].update({'OCN_DIAG_ROOT' : ocn_diag_root})
   if not os.path.isdir(dcase.casename):
     print('Creating {}... \n'.format(dcase.casename))
     os.system('mkdir -p {}/scripts'.format(dcase.casename))

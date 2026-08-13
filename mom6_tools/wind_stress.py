@@ -53,7 +53,7 @@ def parseCommandLine():
                       help='''Number of workers to use (default=0, serial job).''')
   optCmdLineArgs = parser.parse_args()
   driver(optCmdLineArgs)
-  return
+
 
 def driver(args):
   nw = args.number_of_workers
@@ -217,6 +217,7 @@ def driver(args):
 
   print(f'{os.path.basename(__file__)} completed successfully!')
   return
+
 
 def plot_hovmoller(da, y_dim, title, cbar_label, outfile,
                    zero_contour=False, smooth_window=12):
