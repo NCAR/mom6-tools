@@ -222,7 +222,7 @@ def main():
                        )
 
       # read grid info
-      grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+      grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
       # Process variable in dataset
       process_dataset(ds, grd_xr, start_date, end_date, ocn_diag_root, args.casename, fname)
