@@ -396,12 +396,8 @@ def main(stream=False):
 
 
   # set avg dates and other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.native = args.casename+diag_config_yml['Fnames']['native']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  dcase.set_avg_dates(args, diag_config_yml)
+  dcase.set_fnames(args, diag_config_yml, {'static': 'static', 'native': 'native', 'geom': 'geom'})
   args.rundir = cime_xmlquery(caseroot, 'RUNDIR')
   args.caseroot = caseroot
   args.OUTDIR = OUTDIR

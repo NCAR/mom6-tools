@@ -61,9 +61,7 @@ def driver(args):
       OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
     # file streams
-    args.monthly = args.casename+diag_config_yml['Fnames']['z']
-    args.static = args.casename+diag_config_yml['Fnames']['static']
-    args.geom = args.casename+diag_config_yml['Fnames']['geom']
+    dcase.set_fnames(args, diag_config_yml, {'monthly': 'z', 'static': 'static', 'geom': 'geom'})
     print('Output directory is:', OUTDIR)
     print('Casename is:', args.casename)
     print('Monthly file is:', args.monthly)
@@ -71,9 +69,7 @@ def driver(args):
     print('Number of workers: ', nw)
 
     # set avg dates
-    avg = diag_config_yml['Avg']
-    if not args.start_date : args.start_date = avg['start_date']
-    if not args.end_date : args.end_date = avg['end_date']
+    dcase.set_avg_dates(args, diag_config_yml)
 
 
     # read grid info

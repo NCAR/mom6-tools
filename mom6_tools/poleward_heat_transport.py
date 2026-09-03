@@ -54,7 +54,6 @@ def main(stream=False):
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
   variables = ['T_ady_2d', 'T_diffy_2d', 'T_hbd_diffy_2d']
-  args.savefigs = True; args.outdir = 'PNG/HT'
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   #print('Variables to be processed:', args.variables)
@@ -62,13 +61,9 @@ def main(stream=False):
   print('Number of workers to be used:', nw)
 
   # set avg dates and other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-  args.native = args.casename+diag_config_yml['Fnames']['native']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.savefigs = False
+  dcase.set_diag_params(args, diag_config_yml,
+                         {'native': 'native', 'static': 'static', 'geom': 'geom'},
+                         outdir='PNG/HT', savefigs=False)
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)

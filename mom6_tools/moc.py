@@ -51,21 +51,15 @@ def main():
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  args.savefigs = True; args.outdir = 'PNG/MOC/'
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
 
-  # set avg dates
+  # set avg dates and file names are provided via yaml
+  dcase.set_diag_params(args, diag_config_yml,
+                         {'monthly': 'z', 'sigma2': 'rho2', 'static': 'static', 'geom': 'geom'},
+                         outdir='PNG/MOC/')
   avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-
-  # file names are provided via yaml
-  args.monthly = args.casename+diag_config_yml['Fnames']['z']
-  args.sigma2 = args.casename+diag_config_yml['Fnames']['rho2']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)

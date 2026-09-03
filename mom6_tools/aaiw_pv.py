@@ -69,15 +69,9 @@ def main(stream=False):
   print('Number of workers to be used:', nw)
 
   # set avg dates and other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-  args.monthly = args.casename+diag_config_yml['Fnames']['z']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.savefigs = True
-  args.label = diag_config_yml['Case']['SNAME']
-  args.outdir = 'PNG/AAIW_PV/'
+  dcase.set_diag_params(args, diag_config_yml,
+                         {'monthly': 'z', 'static': 'static', 'geom': 'geom'},
+                         outdir='PNG/AAIW_PV/')
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)

@@ -568,9 +568,7 @@ def main(stream=False):
   print('Casename is:', args.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  args.z = args.casename+diag_config_yml['Fnames']['z']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  dcase.set_fnames(args, diag_config_yml, {'z': 'z', 'static': 'static', 'geom': 'geom'})
 
   if not os.path.isdir('PNG/Drift'):
     print('Creating a directory to place figures (PNG)... \n')

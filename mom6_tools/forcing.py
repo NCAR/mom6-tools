@@ -55,16 +55,13 @@ def driver(args):
     OUTDIR = dcase.get_value('RUNDIR')
 
   args.casename = dcase.casename
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  dcase.set_fnames(args, diag_config_yml, {'static': 'static', 'geom': 'geom'})
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  dcase.set_avg_dates(args, diag_config_yml)
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)

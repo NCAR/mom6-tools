@@ -22,6 +22,7 @@ from scipy.ndimage import uniform_filter1d
 from xgcm import Grid
 from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 from pathlib import Path
 
 
@@ -57,43 +58,40 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  os.makedirs(args.output_dir, exist_ok=True)
-  os.makedirs(args.plot_dir, exist_ok=True)
 
   # Determine if input is a yaml config or a file glob pattern
   if args.input_path.endswith('.yml') or args.input_path.endswith('.yaml'):
     # yaml-based workflow
     diag_config_yml = yaml.load(open(args.input_path,'r'), Loader=yaml.Loader)
+    dcase = DiagsCase(diag_config_yml['Case'])
     caseroot = diag_config_yml['Case']['CASEROOT']
-    casename = cime_xmlquery(caseroot, 'CASE')
+    args.casename = cime_xmlquery(caseroot, 'CASE')
     DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
     if DOUT_S.lower() == "true":
       OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
     else:
       OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-    native_suffix = diag_config_yml['Fnames']['native']
-    file_pattern = OUTDIR + '/' + casename + native_suffix
-    avg = diag_config_yml['Avg']
-    if not args.start_date: args.start_date = avg['start_date']
-    if not args.end_date: args.end_date = avg['end_date']
-    if not args.label: args.label = diag_config_yml['Case'].get('SNAME', casename)
+    dcase.set_avg_dates(args, diag_config_yml)
+    dcase.set_fnames(args, diag_config_yml, {'native': 'native'})
+    file_pattern = OUTDIR + '/' + args.native
+    if not args.label: args.label = diag_config_yml['Case'].get('SNAME', args.casename)
 
-    # Use OCN_DIAG_ROOT from yaml for output directories
-    ocn_diag_root = diag_config_yml['Case'].get('OCN_DIAG_ROOT', '')
-    if ocn_diag_root:
-      args.output_dir = ocn_diag_root
-      args.plot_dir = os.path.join(ocn_diag_root, 'PNG', 'WIND')
+    # Use OCN_DIAG_ROOT (via DiagsCase) for output directories
+    args.output_dir = dcase.create_output_dir()
+    args.plot_dir = dcase.create_output_dir(subdir=os.path.join('PNG', 'WIND'))
   else:
     # standalone mode: input_path is a glob pattern
     file_pattern = args.input_path
     files = sorted(glob.glob(file_pattern))
     if not files:
       raise FileNotFoundError(f'No files matched: {file_pattern}')
-    casename = os.path.basename(files[0]).split('.mom6.')[0]
-    if not args.label: args.label = casename
+    args.casename = os.path.basename(files[0]).split('.mom6.')[0]
+    if not args.label: args.label = args.casename
+    os.makedirs(args.output_dir, exist_ok=True)
+    os.makedirs(args.plot_dir, exist_ok=True)
 
-  print(f'Case: {casename}')
+  print(f'Case: {args.casename}')
   print(f'File pattern: {file_pattern}')
   print(f'Number of workers: {nw}')
 
@@ -143,10 +141,10 @@ def driver(args):
   taux_ds = taux_zmean.to_dataset()
   taux_ds.attrs = {
       'description': 'Zonal-mean zonal wind stress as f(latitude, time)',
-      'casename': casename,
+      'casename': args.casename,
       'module': os.path.basename(__file__)
   }
-  taux_file = os.path.join(args.output_dir, f'{casename}_taux_zmean.nc')
+  taux_file = os.path.join(args.output_dir, f'{args.casename}_taux_zmean.nc')
   taux_ds.to_netcdf(taux_file)
   print(f'Saved: {taux_file}')
 
@@ -179,10 +177,10 @@ def driver(args):
   curl_ds = curl_zmean.to_dataset()
   curl_ds.attrs = {
       'description': 'Zonal-mean wind stress curl as f(latitude, time)',
-      'casename': casename,
+      'casename': args.casename,
       'module': os.path.basename(__file__)
   }
-  curl_file = os.path.join(args.output_dir, f'{casename}_curl_zmean.nc')
+  curl_file = os.path.join(args.output_dir, f'{args.casename}_curl_zmean.nc')
   curl_ds.to_netcdf(curl_file)
   print(f'Saved: {curl_file}')
 
@@ -198,7 +196,7 @@ def driver(args):
       taux_so, 'yh',
       title=f'Zonal-mean zonal wind stress\n{args.label}',
       cbar_label=r'$\tau_x$ [N m$^{-2}$]',
-      outfile=os.path.join(args.plot_dir, f'{casename}_hovmoller_taux.png')
+      outfile=os.path.join(args.plot_dir, f'{args.casename}_hovmoller_taux.png')
   )
 
   # Curl Hovmoller
@@ -207,7 +205,7 @@ def driver(args):
       curl_so, y_dim_curl,
       title=f'Zonal-mean wind stress curl\n{args.label}',
       cbar_label='Wind stress curl',
-      outfile=os.path.join(args.plot_dir, f'{casename}_hovmoller_curl.png'),
+      outfile=os.path.join(args.plot_dir, f'{args.casename}_hovmoller_curl.png'),
       zero_contour=True
   )
 
