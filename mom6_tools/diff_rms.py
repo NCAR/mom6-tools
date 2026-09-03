@@ -653,7 +653,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
   startTime = datetime.now()
   print('Reading dataset...')
   ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel,
-                          data_vars='minimal', compat='override', coords='minimal')
+                          data_vars='minimal', compat='override', coords='minimal',
+                          chunks={'time': 12})
 
   if (var not in ds1):
     raise ValueError("The variable requested is not available in the history files of this simulation. \

@@ -663,7 +663,8 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
   startTime = datetime.now()
   print('Reading dataset...')
   ds1 = xr.open_mfdataset(OUTDIR+'/'+args.z, parallel=parallel,
-                          data_vars='minimal', compat='override', coords='minimal')
+                          data_vars='minimal', compat='override', coords='minimal',
+                          chunks={'time': 12})
 
   if (var not in ds1):
     raise ValueError("The variable requested is not available in the history files of this simulation. \
@@ -693,14 +694,17 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
                                                                 diff.dims[3]: diff.xh})
   area3d_masked = mask3d.where(diff[0,:] == diff[0,:])
 
+  # HorizontalMeanDiff_da/HorizontalMeanRmse_da expect a 3D (region, yh, xh) mask;
+  # basins carries a leftover length-1 'variable' dim from Dataset.to_array().
+  basins3d = basins.squeeze(drop=True)
+
   if args.drift:
     # Horizontal Mean difference (model - obs)
     description = 'Horizontal Mean drift for {}'.format(var)
     print('\n {}...'.format(description))
     startTime = datetime.now()
     vname = '{}_drift'.format(var)
-    drift = (diff * basins).weighted((area3d_masked * basins).fillna(0)).mean(dim=["yh", "xh"]).squeeze('variable').transpose('region', 'time', 'z_l').rename(vname)
-    #drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+    drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins3d, debug=args.debug).rename(vname)
     print('Time elasped: ', datetime.now() - startTime)
 
   if args.rms:
@@ -709,8 +713,7 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
     print('\n {}...'.format(description))
     startTime = datetime.now()
     vname = '{}_rms'.format(var)
-    rms = np.sqrt(((diff * basins)**2).weighted((area3d_masked * basins).fillna(0)).mean(dim=["yh", "xh"])).squeeze('variable').transpose('region', 'time', 'z_l').rename(vname)
-    #rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+    rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins3d, debug=args.debug).rename(vname)
     print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
