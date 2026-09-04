@@ -115,6 +115,11 @@ def main():
   ds_sel = ds_ann.sel(time=slice(args.avg_start_date, args.avg_end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
+  startTime = datetime.now()
+  print('Selecting time-series data between {} and {}...'.format(args.ts_start_date, args.ts_end_date))
+  ds_ann_ts = ds_ann.sel(time=slice(args.ts_start_date, args.ts_end_date))
+  print('Time elasped: ', datetime.now() - startTime)
+
   print('Computing time mean...')
   startTime = datetime.now()
   ds_mean = ds_sel.mean('time').compute()
@@ -165,14 +170,16 @@ def main():
                                 'ipmoc' :     (('zl','yq'), np.zeros(psiPlot.shape)),
                                 'moc_FFH' :   (('zl','yq'), np.zeros(psiPlot.shape)),
                                 'moc_GM' :    (('zl','yq'), np.zeros(psiPlot.shape)),
-                                'amoc_45' :   (('time'), np.zeros(ds_ann.time.shape)),
-                                'moc_GM_ACC': (('time'), np.zeros(ds_ann.time.shape)),
-                                'moc_70S' :   (('time'), np.zeros(ds_ann.time.shape)),
-                                'moc_35S' :   (('time'), np.zeros(ds_ann.time.shape)),
-                                'amoc_26' :   (('time'), np.zeros(ds_ann.time.shape)) },
-                            coords={'zl': zl, 'yq': ds.yq, 'time': ds_ann.time})
+                                'amoc_45' :   (('time'), np.zeros(ds_ann_ts.time.shape)),
+                                'moc_GM_ACC': (('time'), np.zeros(ds_ann_ts.time.shape)),
+                                'moc_70S' :   (('time'), np.zeros(ds_ann_ts.time.shape)),
+                                'moc_35S' :   (('time'), np.zeros(ds_ann_ts.time.shape)),
+                                'amoc_26' :   (('time'), np.zeros(ds_ann_ts.time.shape)) },
+                            coords={'zl': zl, 'yq': ds.yq, 'time': ds_ann_ts.time})
   attrs = {'description': 'MOC time-mean sections and time-series', 'units': 'Sv',
-           'start_date': avg['start_date'], 'end_date': avg['end_date'], 'casename': args.casename}
+           'start_date': avg['start_date'], 'end_date': avg['end_date'],
+           'ts_start_date': args.ts_start_date or '', 'ts_end_date': args.ts_end_date or '',
+           'casename': args.casename}
   m6toolbox.add_global_attrs(moc, attrs)
 
   m6plot.setFigureSize([16,9],576,debug=False)
@@ -249,8 +256,8 @@ def main():
   startTime = datetime.now()
 
   # Load all annual data at once — one dask graph evaluation vs T separate ones
-  vmo_all  = np.ma.filled(np.ma.masked_invalid(ds_ann['vmo'].values),  0.)  # (T,K,J,I)
-  vhGM_all = np.ma.filled(np.ma.masked_invalid(ds_ann['vhGM'].values), 0.)  # (T,K,J,I)
+  vmo_all  = np.ma.filled(np.ma.masked_invalid(ds_ann_ts['vmo'].values),  0.)  # (T,K,J,I)
+  vhGM_all = np.ma.filled(np.ma.masked_invalid(ds_ann_ts['vhGM'].values), 0.)  # (T,K,J,I)
 
   # Compute streamfunctions for all time steps at once
   psi_atl_all = MOCpsi(vmo_all, vmsk=vmsk_atl) * conversion_factor   # (T,K+1,J)
@@ -299,9 +306,13 @@ def main():
   amoc_core_45 = catalog["moc-core2-45"].to_dask()
   amoc_pop_45  = catalog["moc-pop-jra-45"].to_dask()
 
+  # Model's actual annual-mean years (the obs/reanalysis series above use their
+  # own known start years since their catalog time coordinates aren't real dates)
+  model_years = moc.time.dt.year.values + 0.5
+
   # plot AMOC @ 26N
   fig = plt.figure(figsize=(12, 6))
-  plt.plot(np.arange(len(moc.time))+1958.5, moc['amoc_26'].values, color='k', label=casename, lw=2)
+  plt.plot(model_years, moc['amoc_26'].values, color='k', label=casename, lw=2)
   core_mean = amoc_core_26['MOC'].mean(axis=0).data
   core_std  = amoc_core_26['MOC'].std(axis=0).data
   plt.plot(amoc_core_26.time, core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=1)
@@ -311,7 +322,7 @@ def main():
   plt.plot(np.arange(len(rapid.time))+2004.5, rapid.moc_mar_hc10.values, color='green', label='RAPID', lw=1)
   plt.title('AMOC @ 26 $^o$ N', fontsize=16)
   plt.ylim(5,20)
-  plt.xlim(1948, 1958.5+len(moc.time))
+  plt.xlim(1948, max(1958.5+len(amoc_pop_26.time), model_years.max()+0.5))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=13, ncol=2)
   objOut = args.outdir+str(casename)+'_MOC_26N_time_series.png'
@@ -319,7 +330,7 @@ def main():
 
   # plot AMOC @ 45N
   fig = plt.figure(figsize=(12, 6))
-  plt.plot(np.arange(len(moc.time))+1958.5, moc['amoc_45'], color='k', label=casename, lw=2)
+  plt.plot(model_years, moc['amoc_45'], color='k', label=casename, lw=2)
   core_mean = amoc_core_45['MOC'].mean(axis=0).data
   core_std  = amoc_core_45['MOC'].std(axis=0).data
   plt.plot(amoc_core_45.time, core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=2)
@@ -328,7 +339,7 @@ def main():
   plt.plot(np.arange(len(amoc_pop_45.time))+1958.5, amoc_pop_45.AMOC_45n.values, color='r', label='POP', lw=1)
   plt.title('AMOC @ 45 $^o$ N', fontsize=16)
   plt.ylim(5,20)
-  plt.xlim(1948, 1958+len(moc.time))
+  plt.xlim(1948, max(1958.5+len(amoc_pop_45.time), model_years.max()+0.5))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
   objOut = args.outdir+str(casename)+'_MOC_45N_time_series.png'
