@@ -14,6 +14,7 @@ from dask.distributed import Client
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import cime_xmlquery, filter_vars, replace_cell_content
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -22,15 +23,16 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Create monthly climatology and averages for datasets.')
     parser.add_argument('config_yml', type=str, help='Path to YAML configuration file.')
     parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty).')
-    parser.add_argument('-s', '--stream', type=str, default='.mom6.h.z.????-??.nc', help='History file stream (default is .mom6.h.z.????-??.nc)')
-    parser.add_argument('-f', '--fname', type=str, default='z', help='Name of the history file stream (default is z)')
-    parser.add_argument('-sd', '--start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
-    parser.add_argument('-ed', '--end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
+    parser.add_argument('-f', '--fname', type=str, default='z', help="Label of the history file stream, must be a key in the config yaml's 'Fnames' section (default is z)")
+    parser.add_argument('-asd', '--avg_start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
+    parser.add_argument('-aed', '--avg_end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
+    parser.add_argument('-tsd', '--ts_start_date', type=str, default='', help='Start date for time-series (TS) analysis, if applicable.')
+    parser.add_argument('-ted', '--ts_end_date', type=str, default='', help='End date for time-series (TS) analysis, if applicable.')
     parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
     return parser.parse_args()
 
 # Function to submit PBS script for each variable
-def submit_pbs_script(var, stream, fname):
+def submit_pbs_script(var, fname):
     """Create and submit a PBS script for generating climatology."""
     pbs_script = textwrap.dedent(f"""\
     #!/bin/bash
@@ -45,7 +47,7 @@ def submit_pbs_script(var, stream, fname):
     module load conda
     conda activate mom6-tools
 
-    mom6-tools_create_climatology diag_config.yml -v {var} -s {stream} -f {fname}
+    mom6-tools_create_climatology diag_config.yml -v {var} -f {fname}
     """)
 
     # Create the directory if it does not exist
@@ -123,17 +125,15 @@ def main():
 
     args = parse_args()
     variable = args.variable
-    stream = args.stream
     fname = args.fname
     # Read in the yaml file
     config = yaml.load(open(args.config_yml,'r'), Loader=yaml.Loader)
 
+    dcase = DiagsCase(config['Case'])
     caseroot = config['Case']['CASEROOT']
-    ocn_diag_root = config['Case']['OCN_DIAG_ROOT']
-    ocn_diag_root = os.path.join(ocn_diag_root, "climo/")
     args.casename = cime_xmlquery(caseroot, 'CASE')
-    args.geom = args.casename+config['Fnames']['geom']
-    args.static = args.casename+config['Fnames']['static']
+    dcase.set_fnames(args, config, {'geom': 'geom', 'static': 'static', fname: fname})
+    stream = getattr(args, fname)
     DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
     if DOUT_S.lower() == "true":
       OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
@@ -146,14 +146,7 @@ def main():
     print('Variable is:', variable)
     print('Stream is:', stream)
 
-    try:
-      os.makedirs(ocn_diag_root, exist_ok=True)
-    except:
-      current_path = os.getcwd()
-      proc_path = os.path.join(current_path, "proc")
-      warnings.warn(f"Directory {ocn_diag_root} could not be created. Using {proc_path} instead.", UserWarning)
-      ocn_diag_root = proc_path
-      os.makedirs(ocn_diag_root, exist_ok=True)
+    ocn_diag_root = dcase.create_output_dir(subdir="climo/")
 
     climo_path = f"{ocn_diag_root}../../notebooks/climo_{fname}/"
     os.makedirs(climo_path, exist_ok=True)
@@ -162,7 +155,7 @@ def main():
       print("The variable is an empty string. Processing all variables in {}".format(stream))
 
       # Select all files that contain 'native' in their name
-      file = glob.glob(os.path.join(OUTDIR, args.casename+stream))[0]
+      file = glob.glob(os.path.join(OUTDIR, stream))[0]
 
       if args.debug:
         print(f'file: {file}')
@@ -196,21 +189,20 @@ def main():
       # Loop over the variables in the dataset and submit a PBS job for each
       for var in ds_file.data_vars:
         # Submit a PBS script for the variable
-        submit_pbs_script(var, stream, fname)
+        submit_pbs_script(var, fname)
 
     else:
       print("The variable is not an empty string.")
 
-      start_date = args.start_date or config['Avg']['start_date']
-      end_date = args.end_date or config['Avg']['end_date']
+      dcase.set_dates(args, config)
 
-      print(f'Processing data from {start_date} to {end_date}')
+      print(f'Processing data from {args.avg_start_date} to {args.avg_end_date}')
 
       def preprocess(ds, variable):
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
 
-      files = os.path.join(OUTDIR, args.casename+stream)
+      files = os.path.join(OUTDIR, stream)
       ds = xr.open_mfdataset(files,
                        parallel=True,
                        combine="nested",
@@ -225,7 +217,7 @@ def main():
       grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
       # Process variable in dataset
-      process_dataset(ds, grd_xr, start_date, end_date, ocn_diag_root, args.casename, fname)
+      process_dataset(ds, grd_xr, args.avg_start_date, args.avg_end_date, ocn_diag_root, args.casename, fname)
 
       # run notebook
       print(f'Generating notebook for {variable}')

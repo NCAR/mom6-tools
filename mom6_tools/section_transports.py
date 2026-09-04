@@ -23,8 +23,14 @@ def options():
 
   parser.add_argument('-l','--label',    type=str, default='', help='''Label to add to the plot.''')
   parser.add_argument('-o','--outdir',   type=str, default='PNG/Transports', help='''Directory in which to place plots.''')
-  parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',  help='''Start year to plot (default=0001-01-01)''')
-  parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31', help='''Final year to plot (default=0100-12-31)''')
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
+                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
+                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=1, help='''Number of workers to use (default=1).''')
   parser.add_argument('-save_ncfile', help='''Save a netCDF file with transport data''', action="store_true")
   parser.add_argument('-debug', help='''Add priting statements for debugging purposes''', action="store_true")
@@ -64,7 +70,7 @@ class Transport():
     if label != None: self.label = label
     else: self.label = section
     self.ylim = ylim
-    if debug: print('Start date {}; End date {}'.format(args.start_date, args.end_date))
+    if debug: print('ts_start_date {}; ts_end_date {}'.format(args.ts_start_date, args.ts_end_date))
     missing_var = True
     # loop over tiles
     for t in range(len(tiles)):
@@ -102,6 +108,12 @@ class Transport():
     if missing_var:
       raise ValueError('Variable does not exist. Please verify that you assigned the right variable for this section.')
 
+    print('Selecting data between {} and {}...'.format(args.ts_start_date, args.ts_end_date))
+    da = xr.DataArray(total, coords={'time': time}, dims=['time']).sel(
+           time=slice(args.ts_start_date, args.ts_end_date))
+    total = da.values
+    time = da['time'].values
+
     self.data = total
     self.time = time
     if args.casename != '':  self.casename = args.casename + ' ' + args.label
@@ -138,6 +150,9 @@ def main(stream=False):
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
   dcase = DiagsCase(diag_config_yml['Case'])
   ocn_diag_root = dcase.create_output_dir()
+
+  # set avg and ts dates
+  dcase.set_dates(args, diag_config_yml)
 
   # load sections where transports are computed online
   sections = diag_config_yml['Transports']['sections']

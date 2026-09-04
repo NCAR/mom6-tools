@@ -27,10 +27,14 @@ def parseCommandLine():
   epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
@@ -55,16 +59,13 @@ def driver(args):
     OUTDIR = dcase.get_value('RUNDIR')
 
   args.casename = dcase.casename
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  dcase.set_fnames(args, diag_config_yml, {'static': 'static', 'geom': 'geom'})
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  dcase.set_dates(args, diag_config_yml)
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
@@ -86,9 +87,9 @@ def driver(args):
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.avg_start_date, args.avg_end_date))
   startTime = datetime.now()
-  ds = ds.sel(time=slice(args.start_date, args.end_date))
+  ds = ds.sel(time=slice(args.avg_start_date, args.avg_end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
 

@@ -20,10 +20,14 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for plotting meridional overturning circulation.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
@@ -51,21 +55,15 @@ def main():
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  args.savefigs = True; args.outdir = 'PNG/MOC/'
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
 
-  # set avg dates
+  # set avg dates and file names are provided via yaml
+  dcase.set_diag_params(args, diag_config_yml,
+                         {'monthly': 'z', 'sigma2': 'rho2', 'static': 'static', 'geom': 'geom'},
+                         outdir='PNG/MOC/')
   avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-
-  # file names are provided via yaml
-  args.monthly = args.casename+diag_config_yml['Fnames']['z']
-  args.sigma2 = args.casename+diag_config_yml['Fnames']['rho2']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
@@ -111,8 +109,13 @@ def main():
   print('Time elasped: ', datetime.now() - startTime)
 
   startTime = datetime.now()
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
-  ds_sel = ds_ann.sel(time=slice(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.avg_start_date, args.avg_end_date))
+  ds_sel = ds_ann.sel(time=slice(args.avg_start_date, args.avg_end_date))
+  print('Time elasped: ', datetime.now() - startTime)
+
+  startTime = datetime.now()
+  print('Selecting time-series data between {} and {}...'.format(args.ts_start_date, args.ts_end_date))
+  ds_ann_ts = ds_ann.sel(time=slice(args.ts_start_date, args.ts_end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing time mean...')
@@ -142,7 +145,7 @@ def main():
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yyg = grd.geolat_c[:,:].max(axis=-1)+0*zg
   ci=m6plot.pmCI(0.,40.,5.)
-  plotPsi(yyg, zg, psiPlot, ci, 'Global MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date )
+  plotPsi(yyg, zg, psiPlot, ci, 'Global MOC [Sv],' + 'averaged between '+ args.avg_start_date + ' and '+ args.avg_end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(casename)
   findExtrema(yyg, zg, psiPlot, max_lat=-30.)
@@ -165,14 +168,16 @@ def main():
                                 'ipmoc' :     (('zl','yq'), np.zeros(psiPlot.shape)),
                                 'moc_FFH' :   (('zl','yq'), np.zeros(psiPlot.shape)),
                                 'moc_GM' :    (('zl','yq'), np.zeros(psiPlot.shape)),
-                                'amoc_45' :   (('time'), np.zeros(ds_ann.time.shape)),
-                                'moc_GM_ACC': (('time'), np.zeros(ds_ann.time.shape)),
-                                'moc_70S' :   (('time'), np.zeros(ds_ann.time.shape)),
-                                'moc_35S' :   (('time'), np.zeros(ds_ann.time.shape)),
-                                'amoc_26' :   (('time'), np.zeros(ds_ann.time.shape)) },
-                            coords={'zl': zl, 'yq': ds.yq, 'time': ds_ann.time})
+                                'amoc_45' :   (('time'), np.zeros(ds_ann_ts.time.shape)),
+                                'moc_GM_ACC': (('time'), np.zeros(ds_ann_ts.time.shape)),
+                                'moc_70S' :   (('time'), np.zeros(ds_ann_ts.time.shape)),
+                                'moc_35S' :   (('time'), np.zeros(ds_ann_ts.time.shape)),
+                                'amoc_26' :   (('time'), np.zeros(ds_ann_ts.time.shape)) },
+                            coords={'zl': zl, 'yq': ds.yq, 'time': ds_ann_ts.time})
   attrs = {'description': 'MOC time-mean sections and time-series', 'units': 'Sv',
-           'start_date': avg['start_date'], 'end_date': avg['end_date'], 'casename': args.casename}
+           'start_date': avg['start_date'], 'end_date': avg['end_date'],
+           'ts_start_date': args.ts_start_date or '', 'ts_end_date': args.ts_end_date or '',
+           'casename': args.casename}
   m6toolbox.add_global_attrs(moc, attrs)
 
   m6plot.setFigureSize([16,9],576,debug=False)
@@ -202,7 +207,7 @@ def main():
   psiPlot = MOCpsi(VHmod, vmsk=m*np.roll(m,-1,axis=-2))*conversion_factor
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yy = grd.geolat_c[:,:].max(axis=-1)+0*z
-  plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ args.start_date + ' and '+ args.end_date )
+  plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ args.avg_start_date + ' and '+ args.avg_end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(casename)
   # find range to extract values near the RAPID array
@@ -249,8 +254,8 @@ def main():
   startTime = datetime.now()
 
   # Load all annual data at once — one dask graph evaluation vs T separate ones
-  vmo_all  = np.ma.filled(np.ma.masked_invalid(ds_ann['vmo'].values),  0.)  # (T,K,J,I)
-  vhGM_all = np.ma.filled(np.ma.masked_invalid(ds_ann['vhGM'].values), 0.)  # (T,K,J,I)
+  vmo_all  = np.ma.filled(np.ma.masked_invalid(ds_ann_ts['vmo'].values),  0.)  # (T,K,J,I)
+  vhGM_all = np.ma.filled(np.ma.masked_invalid(ds_ann_ts['vhGM'].values), 0.)  # (T,K,J,I)
 
   # Compute streamfunctions for all time steps at once
   psi_atl_all = MOCpsi(vmo_all, vmsk=vmsk_atl) * conversion_factor   # (T,K+1,J)
@@ -299,9 +304,13 @@ def main():
   amoc_core_45 = catalog["moc-core2-45"].to_dask()
   amoc_pop_45  = catalog["moc-pop-jra-45"].to_dask()
 
+  # Model's actual annual-mean years (the obs/reanalysis series above use their
+  # own known start years since their catalog time coordinates aren't real dates)
+  model_years = moc.time.dt.year.values + 0.5
+
   # plot AMOC @ 26N
   fig = plt.figure(figsize=(12, 6))
-  plt.plot(np.arange(len(moc.time))+1958.5, moc['amoc_26'].values, color='k', label=casename, lw=2)
+  plt.plot(model_years, moc['amoc_26'].values, color='k', label=casename, lw=2)
   core_mean = amoc_core_26['MOC'].mean(axis=0).data
   core_std  = amoc_core_26['MOC'].std(axis=0).data
   plt.plot(amoc_core_26.time, core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=1)
@@ -311,7 +320,7 @@ def main():
   plt.plot(np.arange(len(rapid.time))+2004.5, rapid.moc_mar_hc10.values, color='green', label='RAPID', lw=1)
   plt.title('AMOC @ 26 $^o$ N', fontsize=16)
   plt.ylim(5,20)
-  plt.xlim(1948, 1958.5+len(moc.time))
+  plt.xlim(1948, max(1958.5+len(amoc_pop_26.time), model_years.max()+0.5))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=13, ncol=2)
   objOut = args.outdir+str(casename)+'_MOC_26N_time_series.png'
@@ -319,7 +328,7 @@ def main():
 
   # plot AMOC @ 45N
   fig = plt.figure(figsize=(12, 6))
-  plt.plot(np.arange(len(moc.time))+1958.5, moc['amoc_45'], color='k', label=casename, lw=2)
+  plt.plot(model_years, moc['amoc_45'], color='k', label=casename, lw=2)
   core_mean = amoc_core_45['MOC'].mean(axis=0).data
   core_std  = amoc_core_45['MOC'].std(axis=0).data
   plt.plot(amoc_core_45.time, core_mean, 'k', label='CORE II (group mean)', color='#1B2ACC', lw=2)
@@ -328,7 +337,7 @@ def main():
   plt.plot(np.arange(len(amoc_pop_45.time))+1958.5, amoc_pop_45.AMOC_45n.values, color='r', label='POP', lw=1)
   plt.title('AMOC @ 45 $^o$ N', fontsize=16)
   plt.ylim(5,20)
-  plt.xlim(1948, 1958+len(moc.time))
+  plt.xlim(1948, max(1958.5+len(amoc_pop_45.time), model_years.max()+0.5))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
   objOut = args.outdir+str(casename)+'_MOC_45N_time_series.png'
@@ -348,7 +357,7 @@ def main():
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yy = grd.geolat_c[:,:].max(axis=-1)+0*z
   ci=m6plot.pmCI(0.,20.,2.)
-  plotPsi(yy, z, psiPlot, ci, 'Global FFH MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date,
+  plotPsi(yy, z, psiPlot, ci, 'Global FFH MOC [Sv],' + 'averaged between '+ args.avg_start_date + ' and '+ args.avg_end_date,
           zval=[0.,-400.,-1000.])
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(casename)
@@ -371,7 +380,7 @@ def main():
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yy = grd.geolat_c[:,:].max(axis=-1)+0*z
   ci=m6plot.pmCI(0.,20.,2.)
-  plotPsi(yy, z, psiPlot, ci, 'Global GM MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date)
+  plotPsi(yy, z, psiPlot, ci, 'Global GM MOC [Sv],' + 'averaged between '+ args.avg_start_date + ' and '+ args.avg_end_date)
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(casename)
   plt.gca().invert_yaxis()

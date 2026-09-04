@@ -40,6 +40,14 @@ def options():
   parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
                       help='''Name of observational product in the oce-catalog  \
     to compare against. Default is woa-2018-tx2_3v2-annual-all''')
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
+                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
+                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
@@ -556,6 +564,9 @@ def main(stream=False):
   caseroot = diag_config_yml['Case']['CASEROOT']
   dcase = DiagsCase(diag_config_yml['Case'])
   args.ocn_diag_root = dcase.create_output_dir()
+
+  # set avg and ts dates
+  dcase.set_dates(args, diag_config_yml)
   # Create the case instance
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
@@ -568,9 +579,7 @@ def main(stream=False):
   print('Casename is:', args.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  args.z = args.casename+diag_config_yml['Fnames']['z']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  dcase.set_fnames(args, diag_config_yml, {'z': 'z', 'static': 'static', 'geom': 'geom'})
 
   if not os.path.isdir('PNG/Drift'):
     print('Creating a directory to place figures (PNG)... \n')
@@ -654,23 +663,25 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
     cluster.scale(args.number_of_workers)
     client = Client(cluster)
 
-  def preprocess(ds):
-    if 'thetao' not in ds.variables:
-        ds["thetao"] = xr.zeros_like(ds.h)
-    if 'so' not in ds.variables:
-        ds["so"] = xr.zeros_like(ds.h)
-
+  def preprocess(ds, var):
+    if var not in ds:
+        ds[var] = xr.zeros_like(ds.h)
     return ds
 
   # read dataset
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.z, parallel=parallel)
-  ds = preprocess(ds1)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.z, parallel=parallel,
+                          data_vars='minimal', compat='override', coords='minimal',
+                          chunks={'time': 12})
 
-  if (var not in ds):
+  if (var not in ds1):
     raise ValueError("The variable requested is not available in the history files of this simulation. \
                      Only thetao and so are available at this time.")
+  ds = preprocess(ds1, var)
+
+  print(f'Selecting data between {args.ts_start_date} and {args.ts_end_date}...')
+  ds = ds.sel(time=slice(args.ts_start_date, args.ts_end_date))
 
   units = ds[var].units
 
@@ -695,14 +706,17 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
                                                                 diff.dims[3]: diff.xh})
   area3d_masked = mask3d.where(diff[0,:] == diff[0,:])
 
+  # HorizontalMeanDiff_da/HorizontalMeanRmse_da expect a 3D (region, yh, xh) mask;
+  # basins carries a leftover length-1 'variable' dim from Dataset.to_array().
+  basins3d = basins.squeeze(drop=True)
+
   if args.drift:
     # Horizontal Mean difference (model - obs)
     description = 'Horizontal Mean drift for {}'.format(var)
     print('\n {}...'.format(description))
     startTime = datetime.now()
     vname = '{}_drift'.format(var)
-    drift = (diff * basins).weighted((area3d_masked * basins).fillna(0)).mean(dim=["yh", "xh"]).squeeze('variable').transpose('region', 'time', 'z_l').rename(vname)
-    #drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+    drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins3d, debug=args.debug).rename(vname)
     print('Time elasped: ', datetime.now() - startTime)
 
   if args.rms:
@@ -711,8 +725,7 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
     print('\n {}...'.format(description))
     startTime = datetime.now()
     vname = '{}_rms'.format(var)
-    rms = np.sqrt(((diff * basins)**2).weighted((area3d_masked * basins).fillna(0)).mean(dim=["yh", "xh"])).squeeze('variable').transpose('region', 'time', 'z_l').rename(vname)
-    #rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
+    rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins3d, debug=args.debug).rename(vname)
     print('Time elasped: ', datetime.now() - startTime)
 
   if parallel:
