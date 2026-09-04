@@ -336,20 +336,21 @@ class DiagsCase(object,):
     #     return self._grid
 
 
-    def set_avg_dates(self, args, diag_config_yml):
-        """Fill in args.start_date/end_date from the yaml config's 'Avg' section,
+    def set_dates(self, args, diag_config_yml):
+        """Fill in args.avg_start_date/avg_end_date from the yaml config's 'Avg' section,
         but only if they are not already set (e.g., via command-line flags).
 
-        Also fill in args.start_date_ts/end_date_ts from the yaml config's 'TS' section,
+        Also fill in args.ts_start_date/ts_end_date from the yaml config's 'TS' section,
         if they are not already set. If 'TS' is not present in the config, leaves
-        start_date_ts/end_date_ts as None (unless already set), so callers can
+        ts_start_date/ts_end_date as None (unless already set), so callers can
         fall back to using the whole record.
 
         Parameters
         ----------
         args : argparse.Namespace
             Parsed command-line arguments to update in place. Must already have
-            start_date and end_date attributes (e.g., from argparse defaults).
+            avg_start_date, avg_end_date, ts_start_date and ts_end_date attributes
+            (e.g., from argparse defaults).
         diag_config_yml : dict
             Parsed diag_config yaml dictionary (must contain an 'Avg' key).
 
@@ -360,16 +361,16 @@ class DiagsCase(object,):
         """
 
         avg = diag_config_yml['Avg']
-        if not args.start_date: args.start_date = avg['start_date']
-        if not args.end_date: args.end_date = avg['end_date']
+        if not args.avg_start_date: args.avg_start_date = avg['start_date']
+        if not args.avg_end_date: args.avg_end_date = avg['end_date']
 
         ts = diag_config_yml.get('TS')
         if ts:
-            if not args.start_date_ts: args.start_date_ts = ts['start_date']
-            if not args.end_date_ts: args.end_date_ts = ts['end_date']
+            if not args.ts_start_date: args.ts_start_date = ts['start_date']
+            if not args.ts_end_date: args.ts_end_date = ts['end_date']
         else:
-            if not args.start_date_ts: args.start_date_ts = None
-            if not args.end_date_ts: args.end_date_ts = None
+            if not args.ts_start_date: args.ts_start_date = None
+            if not args.ts_end_date: args.ts_end_date = None
 
         return args
 
@@ -401,7 +402,7 @@ class DiagsCase(object,):
     def set_diag_params(self, args, diag_config_yml, fnames:dict, outdir=None, savefigs=True):
         """Populate an argparse.Namespace with averaging dates, history file names,
         and figure-saving params derived from the diag_config yaml file. Convenience
-        wrapper combining set_avg_dates and set_fnames for the common case of a script
+        wrapper combining set_dates and set_fnames for the common case of a script
         that also saves labeled figures to an output directory.
 
         Parameters
@@ -424,7 +425,7 @@ class DiagsCase(object,):
             The same args object, updated in place.
         """
 
-        self.set_avg_dates(args, diag_config_yml)
+        self.set_dates(args, diag_config_yml)
         self.set_fnames(args, diag_config_yml, fnames)
         args.savefigs = savefigs
         args.label = diag_config_yml['Case']['SNAME']

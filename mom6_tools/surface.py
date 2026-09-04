@@ -29,10 +29,14 @@ def parseCommandLine():
   epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-mld_obs','--mld_obs', type=str, default='mld-deboyer-2023-tx2_3v2',
                       help='''Name of the observation-based MLD dataset in the oce-catalog. Default is mld-deboyer-2023-tx2_3v2''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
@@ -104,10 +108,10 @@ def driver(args):
   #ds = preprocess(ds1)
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.avg_start_date, args.avg_end_date))
   startTime = datetime.now()
-  ds = preprocess(ds1.sel(time=slice(args.start_date, args.end_date)))
-  ds_daily = ds_daily.sel(time=slice(args.start_date, args.end_date))
+  ds = preprocess(ds1.sel(time=slice(args.avg_start_date, args.avg_end_date)))
+  ds_daily = ds_daily.sel(time=slice(args.avg_start_date, args.avg_end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   # load obs-based mld from oce-catalog
@@ -166,8 +170,8 @@ def get_speed(ds, var, grd, args):
         "speed_climatology": speed_month_clima
     }
   )
-  attrs = {'start_date': args.start_date,
-           'end_date': args.end_date,
+  attrs = {'start_date': args.avg_start_date,
+           'end_date': args.avg_end_date,
            'casename': args.casename,
            'description': 'Surface speed mean and climatology ',
            'module': os.path.basename(__file__)}
@@ -214,8 +218,8 @@ def get_SSH(ds1, ds2, var, grd, args):
     }
   )
 
-  attrs = {'start_date': args.start_date,
-           'end_date': args.end_date,
+  attrs = {'start_date': args.avg_start_date,
+           'end_date': args.avg_end_date,
            'casename': args.casename,
            'description': 'SSH mean, variance and mean climatology ',
            #'obs': 'AVISO',
@@ -248,8 +252,8 @@ def get_MLD(ds, var, mld_obs, grd, args):
     "longitude": (("yh", "xh"), grd.geolon)
   })
 
-  attrs = {'start_date': args.start_date,
-           'end_date': args.end_date,
+  attrs = {'start_date': args.avg_start_date,
+           'end_date': args.avg_end_date,
            'casename': args.casename,
            'description': 'MLD monthly climatology (m)',
            'module': os.path.basename(__file__)}
@@ -282,8 +286,8 @@ def get_MLD(ds, var, mld_obs, grd, args):
             "label": "MLD monthly climatology (m)"
         }
     )
-    plt.suptitle('{}, from {} to {}'.format(args.label, args.start_date,
-                args.end_date), fontsize=16, fontweight='bold')
+    plt.suptitle('{}, from {} to {}'.format(args.label, args.avg_start_date,
+                args.avg_end_date), fontsize=16, fontweight='bold')
     plt.subplots_adjust(top=0.93, bottom=0.26)
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_monthly_clima.png'
     plt.savefig(fname)
@@ -310,8 +314,8 @@ def get_MLD(ds, var, mld_obs, grd, args):
             "label": "MLD monthly climatology bias [model - {}] (m)".format(args.mld_obs)
         }
     )
-    plt.suptitle('{}, from {} to {}'.format(args.label, args.start_date,
-                args.end_date), fontsize=16, fontweight='bold')
+    plt.suptitle('{}, from {} to {}'.format(args.label, args.avg_start_date,
+                args.avg_end_date), fontsize=16, fontweight='bold')
     plt.subplots_adjust(top=0.93, bottom=0.26)
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_monthly_clima_bias.png'
     plt.savefig(fname)
@@ -327,7 +331,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     xycompare(model_JFM , obs_JFM, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
             title2 = 'obs (deBoyer), '+str(month),
-            suptitle=args.casename +', ' + str(args.start_date) + ' to ' + str(args.end_date),
+            suptitle=args.casename +', ' + str(args.avg_start_date) + ' to ' + str(args.avg_end_date),
             colormap=plt.cm.Spectral_r, dcolormap=plt.cm.bwr, clim = (0,1500), extend='max',
             save = fname)
 
@@ -342,7 +346,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     xycompare(model_JAS , obs_JAS, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
             title2 = 'obs (deBoyer), '+str(month),
-            suptitle=args.casename +', ' + str(args.start_date) + ' to ' + str(args.end_date),
+            suptitle=args.casename +', ' + str(args.avg_start_date) + ' to ' + str(args.avg_end_date),
             colormap=plt.cm.Spectral_r, dcolormap=plt.cm.bwr, clim = (0,1500), extend='max',
             save = fname)
 
@@ -356,8 +360,8 @@ def get_MLD(ds, var, mld_obs, grd, args):
                            coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('MLD_winter')
 
   month = 'winter'
-  attrs = {'start_date': args.start_date,
-           'end_date': args.end_date,
+  attrs = {'start_date': args.avg_start_date,
+           'end_date': args.avg_end_date,
            'casename': args.casename,
            'description': 'Winter MLD (m)',
            'module': os.path.basename(__file__)}
@@ -368,7 +372,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     xycompare(model_winter , obs_winter, grd.geolon, grd.geolat, area=area,
             title1 = 'model, JFM (NH), JAS (SH)',
             title2 = 'obs (deBoyer), JFM (NH), JAS (SH)',
-            suptitle=args.casename +', ' + str(args.start_date) + ' to ' + str(args.end_date),
+            suptitle=args.casename +', ' + str(args.avg_start_date) + ' to ' + str(args.avg_end_date),
             colormap=plt.cm.Spectral_r, dcolormap=plt.cm.bwr, clim = (0,1500), extend='max',
             save = fname)
 
@@ -377,7 +381,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     xyplot(model_winter, grd.geolon, grd.geolat, area=area,
          save=fname,
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
-         title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
+         title=str(args.casename) + ' ' +str(args.avg_start_date) + ' to '+ str(args.avg_end_date) + \
               ' JFM (NH), JAS (SH)')
 
   # Summer, JFM (SH) and JAS (NH)
@@ -396,7 +400,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     xycompare(model_summer , obs_summer, grd.geolon, grd.geolat, area=area,
             title1 = 'model, JFM (SH), JAS (NH)',
             title2 = 'obs (deBoyer), JFM (SH), JAS (NH)',
-            suptitle=args.casename +', ' + str(args.start_date) + ' to ' + str(args.end_date),
+            suptitle=args.casename +', ' + str(args.avg_start_date) + ' to ' + str(args.avg_end_date),
             colormap=plt.cm.Spectral_r, dcolormap=plt.cm.bwr, clim = (0,150), extend='max',
             save = fname)
 
@@ -405,7 +409,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     xyplot(model_summer, grd.geolon, grd.geolat, area=area,
          save=fname,
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,150),
-         title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
+         title=str(args.casename) + ' ' +str(args.avg_start_date) + ' to '+ str(args.avg_end_date) + \
               ' JFM (SH), JAS (NH)')
   return
 
@@ -432,8 +436,8 @@ def get_BLD(ds, var, grd, args):
     "longitude": (("yh", "xh"), grd.geolon)
   })
 
-  attrs = {'start_date': args.start_date,
-           'end_date': args.end_date,
+  attrs = {'start_date': args.avg_start_date,
+           'end_date': args.avg_end_date,
            'casename': args.casename,
            'description': 'BLD monthly climatology (m)',
            'module': os.path.basename(__file__)}
@@ -466,8 +470,8 @@ def get_BLD(ds, var, grd, args):
             "label": "BLD monthly climatology (m)"
         }
     )
-    plt.suptitle('{}, from {} to {}'.format(args.label, args.start_date,
-                args.end_date), fontsize=16, fontweight='bold')
+    plt.suptitle('{}, from {} to {}'.format(args.label, args.avg_start_date,
+                args.avg_end_date), fontsize=16, fontweight='bold')
     plt.subplots_adjust(top=0.93, bottom=0.26)
     fname = 'PNG/BLD/'+str(args.casename)+'_BLD_monthly_clima.png'
     plt.savefig(fname)
@@ -483,7 +487,7 @@ def get_BLD(ds, var, grd, args):
     xyplot(model, grd.geolon, grd.geolat, area=area,
            save=fname,
            suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
-           title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
+           title=str(args.casename) + ' ' +str(args.avg_start_date) + ' to '+ str(args.avg_end_date))
 
   # JFM, starting from 0
   months = [0,1,2]
@@ -504,8 +508,8 @@ def get_BLD(ds, var, grd, args):
                            coords={'yh' : grd.yh, 'xh' : grd.xh}).rename('BLD_winter')
 
   month = 'winter'
-  attrs = {'start_date': args.start_date,
-           'end_date': args.end_date,
+  attrs = {'start_date': args.avg_start_date,
+           'end_date': args.avg_end_date,
            'casename': args.casename,
            'description': 'Winter MLD (m)',
            'module': os.path.basename(__file__)}
@@ -517,7 +521,7 @@ def get_BLD(ds, var, grd, args):
   xyplot(model_winter, grd.geolon, grd.geolat, area=area,
          save=fname,
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
-         title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
+         title=str(args.casename) + ' ' +str(args.avg_start_date) + ' to '+ str(args.avg_end_date) + \
               ' JFM (NH), JAS (SH)')
 
   # Summer, JFM (SH) and JAS (NH)
@@ -537,7 +541,7 @@ def get_BLD(ds, var, grd, args):
   xyplot(model_summer, grd.geolon, grd.geolat, area=area,
          save='PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png',
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,150),
-         title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
+         title=str(args.casename) + ' ' +str(args.avg_start_date) + ' to '+ str(args.avg_end_date) + \
               ' JFM (SH), JAS (NH)')
   return
 

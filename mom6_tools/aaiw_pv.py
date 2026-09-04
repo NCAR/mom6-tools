@@ -31,10 +31,14 @@ def options():
     ''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
@@ -105,9 +109,9 @@ def main(stream=False):
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.avg_start_date, args.avg_end_date))
   startTime = datetime.now()
-  ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
+  ds_sel = ds.sel(time=slice(args.avg_start_date, args.avg_end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   attrs =  {
@@ -158,14 +162,14 @@ def main(stream=False):
   pv = pv.transpose("z_l", "yh")
 
   # plot
-  args.label = args.label + ', average between ' + args.start_date + ' and ' + args.end_date
+  args.label = args.label + ', average between ' + args.avg_start_date + ' and ' + args.avg_end_date
   plot_aaiw_pv(yindex, pv.z_l, pv, volume, levels, colors, args)
 
   description = 'buoyancy contribution to potential vorticity over the Pacific Sector of the Southern Ocean'
   attrs = {'description': description,
            'unit': 'cm2 s-1',
-           'start_date': args.start_date,
-           'end_date': args.end_date}
+           'start_date': args.avg_start_date,
+           'end_date': args.avg_end_date}
   add_global_attrs(pv,attrs)
   pv = pv.rename('pv')
   print('Saving netCDF files...')

@@ -28,10 +28,14 @@ def parseCommandLine():
   epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
@@ -73,7 +77,7 @@ def driver(args):
   print('Number of workers: ', nw)
 
   # set avg dates
-  dcase.set_avg_dates(args, diag_config_yml)
+  dcase.set_dates(args, diag_config_yml)
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
@@ -125,10 +129,10 @@ def driver(args):
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {} (time) and -10 to 10 (yh)...'.format(args.start_date, \
-        args.end_date))
+  print('Selecting data between {} and {} (time) and -10 to 10 (yh)...'.format(args.avg_start_date, \
+        args.avg_end_date))
   startTime = datetime.now()
-  ds_sel = ds.sel(time=slice(args.start_date, args.end_date)).sel(yh=slice(-10,10)).isel(z_i=slice(0,15)).isel(z_l=slice(0,14))
+  ds_sel = ds.sel(time=slice(args.avg_start_date, args.avg_end_date)).sel(yh=slice(-10,10)).isel(z_i=slice(0,15)).isel(z_l=slice(0,14))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Annual mean then time averaging...')
@@ -164,14 +168,14 @@ def driver(args):
   yzcompare(temp_eq , thetao_obs_eq, x, -Z,
             title1 = 'model temperature', ylabel='Longitude', yunits='',
             title2 = 'observed temperature', #({})'.format(obs_label), #contour=True,
-            suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+            suptitle=args.casename + ', averaged '+str(args.avg_start_date)+ ' to ' +str(args.avg_end_date),
             extend='neither', dextend='neither', clim=(6,31.), dlim=(-5,5), dcolormap=plt.cm.bwr,
             save=figname+'Equatorial_Global_temperature.png')
 
   yzcompare(salt_eq , salt_obs_eq, x, -Z,
         title1 = 'model salinity', ylabel='Longitude', yunits='',
         title2 = 'observed salinity', #({})'.format(obs_label), #contour=True,
-        suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+        suptitle=args.casename + ', averaged '+str(args.avg_start_date)+ ' to ' +str(args.avg_end_date),
         extend='neither', dextend='neither', clim=(33.5,37.), dlim=(-1,1), dcolormap=plt.cm.bwr,
         save=figname+'Equatorial_Global_salinity.png')
 
@@ -224,7 +228,7 @@ def driver(args):
     yzplot(dummy_obs, y_obs, -Z_obs, clim=(7,30), axis=ax2, zlabel='', yunits='', ylabel='Latitude', title='Johnson et al (2002)')
     cs2 = ax2.contour( y_obs + 0*z_obs, -z_obs, dummy_obs, levels=np.arange(0,30,2), colors='k',); plt.clabel(cs2,fmt='%3.1f', fontsize=14)
     ax2.set_ylim(-400,0)
-    plt.suptitle('Temperature [C] @ '+str(l)+ ', averaged between '+str(args.start_date)+' and '+str(args.end_date))
+    plt.suptitle('Temperature [C] @ '+str(l)+ ', averaged between '+str(args.avg_start_date)+' and '+str(args.avg_end_date))
     plt.savefig(figname+'temperature_'+str(l)+'.png')
 
     # Salt
@@ -237,7 +241,7 @@ def driver(args):
     yzplot(dummy_obs, y_obs, -Z_obs, clim=(32,36), axis=ax2, zlabel='', yunits='', ylabel='Latitude', title='Johnson et al (2002)')
     cs2 = ax2.contour( y_obs + 0*z_obs, -z_obs, dummy_obs, levels=np.arange(32,36,0.5), colors='k',); plt.clabel(cs2,fmt='%3.1f', fontsize=14)
     ax2.set_ylim(-400,0)
-    plt.suptitle('Salinity [psu] @ '+str(l)+ ', averaged between '+str(args.start_date)+' and '+str(args.end_date))
+    plt.suptitle('Salinity [psu] @ '+str(l)+ ', averaged between '+str(args.avg_start_date)+' and '+str(args.avg_end_date))
     plt.savefig(figname+'salinity_'+str(l)+'.png')
 
     # uo
@@ -250,7 +254,7 @@ def driver(args):
     yzplot(dummy_obs, y_obs, -Z_obs, clim=(-0.6,1.2), axis=ax2, zlabel='', yunits='', ylabel='Latitude', title='Johnson et al (2002)')
     cs2 = ax2.contour( y_obs + 0*z_obs, -z_obs, dummy_obs, levels=np.arange(-1.2,1.2,0.1), colors='k',); plt.clabel(cs2,fmt='%3.1f', fontsize=14)
     ax2.set_ylim(-400,0)
-    plt.suptitle('Eastward velocity [m/s] @ '+str(l)+ ', averaged between '+str(args.start_date)+' and '+str(args.end_date))
+    plt.suptitle('Eastward velocity [m/s] @ '+str(l)+ ', averaged between '+str(args.avg_start_date)+' and '+str(args.avg_end_date))
     plt.savefig(figname+'uo_'+str(l)+'.png')
 
   # Eastward velocity [m/s] along the Equatorial Pacific
@@ -273,7 +277,7 @@ def driver(args):
   yzplot(dummy_obs, x_obs, -Z_obs, clim=(-0.4,1.2), ylabel='Longitude', yunits='',  axis=ax2, title='Johnson et al (2002)')
   cs1 = ax2.contour( x_obs + 0*z_obs, -z_obs, dummy_obs,  levels=np.arange(-1.2,1.2,0.1), colors='k'); plt.clabel(cs1,fmt='%2.1f', fontsize=14)
   ax2.set_xlim(143,265); ax2.set_ylim(-400,0); ax2.set_ylabel('')
-  plt.suptitle('Eastward velocity [m/s] along the Equatorial Pacific, averaged between '+str(args.start_date)+' and '+str(args.end_date))
+  plt.suptitle('Eastward velocity [m/s] along the Equatorial Pacific, averaged between '+str(args.avg_start_date)+' and '+str(args.avg_end_date))
   plt.savefig(figname+'Equatorial_Pacific_uo.png')
 
   plt.close('all')

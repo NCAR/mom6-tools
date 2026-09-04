@@ -31,8 +31,10 @@ def parse_args():
     parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty, it will process all 2D variables on tracer points).')
     parser.add_argument('-s', '--stream', type=str, default='.mom6.h.native.*.nc', help='History file stream (default is .mom6.h.native.*.nc)')
     parser.add_argument('-f', '--fname', type=str, default='native', help='Name of the history file stream (default is native)')
-    parser.add_argument('-sd', '--start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
-    parser.add_argument('-ed', '--end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
+    parser.add_argument('-asd', '--avg_start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
+    parser.add_argument('-aed', '--avg_end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
+    parser.add_argument('-tsd', '--ts_start_date', type=str, default='', help='Start date for time-series (TS) analysis, if applicable.')
+    parser.add_argument('-ted', '--ts_end_date', type=str, default='', help='End date for time-series (TS) analysis, if applicable.')
     parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
     return parser.parse_args()
 
@@ -80,15 +82,18 @@ def remove_m2_from_units(units):
     """
     return re.sub(r"\s*m-2\s*", " ", units).strip()
 
-def process_dataset(ds1, basin_code, area, output_dir, casename, dataset_label):
+def process_dataset(ds1, basin_code, area, output_dir, casename, dataset_label, ts_start_date=None, ts_end_date=None):
     """Compute area-weighted mean and integral time series for all 2D variables in the given dataset."""
+
+    print(f'Selecting data between {ts_start_date} and {ts_end_date}...')
+    ds1 = ds1.sel(time=slice(ts_start_date, ts_end_date))
 
     start_date = str(ds1.time[0].values)
     end_date = str(ds1.time[-1].values)
 
     print(f'Processing data from {start_date} to {end_date}')
 
-    ds_sel = ds1.sel(time=slice(start_date, end_date))
+    ds_sel = ds1
 
     print(f'Computing annual mean...')
     startTime = datetime.now()
@@ -241,7 +246,7 @@ def main():
     else:
       print(f'Processing {variable}')
 
-      dcase.set_avg_dates(args, config)
+      dcase.set_dates(args, config)
 
       def preprocess(ds, variable):
         """Preprocess function that selects the specified variable."""
@@ -259,7 +264,8 @@ def main():
                        )
 
       # Process variable in dataset
-      process_dataset(ds, basin_code, area, ocn_diag_root, args.casename, fname)
+      process_dataset(ds, basin_code, area, ocn_diag_root, args.casename, fname,
+                       args.ts_start_date, args.ts_end_date)
 
       print(f'Generating notebook for {variable}')
       long_name = ds[variable].long_name

@@ -20,10 +20,14 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for plotting meridional overturning circulation.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
@@ -107,8 +111,8 @@ def main():
   print('Time elasped: ', datetime.now() - startTime)
 
   startTime = datetime.now()
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
-  ds_sel = ds_ann.sel(time=slice(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.avg_start_date, args.avg_end_date))
+  ds_sel = ds_ann.sel(time=slice(args.avg_start_date, args.avg_end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing time mean...')
@@ -138,7 +142,7 @@ def main():
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yyg = grd.geolat_c[:,:].max(axis=-1)+0*zg
   ci=m6plot.pmCI(0.,40.,5.)
-  plotPsi(yyg, zg, psiPlot, ci, 'Global MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date )
+  plotPsi(yyg, zg, psiPlot, ci, 'Global MOC [Sv],' + 'averaged between '+ args.avg_start_date + ' and '+ args.avg_end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(casename)
   findExtrema(yyg, zg, psiPlot, max_lat=-30.)
@@ -198,7 +202,7 @@ def main():
   psiPlot = MOCpsi(VHmod, vmsk=m*np.roll(m,-1,axis=-2))*conversion_factor
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yy = grd.geolat_c[:,:].max(axis=-1)+0*z
-  plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ args.start_date + ' and '+ args.end_date )
+  plotPsi(yy, z, psiPlot, ci, 'Atlantic MOC [Sv],'+ 'averaged between '+ args.avg_start_date + ' and '+ args.avg_end_date )
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(casename)
   # find range to extract values near the RAPID array
@@ -344,7 +348,7 @@ def main():
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yy = grd.geolat_c[:,:].max(axis=-1)+0*z
   ci=m6plot.pmCI(0.,20.,2.)
-  plotPsi(yy, z, psiPlot, ci, 'Global FFH MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date,
+  plotPsi(yy, z, psiPlot, ci, 'Global FFH MOC [Sv],' + 'averaged between '+ args.avg_start_date + ' and '+ args.avg_end_date,
           zval=[0.,-400.,-1000.])
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(casename)
@@ -367,7 +371,7 @@ def main():
   psiPlot = 0.5 * (psiPlot[0:-1,:]+psiPlot[1::,:])
   yy = grd.geolat_c[:,:].max(axis=-1)+0*z
   ci=m6plot.pmCI(0.,20.,2.)
-  plotPsi(yy, z, psiPlot, ci, 'Global GM MOC [Sv],' + 'averaged between '+ args.start_date + ' and '+ args.end_date)
+  plotPsi(yy, z, psiPlot, ci, 'Global GM MOC [Sv],' + 'averaged between '+ args.avg_start_date + ' and '+ args.avg_end_date)
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(casename)
   plt.gca().invert_yaxis()

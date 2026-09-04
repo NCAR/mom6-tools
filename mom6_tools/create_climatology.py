@@ -25,8 +25,10 @@ def parse_args():
     parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty).')
     parser.add_argument('-s', '--stream', type=str, default='.mom6.h.z.????-??.nc', help='History file stream (default is .mom6.h.z.????-??.nc)')
     parser.add_argument('-f', '--fname', type=str, default='z', help='Name of the history file stream (default is z)')
-    parser.add_argument('-sd', '--start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
-    parser.add_argument('-ed', '--end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
+    parser.add_argument('-asd', '--avg_start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
+    parser.add_argument('-aed', '--avg_end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
+    parser.add_argument('-tsd', '--ts_start_date', type=str, default='', help='Start date for time-series (TS) analysis, if applicable.')
+    parser.add_argument('-ted', '--ts_end_date', type=str, default='', help='End date for time-series (TS) analysis, if applicable.')
     parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
     return parser.parse_args()
 
@@ -193,9 +195,9 @@ def main():
     else:
       print("The variable is not an empty string.")
 
-      dcase.set_avg_dates(args, config)
+      dcase.set_dates(args, config)
 
-      print(f'Processing data from {args.start_date} to {args.end_date}')
+      print(f'Processing data from {args.avg_start_date} to {args.avg_end_date}')
 
       def preprocess(ds, variable):
         """Preprocess function that selects the specified variable."""
@@ -216,7 +218,7 @@ def main():
       grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
       # Process variable in dataset
-      process_dataset(ds, grd_xr, args.start_date, args.end_date, ocn_diag_root, args.casename, fname)
+      process_dataset(ds, grd_xr, args.avg_start_date, args.avg_end_date, ocn_diag_root, args.casename, fname)
 
       # run notebook
       print(f'Generating notebook for {variable}')

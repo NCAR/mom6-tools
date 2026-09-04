@@ -40,6 +40,14 @@ def options():
   parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
                       help='''Name of observational product in the oce-catalog  \
     to compare against. Default is woa-2018-tx2_3v2-annual-all''')
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
+                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
+                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
@@ -556,6 +564,9 @@ def main(stream=False):
   caseroot = diag_config_yml['Case']['CASEROOT']
   dcase = DiagsCase(diag_config_yml['Case'])
   args.ocn_diag_root = dcase.create_output_dir()
+
+  # set avg and ts dates
+  dcase.set_dates(args, diag_config_yml)
   # Create the case instance
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
@@ -668,6 +679,9 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
     raise ValueError("The variable requested is not available in the history files of this simulation. \
                      Only thetao and so are available at this time.")
   ds = preprocess(ds1, var)
+
+  print(f'Selecting data between {args.ts_start_date} and {args.ts_end_date}...')
+  ds = ds.sel(time=slice(args.ts_start_date, args.ts_end_date))
 
   units = ds[var].units
 

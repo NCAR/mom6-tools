@@ -29,10 +29,14 @@ def parseCommandLine():
   epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
@@ -72,7 +76,7 @@ def driver(args):
   print('Reading file stream: ', args.monthly)
 
   # set avg dates
-  dcase.set_avg_dates(args, diag_config_yml)
+  dcase.set_dates(args, diag_config_yml)
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
@@ -123,9 +127,9 @@ def driver(args):
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.avg_start_date, args.avg_end_date))
   startTime = datetime.now()
-  ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
+  ds_sel = ds.sel(time=slice(args.avg_start_date, args.avg_end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('\n Computing annual means and then average in time...')
@@ -241,8 +245,8 @@ def driver(args):
   print('Saving netCDF files...')
   startTime = datetime.now()
   attrs = {'description': 'model - obs at depth levels',
-           'start_date': args.start_date,
-           'end_date': args.end_date,
+           'start_date': args.avg_start_date,
+           'end_date': args.avg_end_date,
            'casename': args.casename,
            'obs': args.obs,
            'module': os.path.basename(__file__)}
@@ -289,14 +293,14 @@ def driver(args):
       xycompare(temp[k,:] , temp_obs, grd.geolon, grd.geolat, area=area,
               title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
               title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
-              suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+              suptitle=args.casename + ', averaged '+str(args.avg_start_date)+ ' to ' +str(args.avg_end_date),
               extend='both', dextend='neither', clim=(-1.9,30.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               save=figname+'global_temp.png')
       salt_obs = np.ma.masked_invalid(obs_salt[k,:].values)
       xycompare( salt[k,:] , salt_obs, grd.geolon, grd.geolat, area=area,
               title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
               title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
-              suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+              suptitle=args.casename + ', averaged '+str(args.avg_start_date)+ ' to ' +str(args.avg_end_date),
               extend='both', dextend='neither', clim=(30.,39.), dlim=(-2,2), dcolormap=plt.cm.bwr,
               save=figname+'global_salt.png')
 
@@ -308,14 +312,14 @@ def driver(args):
   #            title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
   #            title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
   #            extend='both', dextend='neither', clim=(-1.9,10.5), dlim=(-2,2), dcolormap=plt.cm.bwr,
-  #            suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            suptitle=args.casename + ', averaged '+str(args.avg_start_date)+ ' to ' +str(args.avg_end_date),
   #            proj='SP', save=figname+'antarctic_temp.png')
   #    salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
   #    polarcomparison( salt[k,:] , salt_obs, grd,
   #            title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
   #            title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
   #            extend='both', dextend='neither', clim=(33.,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
-  #            suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            suptitle=args.casename + ', averaged '+str(args.avg_start_date)+ ' to ' +str(args.avg_end_date),
   #            proj='SP', save=figname+'antarctic_salt.png')
 
   #print('Arctic plots...')
@@ -326,14 +330,14 @@ def driver(args):
   #            title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',
   #            title2 = 'observed temperature, depth ='+str(obs_temp['depth'][k].values)+ 'm',
   #            extend='both', dextend='neither', clim=(-1.9,11.5), dlim=(-2,2), dcolormap=plt.cm.bwr,
-  #            suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            suptitle=args.casename + ', averaged '+str(args.avg_start_date)+ ' to ' +str(args.avg_end_date),
   #            proj='NP', save=figname+'arctic_temp.png')
   #    salt_obs = np.ma.masked_invalid(obs_salt['SALT'][k,:].values)
   #    polarcomparison( salt[k,:] , salt_obs, grd,
   #            title1 = 'model salinity, depth ='+str(ds['z_l'][k].values)+ 'm',
   #            title2 = 'observed salinity, depth ='+str(obs_temp['depth'][k].values)+ 'm',
   #            extend='both', dextend='neither', clim=(31.5,35.), dlim=(-2,2), dcolormap=plt.cm.bwr,
-  #            suptitle=args.casename + ', averaged '+str(args.start_date)+ ' to ' +str(args.end_date),
+  #            suptitle=args.casename + ', averaged '+str(args.avg_start_date)+ ' to ' +str(args.avg_end_date),
   #            proj='NP', save=figname+'arctic_salt.png')
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))

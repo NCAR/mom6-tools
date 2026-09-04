@@ -29,10 +29,14 @@ def parseCommandLine():
   epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-fname','--file_name', type=str, default='.mom6.hm_*.nc',
                       help='''File(s) where vmo should be read. Default .mom6.hm_*.nc''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
@@ -70,7 +74,7 @@ def driver(args):
   print('Number of workers: ', nw)
 
   # set avg dates
-  dcase.set_avg_dates(args, diag_config_yml)
+  dcase.set_dates(args, diag_config_yml)
 
   # read grid info
   grd = MOM6grid(RUNDIR+'/'+args.static, RUNDIR+'/'+args.geom)
@@ -105,10 +109,10 @@ def driver(args):
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.avg_start_date, args.avg_end_date))
   startTime = datetime.now()
-  ds1 = ds1.sel(time=slice(args.start_date, args.end_date))
-  ds2 = ds2.sel(time=slice(args.start_date, args.end_date))
+  ds1 = ds1.sel(time=slice(args.avg_start_date, args.avg_end_date))
+  ds2 = ds2.sel(time=slice(args.avg_start_date, args.avg_end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Averaging in time...')
@@ -143,7 +147,7 @@ def driver(args):
   fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(14,24))
   xyplot(bhf_val, grd.geolon, grd.geolat, area=grd.area_t,
          axis=ax[0], title='Bouyancy flux due to heat [10$^{-8}$ m$^2$ s^{-3}]', #clim=(0,0.4),
-         suptitle=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
+         suptitle=str(args.casename) + ' ' +str(args.avg_start_date) + ' to '+ str(args.avg_end_date))
   xyplot(bfw_val, grd.geolon, grd.geolat, area=grd.area_t, #clim=(0,0.4)
          axis=ax[1], title='Bouyancy flux due to fresh water [10$^{-8}$ m$^2$ s^{-3}]')
   xyplot(b_val, grd.geolon, grd.geolat, area=grd.area_t,
@@ -158,7 +162,7 @@ def driver(args):
   ((BFW+BHF).mean(dim='xh')*1.0e8).plot(ax=ax,label='Total')
   ax.legend(); ax.grid()
   ax.set_title('Bouyancy Flux [10$^{-8}$ m$^2$ s$^{-3}$]')
-  plt.suptitle(str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
+  plt.suptitle(str(args.casename) + ' ' +str(args.avg_start_date) + ' to '+ str(args.avg_end_date))
   plt.savefig('PNG/BFLUX/'+str(args.casename)+'_bouyancy_flux_profile.png')
   plt.close()
 
@@ -173,8 +177,8 @@ def driver(args):
                 lon=(["yh", "xh"], grd.geolon),
                 lat=(["yh", "xh"], grd.geolat)
              ),
-             attrs = {'start_date': args.start_date,
-                      'end_date': args.end_date,
+             attrs = {'start_date': args.avg_start_date,
+                      'end_date': args.avg_end_date,
                       'casename': args.casename,
                       'description': 'Mean Bouyancy flux: BHF, BFW, and total (10-8 m2 s-3)',
                       'module': os.path.basename(__file__)}

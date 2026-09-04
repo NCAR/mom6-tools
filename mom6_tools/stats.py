@@ -28,10 +28,14 @@ def options():
   parser = argparse.ArgumentParser(description='''Script for computing and plotting statistics.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-ocean_stats', help='''Extract time series from ocean.stats and ocean.stats.nc ''', \
                       action="store_true")
   parser.add_argument('-time_series', help='''Extract time-series for thetaoga and soga and saves \
@@ -396,7 +400,7 @@ def main(stream=False):
 
 
   # set avg dates and other params
-  dcase.set_avg_dates(args, diag_config_yml)
+  dcase.set_dates(args, diag_config_yml)
   dcase.set_fnames(args, diag_config_yml, {'static': 'static', 'native': 'native', 'geom': 'geom'})
   args.rundir = cime_xmlquery(caseroot, 'RUNDIR')
   args.caseroot = caseroot
@@ -545,6 +549,12 @@ def ocean_stats(args):
 
   stats = xr.Dataset(data_vars=data_vars, coords=coords, attrs=attrs)
 
+  if args.ts_start_date or args.ts_end_date:
+    print(f'Selecting data between {args.ts_start_date} and {args.ts_end_date}...')
+    # decode the "days since RUN_STARTDATE" time coord into real dates so it can be
+    # sliced by label; encoding (units/calendar) is preserved for the subsequent write
+    stats = xr.decode_cf(stats).sel(time=slice(args.ts_start_date, args.ts_end_date))
+
   stats.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_ocean.stats.nc')
 
   return stats
@@ -590,6 +600,10 @@ def extract_time_series(fname, variables, area, args):
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
   ds = preprocess(ds1)
+
+  print(f'Selecting data between {args.ts_start_date} and {args.ts_end_date}...')
+  ds = ds.sel(time=slice(args.ts_start_date, args.ts_end_date))
+
   opottempmint = ds['opottempmint']
   somint = ds['somint']
   ds.drop_vars(['opottempmint','somint'])

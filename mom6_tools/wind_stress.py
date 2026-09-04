@@ -38,12 +38,16 @@ def parseCommandLine():
   epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
   parser.add_argument('input_path', type=str, help='''Path to yaml config file
     or glob pattern for native history files (e.g. '/path/*native*0001-??.nc').''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start date to select data. Default is to use all available data
                       (or value set in yaml config).''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End date to select data. Default is to use all available data
                       (or value set in yaml config).''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-o','--output_dir', type=str, default='ncfiles',
                       help='''Directory for output NetCDF files (default: ncfiles).''')
   parser.add_argument('-p','--plot_dir', type=str, default='PNG/WIND',
@@ -72,7 +76,7 @@ def driver(args):
     else:
       OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-    dcase.set_avg_dates(args, diag_config_yml)
+    dcase.set_dates(args, diag_config_yml)
     dcase.set_fnames(args, diag_config_yml, {'native': 'native'})
     file_pattern = OUTDIR + '/' + args.native
     if not args.label: args.label = diag_config_yml['Case'].get('SNAME', args.casename)
@@ -122,9 +126,9 @@ def driver(args):
   print(f'Time elapsed: {datetime.now() - startTime}')
 
   # Select time range if specified
-  if args.start_date and args.end_date:
-    print(f'Selecting data between {args.start_date} and {args.end_date}...')
-    ds = ds.sel(time=slice(args.start_date, args.end_date))
+  if args.avg_start_date and args.avg_end_date:
+    print(f'Selecting data between {args.avg_start_date} and {args.avg_end_date}...')
+    ds = ds.sel(time=slice(args.avg_start_date, args.avg_end_date))
 
   taux = ds['tauuo']  # (time, yh, xq) - zonal wind stress
   tauy = ds['tauvo']  # (time, yq, xh) - meridional wind stress

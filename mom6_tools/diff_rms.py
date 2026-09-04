@@ -26,10 +26,14 @@ def options():
                       observations.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
+  parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
+  parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+  parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                      help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+  parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                      help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
   parser.add_argument('-o','--obs', type=str, default='WOA18', help='''Observational product to compare agaist.  \
@@ -551,7 +555,7 @@ def main(stream=False):
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
   args.casename = dcase.casename
   # set avg dates
-  dcase.set_avg_dates(args, diag_config_yml)
+  dcase.set_dates(args, diag_config_yml)
   dcase.set_fnames(args, diag_config_yml, {'static': 'static', 'geom': 'geom'})
   args.ocn_diag_root = dcase.create_output_dir()
   DOUT_S = dcase.get_value('DOUT_S')
@@ -666,8 +670,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR):
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  #print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
-  #ds = ds.sel(time=slice(args.start_date, args.end_date))
+  #print('Selecting data between {} and {}...'.format(args.avg_start_date, args.avg_end_date))
+  #ds = ds.sel(time=slice(args.avg_start_date, args.avg_end_date))
 
   # Compute climatologies
   thetao_model = ds.thetao.resample(time="1Y", closed='left', keep_attrs=True).mean(dim='time', \

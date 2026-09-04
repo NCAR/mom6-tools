@@ -28,10 +28,14 @@ def parseCommandLine():
          epilog='Written by Frank Bryan (bryan@ucar.edu).')
     parser.add_argument('diag_config_yml_path', type=str,
                         help='''Full path to the yaml file describing the run and diagnostics to be performed.''')
-    parser.add_argument('-sd','--start_date', type=str, default='',
+    parser.add_argument('-asd', '--avg_start_date', type=str, default='',
                         help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-    parser.add_argument('-ed','--end_date', type=str, default='',
+    parser.add_argument('-aed', '--avg_end_date', type=str, default='',
                         help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+    parser.add_argument('-tsd', '--ts_start_date', type=str, default='',
+                        help='''Start date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
+    parser.add_argument('-ted', '--ts_end_date', type=str, default='',
+                        help='''End date for time-series (TS) analysis. Default is to use value set in diag_config_yml_path, or the whole record if not set there.''')
     parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                         help='''Number of workers to use (default=0, serial job).''')
     parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
@@ -69,7 +73,7 @@ def driver(args):
     print('Number of workers: ', nw)
 
     # set avg dates
-    dcase.set_avg_dates(args, diag_config_yml)
+    dcase.set_dates(args, diag_config_yml)
 
 
     # read grid info
@@ -104,12 +108,12 @@ def driver(args):
 
     print('Time elapsed: ',datetime.now() - startTime)
 
-    print('Selecting data between {} and {} (time) and yh={})...'.format(args.start_date, \
-                                                                     args.end_date,jeq))
+    print('Selecting data between {} and {} (time) and yh={})...'.format(args.avg_start_date, \
+                                                                     args.avg_end_date,jeq))
     startTime = datetime.now()
 
     # Subset the selected time period and along the equator upper ocean
-    ds_sel = ds.sel(time=slice(args.start_date, args.end_date),z_i=slice(0,500),z_l=slice(0,500)).isel(yh=jeq)
+    ds_sel = ds.sel(time=slice(args.avg_start_date, args.avg_end_date),z_i=slice(0,500),z_l=slice(0,500)).isel(yh=jeq)
     print('Time elasped: ', datetime.now() - startTime)
 
     print('Clim. Mean and Annual Cycle then time averaging...')
@@ -152,7 +156,7 @@ def driver(args):
         fig,ax=plt.subplots(ncols=3,sharey=True,
                             figsize=(9,4),constrained_layout=True)
 
-        fig.suptitle(pos + ' (' + args.start_date + ' - ' + args.end_date + ')')
+        fig.suptitle(pos + ' (' + args.avg_start_date + ' - ' + args.avg_end_date + ')')
 
         ax[0].contourf(u_adcp_monclim['month'],u_adcp_monclim['depth'],u_adcp_monclim,
                        levels=ulev,cmap=cmap,extend='both')
