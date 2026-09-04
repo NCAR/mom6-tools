@@ -546,16 +546,13 @@ def main(stream=False):
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
   args.casename = dcase.casename
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  # set avg dates
+  dcase.set_avg_dates(args, diag_config_yml)
+  dcase.set_fnames(args, diag_config_yml, {'static': 'static', 'geom': 'geom'})
   args.ocn_diag_root = dcase.create_output_dir()
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:

@@ -14,6 +14,7 @@ from dask.distributed import Client
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import cime_xmlquery, filter_vars, replace_cell_content
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -128,12 +129,10 @@ def main():
     # Read in the yaml file
     config = yaml.load(open(args.config_yml,'r'), Loader=yaml.Loader)
 
+    dcase = DiagsCase(config['Case'])
     caseroot = config['Case']['CASEROOT']
-    ocn_diag_root = config['Case']['OCN_DIAG_ROOT']
-    ocn_diag_root = os.path.join(ocn_diag_root, "climo/")
     args.casename = cime_xmlquery(caseroot, 'CASE')
-    args.geom = args.casename+config['Fnames']['geom']
-    args.static = args.casename+config['Fnames']['static']
+    dcase.set_fnames(args, config, {'geom': 'geom', 'static': 'static'})
     DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
     if DOUT_S.lower() == "true":
       OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
@@ -146,14 +145,7 @@ def main():
     print('Variable is:', variable)
     print('Stream is:', stream)
 
-    try:
-      os.makedirs(ocn_diag_root, exist_ok=True)
-    except:
-      current_path = os.getcwd()
-      proc_path = os.path.join(current_path, "proc")
-      warnings.warn(f"Directory {ocn_diag_root} could not be created. Using {proc_path} instead.", UserWarning)
-      ocn_diag_root = proc_path
-      os.makedirs(ocn_diag_root, exist_ok=True)
+    ocn_diag_root = dcase.create_output_dir(subdir="climo/")
 
     climo_path = f"{ocn_diag_root}../../notebooks/climo_{fname}/"
     os.makedirs(climo_path, exist_ok=True)
@@ -201,10 +193,9 @@ def main():
     else:
       print("The variable is not an empty string.")
 
-      start_date = args.start_date or config['Avg']['start_date']
-      end_date = args.end_date or config['Avg']['end_date']
+      dcase.set_avg_dates(args, config)
 
-      print(f'Processing data from {start_date} to {end_date}')
+      print(f'Processing data from {args.start_date} to {args.end_date}')
 
       def preprocess(ds, variable):
         """Preprocess function that selects the specified variable."""
@@ -225,7 +216,7 @@ def main():
       grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
       # Process variable in dataset
-      process_dataset(ds, grd_xr, start_date, end_date, ocn_diag_root, args.casename, fname)
+      process_dataset(ds, grd_xr, args.start_date, args.end_date, ocn_diag_root, args.casename, fname)
 
       # run notebook
       print(f'Generating notebook for {variable}')

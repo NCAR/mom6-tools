@@ -12,6 +12,7 @@ from mom6_tools import m6plot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, request_workers
 from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.DiagsCase import DiagsCase
 
 class MyError(Exception):
   """
@@ -74,9 +75,10 @@ def driver(args):
   # Read in the yaml file
   diag_config_yml_path = "diag_config.yml"
   diag_config_yml = yaml.load(open(diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
 
   caseroot = diag_config_yml['Case']['CASEROOT']
-  casename = cime_xmlquery(caseroot, 'CASE')
+  args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
     OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
@@ -84,10 +86,9 @@ def driver(args):
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
   print('Output directory is:', OUTDIR)
-  print('Casename is:', casename)
+  print('Casename is:', args.casename)
 
-  args.static = casename+diag_config_yml['Fnames']['static']
-  args.geom =   casename+diag_config_yml['Fnames']['geom']
+  dcase.set_fnames(args, diag_config_yml, {'static': 'static', 'geom': 'geom'})
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)

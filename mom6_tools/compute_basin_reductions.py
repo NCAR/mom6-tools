@@ -17,6 +17,7 @@ from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import cime_xmlquery,filter_vars_2D_tracers
 from mom6_tools.m6toolbox import replace_cell_content
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -163,8 +164,8 @@ def main():
     # Read in the yaml file
     config = yaml.load(open(args.config_yml,'r'), Loader=yaml.Loader)
 
+    dcase = DiagsCase(config['Case'])
     caseroot = config['Case']['CASEROOT']
-    ocn_diag_root = config['Case']['OCN_DIAG_ROOT']
     args.casename = cime_xmlquery(caseroot, 'CASE')
     DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
     if DOUT_S.lower() == "true":
@@ -180,8 +181,7 @@ def main():
 
     # GMM, update this
     basin_code = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc')['basin_masks']
-    args.geom = args.casename+config['Fnames']['geom']
-    args.static = args.casename+config['Fnames']['static']
+    dcase.set_fnames(args, config, {'geom': 'geom', 'static': 'static'})
 
     # read grid info
     grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
@@ -191,14 +191,7 @@ def main():
     except:
       area = xr.where(grd.wet == 1, grd.areacello, 0.)
 
-    try:
-      os.makedirs(ocn_diag_root, exist_ok=True)
-    except:
-      current_path = os.getcwd()
-      proc_path = os.path.join(current_path, "proc")
-      warnings.warn(f"Directory {ocn_diag_root} could not be created. Using {proc_path} instead.", UserWarning)
-      ocn_diag_root = proc_path
-      os.makedirs(ocn_diag_root, exist_ok=True)
+    ocn_diag_root = dcase.create_output_dir()
 
     ts_path = f"{ocn_diag_root}../notebooks/ts/"
     os.makedirs(ts_path, exist_ok=True)
@@ -248,8 +241,7 @@ def main():
     else:
       print(f'Processing {variable}')
 
-      start_date = args.start_date or config['Avg']['start_date']
-      end_date = args.end_date or config['Avg']['end_date']
+      dcase.set_avg_dates(args, config)
 
       def preprocess(ds, variable):
         """Preprocess function that selects the specified variable."""

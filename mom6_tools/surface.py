@@ -59,21 +59,14 @@ def driver(args):
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  args.savefigs = True; args.outdir = 'PNG/MOC/'
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
   # set avg dates + other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-  args.sfc = args.casename+diag_config_yml['Fnames']['sfc']
-  args.native = args.casename+diag_config_yml['Fnames']['native']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.label = diag_config_yml['Case']['SNAME']
-  args.savefigs = True
+  dcase.set_diag_params(args, diag_config_yml,
+                         {'sfc': 'sfc', 'native': 'native', 'static': 'static', 'geom': 'geom'},
+                         outdir='PNG/MOC/')
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)

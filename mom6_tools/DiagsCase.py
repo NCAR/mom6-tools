@@ -336,6 +336,88 @@ class DiagsCase(object,):
     #     return self._grid
 
 
+    def set_avg_dates(self, args, diag_config_yml):
+        """Fill in args.start_date/end_date from the yaml config's 'Avg' section,
+        but only if they are not already set (e.g., via command-line flags).
+
+        Parameters
+        ----------
+        args : argparse.Namespace
+            Parsed command-line arguments to update in place. Must already have
+            start_date and end_date attributes (e.g., from argparse defaults).
+        diag_config_yml : dict
+            Parsed diag_config yaml dictionary (must contain an 'Avg' key).
+
+        Returns
+        -------
+        argparse.Namespace
+            The same args object, updated in place.
+        """
+
+        avg = diag_config_yml['Avg']
+        if not args.start_date: args.start_date = avg['start_date']
+        if not args.end_date: args.end_date = avg['end_date']
+        return args
+
+    def set_fnames(self, args, diag_config_yml, fnames:dict):
+        """Set history file name attributes on args, derived from the yaml config's
+        'Fnames' section and args.casename.
+
+        Parameters
+        ----------
+        args : argparse.Namespace
+            Parsed command-line arguments to update in place. Must already have a
+            casename attribute.
+        diag_config_yml : dict
+            Parsed diag_config yaml dictionary (must contain a 'Fnames' key).
+        fnames : dict
+            Mapping from the args attribute name to set to the corresponding key
+            in diag_config_yml['Fnames'], e.g. {'monthly': 'z', 'static': 'static', 'geom': 'geom'}.
+
+        Returns
+        -------
+        argparse.Namespace
+            The same args object, updated in place.
+        """
+
+        for attr, key in fnames.items():
+            setattr(args, attr, args.casename + diag_config_yml['Fnames'][key])
+        return args
+
+    def set_diag_params(self, args, diag_config_yml, fnames:dict, outdir=None, savefigs=True):
+        """Populate an argparse.Namespace with averaging dates, history file names,
+        and figure-saving params derived from the diag_config yaml file. Convenience
+        wrapper combining set_avg_dates and set_fnames for the common case of a script
+        that also saves labeled figures to an output directory.
+
+        Parameters
+        ----------
+        args : argparse.Namespace
+            Parsed command-line arguments to update in place.
+        diag_config_yml : dict
+            Parsed diag_config yaml dictionary (must contain 'Avg', 'Fnames' and 'Case' keys).
+        fnames : dict
+            Mapping from the args attribute name to set to the corresponding key
+            in diag_config_yml['Fnames'], e.g. {'monthly': 'z', 'static': 'static', 'geom': 'geom'}.
+        outdir : str, optional
+            If given, sets args.outdir.
+        savefigs : bool, optional
+            Value to assign to args.savefigs (default True).
+
+        Returns
+        -------
+        argparse.Namespace
+            The same args object, updated in place.
+        """
+
+        self.set_avg_dates(args, diag_config_yml)
+        self.set_fnames(args, diag_config_yml, fnames)
+        args.savefigs = savefigs
+        args.label = diag_config_yml['Case']['SNAME']
+        if outdir is not None:
+            args.outdir = outdir
+        return args
+
     def stage_dset(self, fields:list):
         """ Generates a dataset containing the given fields for the entire
         duration of a run

@@ -11,6 +11,7 @@ import gsw
 from ncar_jobqueue import NCARCluster
 from dask.distributed import Client
 from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.DiagsCase import DiagsCase
 
 warnings.filterwarnings('ignore')
 
@@ -97,33 +98,27 @@ def main():
   args = options()
   nw = args.number_of_workers
 
-  os.makedirs('PNG/DWBC', exist_ok=True)
-  os.makedirs('ncfiles', exist_ok=True)
-
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase(diag_config_yml['Case'])
 
   caseroot = diag_config_yml['Case']['CASEROOT']
-  casename = cime_xmlquery(caseroot, 'CASE')
-  label = diag_config_yml['Case']['SNAME']
+  args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
     OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  z_stream    = casename + diag_config_yml['Fnames']['z']
-  static_file = OUTDIR + '/' + casename + diag_config_yml['Fnames']['static']
+  # set avg dates, file names, and other params
+  dcase.set_diag_params(args, diag_config_yml, {'z': 'z', 'static': 'static'}, outdir='PNG/DWBC/')
+  os.makedirs(args.outdir, exist_ok=True)
+  args.ocn_diag_root = dcase.create_output_dir()
 
-  # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-
-  print('Casename   :', casename)
+  print('Casename   :', args.casename)
   print('OUTDIR     :', OUTDIR)
   print('Date range :', args.start_date, '->', args.end_date)
-  print('Stream     :', z_stream)
+  print('Stream     :', args.z)
   print('Number of workers:', nw)
 
   parallel = False
@@ -146,7 +141,7 @@ def main():
   print('Opening z-level files...')
   startTime = datetime.now()
   ds = xr.open_mfdataset(
-      OUTDIR + '/' + z_stream,
+      OUTDIR + '/' + args.z,
       parallel=parallel,
       data_vars='minimal',
       coords='minimal',
@@ -169,7 +164,7 @@ def main():
   print('Longitude range (xh)    :', vo_mean.xh.values[0], '->', vo_mean.xh.values[-1])
 
   # --- Load model bathymetry along the transect ---
-  static = xr.open_dataset(static_file)
+  static = xr.open_dataset(OUTDIR + '/' + args.static)
   deptho = static['deptho'].sel(yh=lat_transect, method='nearest').sel(xh=slice(lon_min, lon_max))
 
   # --- Save to netCDF ---
@@ -186,14 +181,14 @@ def main():
   }
   ds_out.attrs = {
       'description' : 'Time-mean meridional velocity transect at {:.1f}N'.format(lat_transect),
-      'casename'    : casename,
+      'casename'    : args.casename,
       'latitude'    : float(ds.yq),
       'lon_min'     : lon_min,
       'lon_max'     : lon_max,
       'start_date'  : args.start_date,
       'end_date'    : args.end_date,
   }
-  outfile = 'ncfiles/{}_vo_mean_{:.1f}N_transect.nc'.format(casename, lat_transect)
+  outfile = args.ocn_diag_root + '/{}_vo_mean_{:.1f}N_transect.nc'.format(args.casename, lat_transect)
   ds_out.to_netcdf(outfile)
   print('Saved:', outfile)
 
@@ -244,11 +239,11 @@ def main():
   # Title
   ax_lon.text(
       lon_min + 0.3, 500,
-      '{:.1f}N  {}\n{} - {}'.format(lat_transect, label, args.start_date, args.end_date),
+      '{:.1f}N  {}\n{} - {}'.format(lat_transect, args.label, args.start_date, args.end_date),
       color='beige', fontsize=14,
       bbox=dict(boxstyle='round', facecolor='k'), zorder=12)
 
-  savefig = 'PNG/DWBC/{}_vo_mean_{:.1f}N_transect.png'.format(casename, lat_transect)
+  savefig = args.outdir + '{}_vo_mean_{:.1f}N_transect.png'.format(args.casename, lat_transect)
   fig.savefig(savefig, bbox_inches='tight', pad_inches=0.05, dpi=150)
   print('Figure saved:', savefig)
   plt.close(fig)
@@ -269,7 +264,7 @@ def main():
       dict(label='Argo geostrophy',
            x=argo.longitude[1:-1].values, y=argo_depth,
            v=argo.v[:, 1:-1].values,      kind='pcolormesh'),
-      dict(label='{}\n{} - {}'.format(label, args.start_date, args.end_date),
+      dict(label='{}\n{} - {}'.format(args.label, args.start_date, args.end_date),
            x=xh, y=z_l,
            v=vel,                          kind='pcolormesh'),
   ]
@@ -322,7 +317,7 @@ def main():
 
   fig.suptitle('Mean meridional velocity at {:.1f}N'.format(lat_transect), fontsize=16)
 
-  savefig4 = 'PNG/DWBC/{}_vo_mean_{:.1f}N_4panel.png'.format(casename, lat_transect)
+  savefig4 = args.outdir + '{}_vo_mean_{:.1f}N_4panel.png'.format(args.casename, lat_transect)
   fig.savefig(savefig4, bbox_inches='tight', pad_inches=0.05, dpi=150)
   print('Figure saved:', savefig4)
   plt.close(fig)
