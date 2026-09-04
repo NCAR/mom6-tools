@@ -23,8 +23,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Create monthly climatology and averages for datasets.')
     parser.add_argument('config_yml', type=str, help='Path to YAML configuration file.')
     parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty).')
-    parser.add_argument('-s', '--stream', type=str, default='.mom6.h.z.????-??.nc', help='History file stream (default is .mom6.h.z.????-??.nc)')
-    parser.add_argument('-f', '--fname', type=str, default='z', help='Name of the history file stream (default is z)')
+    parser.add_argument('-f', '--fname', type=str, default='z', help="Label of the history file stream, must be a key in the config yaml's 'Fnames' section (default is z)")
     parser.add_argument('-asd', '--avg_start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
     parser.add_argument('-aed', '--avg_end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
     parser.add_argument('-tsd', '--ts_start_date', type=str, default='', help='Start date for time-series (TS) analysis, if applicable.')
@@ -33,7 +32,7 @@ def parse_args():
     return parser.parse_args()
 
 # Function to submit PBS script for each variable
-def submit_pbs_script(var, stream, fname):
+def submit_pbs_script(var, fname):
     """Create and submit a PBS script for generating climatology."""
     pbs_script = textwrap.dedent(f"""\
     #!/bin/bash
@@ -48,7 +47,7 @@ def submit_pbs_script(var, stream, fname):
     module load conda
     conda activate mom6-tools
 
-    mom6-tools_create_climatology diag_config.yml -v {var} -s {stream} -f {fname}
+    mom6-tools_create_climatology diag_config.yml -v {var} -f {fname}
     """)
 
     # Create the directory if it does not exist
@@ -126,7 +125,6 @@ def main():
 
     args = parse_args()
     variable = args.variable
-    stream = args.stream
     fname = args.fname
     # Read in the yaml file
     config = yaml.load(open(args.config_yml,'r'), Loader=yaml.Loader)
@@ -134,7 +132,8 @@ def main():
     dcase = DiagsCase(config['Case'])
     caseroot = config['Case']['CASEROOT']
     args.casename = cime_xmlquery(caseroot, 'CASE')
-    dcase.set_fnames(args, config, {'geom': 'geom', 'static': 'static'})
+    dcase.set_fnames(args, config, {'geom': 'geom', 'static': 'static', fname: fname})
+    stream = getattr(args, fname)
     DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
     if DOUT_S.lower() == "true":
       OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
@@ -156,7 +155,7 @@ def main():
       print("The variable is an empty string. Processing all variables in {}".format(stream))
 
       # Select all files that contain 'native' in their name
-      file = glob.glob(os.path.join(OUTDIR, args.casename+stream))[0]
+      file = glob.glob(os.path.join(OUTDIR, stream))[0]
 
       if args.debug:
         print(f'file: {file}')
@@ -190,7 +189,7 @@ def main():
       # Loop over the variables in the dataset and submit a PBS job for each
       for var in ds_file.data_vars:
         # Submit a PBS script for the variable
-        submit_pbs_script(var, stream, fname)
+        submit_pbs_script(var, fname)
 
     else:
       print("The variable is not an empty string.")
@@ -203,7 +202,7 @@ def main():
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
 
-      files = os.path.join(OUTDIR, args.casename+stream)
+      files = os.path.join(OUTDIR, stream)
       ds = xr.open_mfdataset(files,
                        parallel=True,
                        combine="nested",

@@ -29,8 +29,7 @@ def parse_args():
         "over specified basin masks to extract and average/integrate the variable within each region.")
     parser.add_argument('config_yml', type=str, help='Path to YAML configuration file.')
     parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty, it will process all 2D variables on tracer points).')
-    parser.add_argument('-s', '--stream', type=str, default='.mom6.h.native.*.nc', help='History file stream (default is .mom6.h.native.*.nc)')
-    parser.add_argument('-f', '--fname', type=str, default='native', help='Name of the history file stream (default is native)')
+    parser.add_argument('-f', '--fname', type=str, default='native', help="Label of the history file stream, must be a key in the config yaml's 'Fnames' section (default is native)")
     parser.add_argument('-asd', '--avg_start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
     parser.add_argument('-aed', '--avg_end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
     parser.add_argument('-tsd', '--ts_start_date', type=str, default='', help='Start date for time-series (TS) analysis, if applicable.')
@@ -39,7 +38,7 @@ def parse_args():
     return parser.parse_args()
 
 # Function to submit PBS script for each variable
-def submit_pbs_script(var, stream, fname):
+def submit_pbs_script(var, fname):
     """Create and submit a PBS script for generating area-weighted mean time series."""
 
     pbs_script = textwrap.dedent(f"""\
@@ -55,7 +54,7 @@ def submit_pbs_script(var, stream, fname):
     module load conda
     conda activate mom6-tools
 
-    mom6-tools_compute_basin_reductions diag_config.yml -v {var} -s {stream} -f {fname}
+    mom6-tools_compute_basin_reductions diag_config.yml -v {var} -f {fname}
     """)
 
     # Create the directory if it does not exist
@@ -164,7 +163,6 @@ def main():
 
     args = parse_args()
     variable = args.variable
-    stream = args.stream
     fname = args.fname
     # Read in the yaml file
     config = yaml.load(open(args.config_yml,'r'), Loader=yaml.Loader)
@@ -178,15 +176,16 @@ def main():
     else:
       OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
+    # GMM, update this
+    basin_code = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc')['basin_masks']
+    dcase.set_fnames(args, config, {'geom': 'geom', 'static': 'static', fname: fname})
+    stream = getattr(args, fname)
+
     print('DOUT_S:', DOUT_S)
     print('Model directory with history files is:', OUTDIR)
     print('Casename is:', args.casename)
     print('Variable is:', variable)
     print('Stream is:', stream)
-
-    # GMM, update this
-    basin_code = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc')['basin_masks']
-    dcase.set_fnames(args, config, {'geom': 'geom', 'static': 'static'})
 
     # read grid info
     grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
@@ -206,7 +205,7 @@ def main():
       print("The variable is an empty string. Processing all variables in {}".format(stream))
 
       # Select all files that contain 'native' in their name
-      file = glob.glob(os.path.join(OUTDIR, args.casename+stream))[0]
+      file = glob.glob(os.path.join(OUTDIR, stream))[0]
 
       if args.debug:
         print(f'file: {file}')
@@ -241,7 +240,7 @@ def main():
       # Loop over the variables in the dataset and submit a PBS job for each
       for var in ds_file.data_vars:
         # Submit a PBS script for the variable
-        submit_pbs_script(var, stream, fname)
+        submit_pbs_script(var, fname)
 
     else:
       print(f'Processing {variable}')
@@ -252,7 +251,7 @@ def main():
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
 
-      files = os.path.join(OUTDIR, args.casename+stream)
+      files = os.path.join(OUTDIR, stream)
       ds = xr.open_mfdataset(files,
                        parallel=False,
                        combine="nested",
