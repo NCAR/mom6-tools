@@ -340,6 +340,11 @@ class DiagsCase(object,):
         """Fill in args.start_date/end_date from the yaml config's 'Avg' section,
         but only if they are not already set (e.g., via command-line flags).
 
+        Also fill in args.start_date_ts/end_date_ts from the yaml config's 'TS' section,
+        if they are not already set. If 'TS' is not present in the config, leaves
+        start_date_ts/end_date_ts as None (unless already set), so callers can
+        fall back to using the whole record.
+
         Parameters
         ----------
         args : argparse.Namespace
@@ -357,6 +362,15 @@ class DiagsCase(object,):
         avg = diag_config_yml['Avg']
         if not args.start_date: args.start_date = avg['start_date']
         if not args.end_date: args.end_date = avg['end_date']
+
+        ts = diag_config_yml.get('TS')
+        if ts:
+            if not args.start_date_ts: args.start_date_ts = ts['start_date']
+            if not args.end_date_ts: args.end_date_ts = ts['end_date']
+        else:
+            if not args.start_date_ts: args.start_date_ts = None
+            if not args.end_date_ts: args.end_date_ts = None
+
         return args
 
     def set_fnames(self, args, diag_config_yml, fnames:dict):
