@@ -9,8 +9,7 @@ import matplotlib.pyplot as plt
 import os, yaml
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.DiagsCase import DiagsCase
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from datetime import datetime
 
 try: import argparse
@@ -28,6 +27,7 @@ def options():
   parser.add_argument('-nw','--number_of_workers',  type=int, default=1, help='''Number of workers to use (default=1).''')
   parser.add_argument('-save_ncfile', help='''Save a netCDF file with transport data''', action="store_true")
   parser.add_argument('-debug', help='''Add priting statements for debugging purposes''', action="store_true")
+  add_jobqueue_args(parser)
   args = parser.parse_args()
   return args
 
@@ -149,12 +149,8 @@ def main(stream=False):
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw, args=args,
+                                          config=diag_config_yml.get('Jobqueue'))
 
   args.parallel = parallel
   args.infile = OUTDIR
@@ -213,6 +209,9 @@ def main(stream=False):
 
   print('Total time elasped: ', datetime.now() - start)
   print('{} was run successfully!'.format(os.path.basename(__file__)))
+  
+  # release workers
+  release_workers(parallel, cluster, client)
 
   if stream is True: imgbufs.append(objOut)
 

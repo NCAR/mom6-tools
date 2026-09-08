@@ -6,8 +6,7 @@ import numpy as np
 import warnings, dask, netCDF4, intake
 from datetime import datetime, date
 import xarray as xr
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 import momlevel as ml
 from mom6_tools import m6plot
 from mom6_tools.DiagsCase import DiagsCase
@@ -40,6 +39,7 @@ def options():
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
                       action="store_true")
 
+  add_jobqueue_args(parser)
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
 
@@ -90,12 +90,8 @@ def main(stream=False):
   # Coriolis
   coriolis = ml.derived.calc_coriolis(grd.geolat)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw, args=args,
+                                          config=diag_config_yml.get('Jobqueue'))
 
   def preprocess(ds):
     ''' Return a dataset desired variables'''
@@ -177,9 +173,7 @@ def main(stream=False):
   print('Saving netCDF files...')
   pv.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_AAIW_PV.nc')
 
-  if parallel:
-    print('Releasing workers...')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
   return

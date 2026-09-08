@@ -26,6 +26,8 @@ def options():
                      help='''Conda env to be used for running the scripts. Default dev2''')
   parser.add_argument('-cl','--cluster', type=str, default='casper',
                      help='''Name of the cluster to run the scripts via batch jobs. Default casper, but cheyenne is also supported.''')
+  parser.add_argument('--cluster-class', type=str, default='PBSCluster',
+                     help='''Name of the dask cluster class to use. Default PBSCluster''')
 
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
                       action="store_true")
@@ -46,6 +48,7 @@ def main():
   # extract info from args
   proj_code = args.proj_code
   cluster = args.cluster
+  cluster_class = args.cluster_class
   conda_env = args.conda_env
 
   # Read in the yaml file
@@ -71,37 +74,37 @@ def main():
     os.system('mkdir -p {}/scripts'.format(dcase.casename))
     make_yaml(dcase.casename, case_config)
     # MOC
-    cmd = 'moc.py diag_config.yml -nw 6 -fname .mom6.h_*.nc'
+    cmd = f'moc.py diag_config.yml -nw 6 --cluster-class {cluster_class} -fname .mom6.h_*.nc'
     make_PBS_batch(dcase.casename, 'moc', cmd, proj_code, cluster, conda_env)
     # PHT
-    cmd = 'poleward_heat_transport.py diag_config.yml -nw 6'
+    cmd = f'poleward_heat_transport.py diag_config.yml -nw 6 --cluster-class {cluster_class}'
     make_PBS_batch(dcase.casename, 'pht', cmd, proj_code, cluster, conda_env)
     # section transports
     cmd = 'section_transports.py diag_config.yml -save_ncfile'
     make_PBS_batch(dcase.casename, 'transports', cmd, proj_code, cluster, conda_env)
     # surface
-    cmd = 'surface.py diag_config.yml -nw 6'
+    cmd = f'surface.py diag_config.yml -nw 6 --cluster-class {cluster_class}'
     make_PBS_batch(dcase.casename, 'surface', cmd, proj_code, cluster, conda_env)
     # equatorial
-    cmd = 'equatorial_comparison.py diag_config.yml -nw 6'
+    cmd = f'equatorial_comparison.py diag_config.yml -nw 6 --cluster-class {cluster_class}'
     make_PBS_batch(dcase.casename, 'equatorial', cmd, proj_code, cluster, conda_env)
     # T&S @ vertical levels
-    cmd = 'TS_levels.py diag_config.yml -nw 6'
+    cmd = f'TS_levels.py diag_config.yml -nw 6 --cluster-class {cluster_class}'
     make_PBS_batch(dcase.casename, 'ts_levels', cmd, proj_code, cluster, conda_env)
     # stats
     cmd = 'stats.py diag_config.yml -ocean_stats -time_series'
     make_PBS_batch(dcase.casename, 'stats', cmd, proj_code, cluster, conda_env)
     # drift thetao
-    cmd = 'drift.py diag_config.yml thetao --drift -nw 6'
+    cmd = f'drift.py diag_config.yml thetao --drift -nw 6 --cluster-class {cluster_class}'
     make_PBS_batch(dcase.casename, 'drift_thetao', cmd, proj_code, cluster, conda_env)
     # drift so
-    cmd = 'drift.py diag_config.yml so --drift -nw 6'
+    cmd = f'drift.py diag_config.yml so --drift -nw 6 --cluster-class {cluster_class}'
     make_PBS_batch(dcase.casename, 'drift_so', cmd, proj_code, cluster, conda_env)
     # rms thetao
-    cmd = 'drift.py diag_config.yml thetao --rms -nw 6'
+    cmd = f'drift.py diag_config.yml thetao --rms -nw 6 --cluster-class {cluster_class}'
     make_PBS_batch(dcase.casename, 'rms_thetao', cmd, proj_code, cluster, conda_env)
     # rms so
-    cmd = 'drift.py diag_config.yml so --rms -nw 6'
+    cmd = f'drift.py diag_config.yml so --rms -nw 6 --cluster-class {cluster_class}'
     make_PBS_batch(dcase.casename, 'rms_so', cmd, proj_code, cluster, conda_env)
     # Create an ascii file to run a set of batch jobs
     make_run_script(dcase.casename)

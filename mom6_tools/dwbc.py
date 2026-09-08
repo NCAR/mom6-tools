@@ -8,8 +8,7 @@ from scipy.interpolate import interp1d
 import warnings, os, yaml, argparse, dask
 from datetime import datetime
 import gsw
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.m6toolbox import cime_xmlquery
 
 warnings.filterwarnings('ignore')
@@ -38,6 +37,7 @@ def options():
                       help='''Number of workers to use (default=0, serial).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
                       action="store_true")
+  add_jobqueue_args(parser)
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
 
@@ -126,12 +126,8 @@ def main():
   print('Stream     :', z_stream)
   print('Number of workers:', nw)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw, args=args,
+                                          config=diag_config_yml.get('Jobqueue'))
 
   # --- Compute time-mean meridional velocity at 26.5N ---
   lat_transect = LAT_TRANSECT
@@ -199,7 +195,7 @@ def main():
 
   # --- Colour map matching the observation panels (Bilo & Johns 2020) ---
   boundaries     = np.linspace(-0.3, 0.3, 50)
-  cmap_seismic   = plt.cm.get_cmap('seismic', len(boundaries))
+  cmap_seismic   = plt.get_cmap('seismic', len(boundaries))
   colors         = list(cmap_seismic(np.arange(len(boundaries))))
   cmap_custom    = mpl.colors.ListedColormap(colors, '')
   cmap_custom.set_over(colors[-1])
@@ -327,9 +323,7 @@ def main():
   print('Figure saved:', savefig4)
   plt.close(fig)
 
-  if parallel:
-    print('\n Releasing workers...')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

@@ -7,14 +7,12 @@ import warnings, os, yaml, argparse
 import pandas as pd
 import dask
 from datetime import datetime, date
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import add_global_attrs
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.wright_eos import alpha_wright_eos, beta_wright_eos
-from distributed import Client
 
 def parseCommandLine():
   """
@@ -44,6 +42,7 @@ def parseCommandLine():
   parser.add_argument('-c_p','--heat_capacity',  type=float, default=3992.0,
                       help='''The heat capacity of sea water. (default = 3992.0 J kg-1 K-1)''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
+  add_jobqueue_args(parser)
   optCmdLineArgs = parser.parse_args()
   return optCmdLineArgs
 
@@ -78,12 +77,8 @@ def driver(args):
   # read grid info
   grd = MOM6grid(RUNDIR+'/'+args.static, RUNDIR+'/'+args.geom)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(args.number_of_workers)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
+                                          config=diag_config_yml.get('Jobqueue'))
 
   print('Reading {} dataset...'.format(args.file_name))
   startTime = datetime.now()
@@ -186,9 +181,7 @@ def driver(args):
   #add_global_attrs(bflux_da,attrs)
   bflux_da.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_bouyancy_flux.nc')
 
-  if parallel:
-    print('\n Releasing workers...')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
