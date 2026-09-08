@@ -291,6 +291,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     plt.subplots_adjust(top=0.93, bottom=0.26)
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_monthly_clima.png'
     plt.savefig(fname)
+    plt.close('all')
 
     # MLD monthly bias (model - obs)
     # Add a 'month' coordinate to 'reference'
@@ -319,6 +320,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     plt.subplots_adjust(top=0.93, bottom=0.26)
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_monthly_clima_bias.png'
     plt.savefig(fname)
+    plt.close('all')
 
   # JFM, starting from 0
   months = [0,1,2]
@@ -475,6 +477,7 @@ def get_BLD(ds, var, grd, args):
     plt.subplots_adjust(top=0.93, bottom=0.26)
     fname = 'PNG/BLD/'+str(args.casename)+'_BLD_monthly_clima.png'
     plt.savefig(fname)
+    plt.close('all')
 
   # March and Sep, noticed starting from 0
   months = [2,8]

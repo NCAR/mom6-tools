@@ -367,7 +367,7 @@ def polarcomparison(field1, field2, grd, proj='SP', circle=True,
 
   plt.suptitle(suptitle,y=1.0)
 
-  if save is not None: plt.savefig(save,bbox_inches='tight')
+  if save is not None: plt.savefig(save,bbox_inches='tight'); plt.close()
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
 
@@ -840,7 +840,7 @@ def xycompare(field1, field2, x=None, y=None, area=None,
 
   plt.suptitle(suptitle,y=1.0)
 
-  if save is not None: plt.savefig(save,bbox_inches='tight')
+  if save is not None: plt.savefig(save,bbox_inches='tight'); plt.close()
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
 

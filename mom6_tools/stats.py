@@ -6,6 +6,7 @@ Functions used to calculate statistics.
 
 import xarray as xr
 import numpy as np
+import cftime
 import matplotlib.pyplot as plt
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.ClimoGenerator import ClimoGenerator
@@ -510,13 +511,48 @@ def ocean_stats(args):
     df = df.rename(columns={old:new})
 
 
+  # load ocean.stats.nc
+  ds = xr.open_dataset(args.rundir+"/ocean.stats.nc", decode_times=False).rename({"Time" : "time"})
+
+  RUN_STARTDATE = cime_xmlquery(args.caseroot, 'RUN_STARTDATE')
+  time_units = "days since {}".format(RUN_STARTDATE)
+  calendar = "noleap"
+
+  # Convert ts_start_date/ts_end_date (calendar dates) into the same "days since
+  # RUN_STARTDATE" units used by df['Day'] and ds['time'], and apply them to each
+  # source independently *before* combining. This way, a mismatch between
+  # ocean.stats and ocean.stats.nc outside the requested window (e.g., across a
+  # restart, where the two logs can start/stop a few records apart) never matters.
+  def to_day_number(date_str):
+    if not date_str:
+      return None
+    return cftime.date2num(cftime.datetime.strptime(date_str, '%Y-%m-%d', calendar=calendar),
+                            time_units, calendar=calendar)
+
+  day_start = to_day_number(args.ts_start_date)
+  day_end = to_day_number(args.ts_end_date)
+
+  if day_start is not None or day_end is not None:
+    print(f'Selecting data between {args.ts_start_date} and {args.ts_end_date}...')
+    df = df[(df['Day'] >= (day_start if day_start is not None else -np.inf)) &
+            (df['Day'] <= (day_end if day_end is not None else np.inf))].reset_index(drop=True)
+    ds = ds.sel(time=slice(day_start, day_end))
+
+  # ocean.stats (text log) and ocean.stats.nc can still cover slightly different spans
+  # even within the requested window (e.g., across a restart the log may start later
+  # and/or lag a few unflushed records behind the .nc file), so align both sources on
+  # their actual Day/Time value rather than assuming they're already in lockstep.
+  common_days, idx_df, idx_ds = np.intersect1d(df['Day'].values, ds['time'].values, return_indices=True)
+  if len(common_days) != len(df) or len(common_days) != ds.sizes['time']:
+    print(f"WARNING: ocean.stats has {len(df)} records and ocean.stats.nc has {ds.sizes['time']}; "
+          f"aligning on {len(common_days)} overlapping Day/Time values.")
+    df = df.iloc[idx_df].reset_index(drop=True)
+    ds = ds.isel(time=idx_ds)
+
   # create dataarray and write to netCDF file
   data_vars = {}
   for var, unit in zip(new_header,units):
     data_vars.update({var:(('time'), df[var], {"units" : unit})})
-
-  # load ocean.stats.nc
-  ds = xr.open_dataset(args.rundir+"/ocean.stats.nc", decode_times=False).rename({"Time" : "time"})
 
   # variables to be added
   variables = [ 'En', 'Ntrunc','Mass', 'Mass_chg', 'Mass_anom', 'max_CFL_trans',
@@ -531,9 +567,7 @@ def ocean_stats(args):
   data_vars.update({"KE":(("time", "Layer"), ds.KE.values)})
   data_vars.update({"Mass_lay":(("time", "Layer"), ds.Mass_lay.values)})
 
-  RUN_STARTDATE = cime_xmlquery(args.caseroot, 'RUN_STARTDATE')
-  time_units = "days since {}".format(RUN_STARTDATE)
-  attrs = {"units": time_units, "calendar" : "noleap"}
+  attrs = {"units": time_units, "calendar" : calendar}
   coords={"time": ("time", df["Day"], attrs),
         "Layer" : ("Layer", ds.Layer.values),
         "Interface" : ("Interface", ds.Interface.values)}
@@ -548,12 +582,6 @@ def ocean_stats(args):
            "url" : os.path.basename(__file__) + msg}
 
   stats = xr.Dataset(data_vars=data_vars, coords=coords, attrs=attrs)
-
-  if args.ts_start_date or args.ts_end_date:
-    print(f'Selecting data between {args.ts_start_date} and {args.ts_end_date}...')
-    # decode the "days since RUN_STARTDATE" time coord into real dates so it can be
-    # sliced by label; encoding (units/calendar) is preserved for the subsequent write
-    stats = xr.decode_cf(stats).sel(time=slice(args.ts_start_date, args.ts_end_date))
 
   stats.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_ocean.stats.nc')
 
@@ -681,6 +709,9 @@ def xystats(fname, variables, grd, basins, args):
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   ds = preprocess(ds1)
+
+  print(f'Selecting data between {args.ts_start_date} and {args.ts_end_date}...')
+  ds = ds.sel(time=slice(args.ts_start_date, args.ts_end_date))
 
   # use datetime
   #ds['time'] = ds.indexes['time'].to_datetimeindex()
