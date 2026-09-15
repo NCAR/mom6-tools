@@ -140,14 +140,14 @@ def main(stream=False):
   startTime = datetime.now()
 
   # Heat Transport Time Series at the Equator (Global)
-  ds_global_eq_ts =  ds.sel(yq=0.0, method='nearest').sum('xh').drop('yq')
+  ds_global_eq_ts =  ds.sel(yq=0.0, method='nearest').sum('xh').drop_vars('yq')
   # Build a rename mapping
   rename_dict = {var: f"{var}_global_eq" for var in ds_global_eq_ts.data_vars}
   # Apply renaming
   ds_global_eq_ts = ds_global_eq_ts.rename(rename_dict)
 
   # Heat Transport Time Series at 60S (Global)
-  ds_global_60S_ts =  ds.sel(yq=-60.0, method='nearest').sum('xh').drop('yq')
+  ds_global_60S_ts =  ds.sel(yq=-60.0, method='nearest').sum('xh').drop_vars('yq')
   # Build a rename mapping
   rename_dict = {var: f"{var}_global_60S" for var in ds_global_60S_ts.data_vars}
   # Apply renaming
@@ -155,7 +155,7 @@ def main(stream=False):
 
   # Heat Transport Time Series at the Equator (Atlantic)
   ds_atl_eq_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=0.0,
-                  method='nearest').sum('xh').drop(['yq','region'])
+                  method='nearest').sum('xh').drop_vars(['yq','region'])
   # Build a rename mapping
   rename_dict = {var: f"{var}_atl_eq" for var in ds_atl_eq_ts.data_vars}
   # Apply renaming
@@ -163,15 +163,23 @@ def main(stream=False):
 
   # Heat Transport Time Series at 26.5°N (Atlantic)
   ds_atl_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=26.5,
-                method='nearest').sum('xh').drop(['yq', 'region'])
+                method='nearest').sum('xh').drop_vars(['yq', 'region'])
   # Build a rename mapping
   rename_dict = {var: f"{var}_rapid" for var in ds_atl_ts.data_vars}
   # Apply renaming
   ds_atl_ts = ds_atl_ts.rename(rename_dict)
 
   # Heat Transport Time Series at 75N (Atlantic)
-  ds_atl_75N_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=75.0,
-                  method='nearest').sum('xh').drop(['yq','region'])
+  # Atlantic Heat Transport
+  m = 0*basin_code; m[(basin_code==2) | (basin_code==4) | (basin_code==6) | (basin_code==7) | (basin_code==8)] = 1
+  m_xr = xr.DataArray(
+    m,
+    dims=('yq', 'xh'),
+    coords={'yq': ds['yq'], 'xh': ds['xh']},
+  )
+
+
+  ds_atl_75N_ts =  (ds*m_xr).sel(yq=75.0, method='nearest').sum('xh').drop_vars(['yq'])
   # Build a rename mapping
   rename_dict = {var: f"{var}_atl_75N" for var in ds_atl_75N_ts.data_vars}
   # Apply renaming
