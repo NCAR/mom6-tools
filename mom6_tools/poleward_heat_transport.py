@@ -113,11 +113,6 @@ def main(stream=False):
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
-  startTime = datetime.now()
-  ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
-  print('Time elasped: ', datetime.now() - startTime)
-
   attrs =  {
          'description': 'Annual mean of poleward heat transport by components ',
          'start_date': args.start_date,
@@ -128,12 +123,17 @@ def main(stream=False):
 
   print('Computing annual means...')
   startTime = datetime.now()
-  ds_ann =  weighted_temporal_mean_vars(ds_sel,attrs=attrs)
+  ds = weighted_temporal_mean_vars(ds,attrs=attrs)
+  print('Time elasped: ', datetime.now() - startTime)
+
+  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  startTime = datetime.now()
+  ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing time mean...')
   startTime = datetime.now()
-  ds_mean = ds_ann.mean('time').load()
+  ds_mean = ds_sel.mean('time').load()
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Extracting time series (Global and Atlantic)...')
