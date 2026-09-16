@@ -99,10 +99,12 @@ def driver(args):
 
   # load monthly means
   ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, parallel=parallel,
-                          data_vars='minimal', compat='override', coords='minimal')
+                          data_vars='minimal', compat='override', coords='minimal',
+                          chunks={'time': 12})
   # load daily means
   ds_daily = xr.open_mfdataset(OUTDIR+'/'+args.sfc, parallel=parallel,
-                          data_vars='minimal', compat='override', coords='minimal')
+                          data_vars='minimal', compat='override', coords='minimal',
+                          chunks={'time': 12})
   #ds = preprocess(ds1)
   print('Time elasped: ', datetime.now() - startTime)
 

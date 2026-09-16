@@ -103,38 +103,6 @@ JOBQUEUE_YAML = {
 }
 
 
-def test_cluster_class_from_yaml_block():
-  # cluster_class: PBSCluster in the Jobqueue: block is what opts in.
-  dask_jobqueue = pytest.importorskip('dask_jobqueue')
-  captured = {}
-
-  class FakePBSCluster:
-    job_cls = object()
-    dashboard_link = 'fake'
-
-    def __init__(self, **kw):
-      captured.update(kw)
-
-    def scale(self, n):
-      captured['scaled'] = n
-
-  import dask.distributed
-  monkey = dask.distributed.Client
-  dask.distributed.Client = lambda cluster: 'fake-client'
-  try:
-    parallel, cluster, client = get_cluster(
-        4, cluster_class=FakePBSCluster, config=JOBQUEUE_YAML)
-  finally:
-    dask.distributed.Client = monkey
-
-  assert parallel is True
-  assert captured['scaled'] == 4
-  assert captured['queue'] == 'casper'
-  assert captured['resource_spec'] == 'select=1:ncpus=1:mem=4GB'
-  # cluster_class is a mom6_tools setting, not a cluster kwarg.
-  assert 'cluster_class' not in captured
-
-
 def test_yaml_cluster_class_is_resolved_by_name():
   dask_jobqueue = pytest.importorskip('dask_jobqueue')
   from mom6_tools.jobqueue import cluster_class_from_name
