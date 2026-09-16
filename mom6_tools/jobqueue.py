@@ -57,17 +57,17 @@ def add_jobqueue_args(parser):
   value the user explicitly passed from one picked up elsewhere.
   '''
   group = parser.add_argument_group('dask-jobqueue')
-  group.add_argument('--cores', type=int, default=None, help='Cores per worker job.')
-  group.add_argument('--memory', type=str, default=None, help="Memory per worker job, e.g. '4GB'.")
-  group.add_argument('--processes', type=int, default=None, help='Python processes per worker job.')
-  group.add_argument('--interface', type=str, default=None, help="Network interface, e.g. 'ib0'.")
-  group.add_argument('--queue', type=str, default=None, help='Batch queue to submit worker jobs to.')
-  group.add_argument('--walltime', type=str, default=None, help="Walltime per worker job, e.g. '02:00:00'.")
-  group.add_argument('--resource-spec', type=str, default=None, help='PBS resource_spec string.')
-  group.add_argument('--account', type=str, default=None, help='Account/project to charge worker jobs to.')
-  group.add_argument('--log-directory', type=str, default=None, help='Directory for worker job logs.')
-  group.add_argument('--local-directory', type=str, default=None, help='Directory for worker scratch space.')
-  group.add_argument('--cluster-class', type=str, default=None,
+  group.add_argument('--cores', type=int, help='Cores per worker job.')
+  group.add_argument('--memory', type=str, help="Memory per worker job, e.g. '4GB'.")
+  group.add_argument('--processes', type=int, help='Python processes per worker job.')
+  group.add_argument('--interface', type=str, help="Network interface, e.g. 'ib0'.")
+  group.add_argument('--queue', type=str, help='Batch queue to submit worker jobs to.')
+  group.add_argument('--walltime', type=str, help="Walltime per worker job, e.g. '02:00:00'.")
+  group.add_argument('--resource-spec', type=str, help='PBS resource_spec string.')
+  group.add_argument('--account', type=str, help='Account/project to charge worker jobs to.')
+  group.add_argument('--log-directory', type=str, help='Directory for worker job logs.')
+  group.add_argument('--local-directory', type=str, help='Directory for worker scratch space.')
+  group.add_argument('--cluster-class', type=str,
                       help="Exact dask cluster class name to use, e.g. 'LocalCluster' "
                            "(default, runs workers on this node without submitting batch "
                            "jobs), 'PBSCluster', or 'SLURMCluster'. dask_jobqueue "
@@ -256,7 +256,10 @@ def get_cluster(nw, cluster_class=None, args={}, config={}, **kwargs):
         "are: {}.".format(', '.join(sorted(unknown)),
                           ', '.join(JOBQUEUE_CONFIG_KEYS)))
   if cluster_class is None:
-    cluster_class = args.get('cluster_class')
+    if args.get('cluster_class') is not None:
+      cluster_class = args.get('cluster_class')
+    elif config.get('cluster_class') is not None:
+      cluster_class = config.get('cluster_class')
 
   # 2. Process: resolve the cluster class and, for a dask_jobqueue class,
   # its resource kwargs.
@@ -287,16 +290,21 @@ def get_cluster(nw, cluster_class=None, args={}, config={}, **kwargs):
           "--cluster-class PBSCluster, if you want batch workers."
           .format(', '.join(ignored), cluster_class.__name__))
 
+  print("Starting a dask cluster: {} \n".format(cluster_class.__name__))
+
   # 3. Spin up the cluster.
   print('Requesting {} workers... \n'.format(nw))
   if is_jobqueue_cluster:
-    dask.config.set({'distributed.dashboard.link': '/proxy/{port}/status'})
+    # dask.config.set({'distributed.dashboard.link': '/proxy/{port}/status'})
     cluster = cluster_class(**kwargs)
     cluster.scale(nw)
   else:
     cluster = cluster_class(n_workers=nw, **kwargs)
   client = Client(cluster)
   print(cluster.dashboard_link)
+  
+  client.wait_for_workers(nw, timeout=600)
+  
   return True, cluster, client
 
 
