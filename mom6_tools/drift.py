@@ -14,8 +14,7 @@ from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
 from datetime import datetime
-from distributed import Client
-from ncar_jobqueue import NCARCluster
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from collections import OrderedDict
 import yaml, os, intake, nc_time_axis
 
@@ -41,6 +40,7 @@ def options():
                       help='''Name of observational product in the oce-catalog  \
     to compare against. Default is woa-2018-tx2_3v2-annual-all''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
+  add_jobqueue_args(parser)
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
 
@@ -605,14 +605,15 @@ def main(stream=False):
   obs = catalog[args.obs].to_dask()[args.var]
 
   # diff_rms
-  horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR)
+  horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR,
+                           jobqueue_config=diag_config_yml.get('Jobqueue'))
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
   return
 
 
-def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
+def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR, jobqueue_config=None):
   '''
    Compute horizontal mean difference and rms: model versus observations.
 
@@ -645,12 +646,8 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
 
   if args.debug: print('OUTDIR:', OUTDIR)
 
-  parallel = False
-  if args.number_of_workers > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(args.number_of_workers)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
+                                          config=jobqueue_config)
 
   def preprocess(ds):
     if 'thetao' not in ds.variables:
@@ -713,9 +710,7 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR):
     #rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins, debug=args.debug).rename(vname)
     print('Time elasped: ', datetime.now() - startTime)
 
-  if parallel:
-    print('Releasing workers...')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   print('Saving netCDF files...')
   attrs = {'casename': args.casename,

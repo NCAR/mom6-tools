@@ -6,8 +6,7 @@ import numpy as np
 import warnings, dask, netCDF4, intake
 from datetime import datetime, date
 import xarray as xr
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools import m6plot
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import genBasinMasks, weighted_temporal_mean_vars, add_global_attrs
@@ -29,6 +28,7 @@ def options():
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
                       action="store_true")
 
+  add_jobqueue_args(parser)
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
 
@@ -82,12 +82,8 @@ def main(stream=False):
   basin_code = genBasinMasks(grd.geolon, grd.geolat, depth)
   basin_code_xr = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw, args=args,
+                                          config=diag_config_yml.get('Jobqueue'))
 
   print('Reading dataset...')
   startTime = datetime.now()
@@ -193,9 +189,7 @@ def main(stream=False):
   add_global_attrs(ds_ts,attrs)
   ds_ts.to_netcdf(ocn_diag_root+'/'+args.casename+'_heat_transport_ts.nc')
 
-  if parallel:
-    print('Releasing workers...')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   print('Saving time mean...')
   attrs = {'description': 'Time-mean poleward heat transport by components ', 'units': ds[varName].units,

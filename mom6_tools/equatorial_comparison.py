@@ -8,8 +8,7 @@ import warnings, os, yaml, argparse
 import pandas as pd
 import dask, intake
 from datetime import datetime, date
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6plot import yzcompare, yzplot
 from mom6_tools.MOM6grid import MOM6grid
@@ -38,6 +37,7 @@ def parseCommandLine():
                       help='''Name of observational product in the oce-catalog  \
                               to compare against. Default is woa-2018-tx2_3v2-annual-all''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
+  add_jobqueue_args(parser)
   optCmdLineArgs = parser.parse_args()
   return optCmdLineArgs
 
@@ -96,12 +96,8 @@ def driver(args):
   # load johnson_pmel
   johnson =catalog['eq-uvts-johnson'].to_dask()
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw, args=args,
+                                          config=diag_config_yml.get('Jobqueue'))
 
   print('Reading monthly dataset...')
   startTime = datetime.now()
@@ -149,9 +145,7 @@ def driver(args):
   thetao_obs_eq = np.ma.masked_invalid(thetao_obs.sel(yh=slice(-10,10)).isel(yh=j).isel(z_l=slice(0,14)).values)
   salt_obs_eq = np.ma.masked_invalid(salt_obs.sel(yh=slice(-10,10)).isel(yh=j).isel(z_l=slice(0,14)).values)
 
-  if parallel:
-    print('\n Releasing workers...')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   print('Equatorial Upper Ocean plots...')
   y = ds.yh.values

@@ -16,8 +16,7 @@ from mom6_tools.DiagsCase import DiagsCase
 import pandas as pd
 import getpass
 from datetime import datetime
-from distributed import Client
-from ncar_jobqueue import NCARCluster
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from collections import OrderedDict
 import yaml, os
 
@@ -43,6 +42,7 @@ def options():
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
+  add_jobqueue_args(parser)
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
 
@@ -440,16 +440,19 @@ def main(stream=False):
   if args.surface:
     #variables = ['SSH','tos','sos','mlotst','oml','speed', 'SSU', 'SSV']
     variables = ['SSH','tos','sos','mlotst','oml','speed']
-    xystats(args.native, variables, grd, basins, args)
+    xystats(args.native, variables, grd, basins, args,
+            jobqueue_config=diag_config_yml.get('Jobqueue'))
 
   if args.forcing:
     variables = ['friver','ficeberg','fsitherm','hfsnthermds','sfdsi', 'hflso',
              'seaice_melt_heat', 'wfo', 'hfds', 'Heat_PmE']
-    xystats(args.native, variables, grd, basins, args)
+    xystats(args.native, variables, grd, basins, args,
+            jobqueue_config=diag_config_yml.get('Jobqueue'))
 
   if args.time_series:
     variables = ['thetaoga','soga','opottempmint','somint']
-    _ds = extract_time_series(args.native, variables, area, args)
+    _ds = extract_time_series(args.native, variables, area, args,
+                              jobqueue_config=diag_config_yml.get('Jobqueue'))
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
@@ -551,7 +554,7 @@ def ocean_stats(args):
 
   return stats
 
-def extract_time_series(fname, variables, area, args):
+def extract_time_series(fname, variables, area, args, jobqueue_config=None):
   '''
    Extract time-series and saves annual means.
 
@@ -572,12 +575,7 @@ def extract_time_series(fname, variables, area, args):
     NetCDF file with annual means.
 
   '''
-  parallel = False
-  if args.nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(args.nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(args.nw, args=args, config=jobqueue_config)
 
   def preprocess(ds):
     ''' Return the dataset with variables'''
@@ -610,14 +608,11 @@ def extract_time_series(fname, variables, area, args):
   attrs = {'description': 'Monthly averages of global mean ocean properties.'}
   add_global_attrs(ds,attrs)
   ds.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_mon_ave_global_means.nc')
-  if parallel:
-    # close processes
-    print('Releasing workers...\n')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   return ds
 
-def xystats(fname, variables, grd, basins, args):
+def xystats(fname, variables, grd, basins, args, jobqueue_config=None):
   '''
    Compute and plot statistics for 2D variables.
 
@@ -645,12 +640,7 @@ def xystats(fname, variables, grd, basins, args):
     Plots min, max, mean, std and rms for variables provided and for different basins.
 
   '''
-  parallel = False
-  if args.nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(args.nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(args.nw, args=args, config=jobqueue_config)
 
   try:
     area = grd.area_t.where(grd.wet > 0)
@@ -694,10 +684,7 @@ def xystats(fname, variables, grd, basins, args):
     plt.close()
     print('Time elasped: ', datetime.now() - startTime)
 
-  if parallel:
-    # close processes
-    print('Releasing workers...\n')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   return
 

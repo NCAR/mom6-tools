@@ -11,8 +11,6 @@ import subprocess
 import nbformat
 import argparse, warnings
 from datetime import datetime
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import cime_xmlquery,filter_vars_2D_tracers
 from mom6_tools.m6toolbox import replace_cell_content

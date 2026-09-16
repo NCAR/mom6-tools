@@ -8,8 +8,7 @@ from datetime import datetime
 import xarray as xr
 from xgcm import Grid
 from mom6_tools.m6toolbox import cime_xmlquery
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools import m6plot
 from mom6_tools  import m6toolbox
 from mom6_tools.MOM6grid import MOM6grid
@@ -31,6 +30,7 @@ def options():
                       help='''Number of workers to use (default=2).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
                       action="store_true")
+  add_jobqueue_args(parser)
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
   main(cmdLineArgs)
@@ -98,12 +98,8 @@ def main():
 
   grid = Grid(grd_xr, coords=coords, periodic=['X'], autoparse_metadata=False)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw, args=args,
+                                          config=diag_config_yml.get('Jobqueue'))
 
   print('Reading {} dataset...'.format(args.sigma2))
   startTime = datetime.now()
@@ -516,9 +512,7 @@ def main():
   print('Saving netCDF files...')
   moc.to_netcdf(ocn_diag_root+'/'+str(casename)+'_MOC_sigma2.nc')
 
-  if parallel:
-    print('Releasing workers ...')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

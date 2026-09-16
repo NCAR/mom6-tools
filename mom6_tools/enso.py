@@ -6,8 +6,7 @@ import numpy as np
 import warnings, dask, netCDF4, intake
 from datetime import datetime, date
 import xarray as xr
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 import cftime
 import nc_time_axis
 import momlevel as ml
@@ -44,6 +43,7 @@ def options():
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
                       action="store_true")
 
+  add_jobqueue_args(parser)
   cmdLineArgs = parser.parse_args()
   return cmdLineArgs
 
@@ -90,12 +90,8 @@ def main(stream=False):
   except:
     depth = grd.deptho
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(nw)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(nw, args=args,
+                                          config=diag_config_yml.get('Jobqueue'))
 
   def preprocess(ds):
     ''' Return a dataset desired variables'''
@@ -213,9 +209,7 @@ def main(stream=False):
   with open(fname, "wb") as file:
     pickle.dump(result_model, file)
 
-  if parallel:
-    print('Releasing workers...')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
   return

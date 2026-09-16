@@ -7,14 +7,12 @@ import warnings, os, yaml, argparse
 import pandas as pd
 import dask, intake
 from datetime import datetime, date
-from ncar_jobqueue import NCARCluster
-from dask.distributed import Client
+from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery
 from mom6_tools.m6toolbox import weighted_temporal_mean
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
-from distributed import Client
 
 def parseCommandLine():
   """
@@ -40,6 +38,7 @@ def parseCommandLine():
   parser.add_argument('--savefigs', action='store_true', default=None,
                       help='''Save figures (default is to use value set in diag_config_yml_path)''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
+  add_jobqueue_args(parser)
   optCmdLineArgs = parser.parse_args()
   return optCmdLineArgs
 
@@ -80,12 +79,8 @@ def driver(args):
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
 
-  parallel = False
-  if nw > 1:
-    parallel = True
-    cluster = NCARCluster()
-    cluster.scale(args.number_of_workers)
-    client = Client(cluster)
+  parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
+                                          config=diag_config_yml.get('Jobqueue'))
 
   print('Reading surface dataset...')
   startTime = datetime.now()
@@ -137,9 +132,7 @@ def driver(args):
   # Speed
   get_speed(ds, 'speed', grd, args)
 
-  if parallel:
-    print('\n Releasing workers...')
-    client.close(); cluster.close()
+  release_workers(parallel, cluster, client)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

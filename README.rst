@@ -32,7 +32,6 @@ Installation
 Notes 
 ----------------------------
 
-1. Make sure the project account is added to ``~/.config/dask/ncar-jobqueue.yaml``.
-
-2. If running on Casper, change ``casper`` to ``casper-dav`` in ``~/.config/dask/ncar-jobqueue.yaml``.
+1. ``get_cluster(n_workers)`` runs a ``dask.distributed.LocalCluster`` on the node it is called from. Batch workers are opt-in: to submit them you must name the class, either with ``parallel, cluster, client = get_cluster(n_workers, cluster_class='PBSCluster')``, with ``--cluster-class PBSCluster`` on the command line, or with ``cluster_class: PBSCluster`` in the ``Jobqueue:`` block of ``diag_config.yml``. Resource settings on their own (``--queue``, a ``Jobqueue:`` block without ``cluster_class``, ...) will not do it -- they are ignored, with a warning naming them.
+2. If running on HPC, make sure the project account is added to ``~/.config/dask/jobqueue.yaml``. Or set a default account as an environment variable that your scheduler can access. Anything not set in the ``Jobqueue:`` block or on the command line falls back to that dask configuration.
 
