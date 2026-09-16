@@ -587,7 +587,8 @@ def extract_time_series(fname, variables, area, args, jobqueue_config=None):
   startTime = datetime.now()
   print('Reading dataset...')
   ds1 = xr.open_mfdataset(args.OUTDIR+'/'+fname, parallel=parallel,
-                          data_vars='minimal', compat='override', coords='minimal')
+                          data_vars='minimal', compat='override', coords='minimal',
+                          chunks={'time': 12})
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
   ds = preprocess(ds1)
@@ -657,7 +658,8 @@ def xystats(fname, variables, grd, basins, args, jobqueue_config=None):
   startTime = datetime.now()
   print('Reading dataset...')
   ds1 = xr.open_mfdataset(args.OUTDIR+'/'+fname, parallel=parallel,
-                          data_vars='minimal', compat='override', coords='minimal')
+                          data_vars='minimal', compat='override', coords='minimal',
+                          chunks={'time': 12})
   ds = preprocess(ds1)
 
   # use datetime
