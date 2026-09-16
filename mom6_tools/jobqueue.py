@@ -255,14 +255,15 @@ def get_cluster(nw, cluster_class=None, args={}, config={}, **kwargs):
         "Ignoring unrecognized Jobqueue settings: {}. Recognized settings "
         "are: {}.".format(', '.join(sorted(unknown)),
                           ', '.join(JOBQUEUE_CONFIG_KEYS)))
+    
+  # Set cluster_class - method takes precedence over args, which takes precedence over config.
   if cluster_class is None:
-    if args.get('cluster_class') is not None:
-      cluster_class = args.get('cluster_class')
-    elif config.get('cluster_class') is not None:
-      cluster_class = config.get('cluster_class')
+    cluster_class = args.get('cluster_class')
+    # args.cluster_class may be None, fall back to config
+    if cluster_class is None:
+        cluster_class = config.get('cluster_class')
 
-  # 2. Process: resolve the cluster class and, for a dask_jobqueue class,
-  # its resource kwargs.
+  # 2. Process: resolve the cluster class and, for a dask_jobqueue class, its resource kwargs.
   try:
     import dask
     from dask.distributed import Client
