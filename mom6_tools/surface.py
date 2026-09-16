@@ -203,7 +203,12 @@ def get_SSH(ds1, ds2, var, grd, args):
   startTime = datetime.now()
   nt=int(np.size(ds2.time.values)/5.)
   # TODO: replace hard-coded zos below
-  ssh_5day = ds2['zos'][:nt,:,:].resample(time="5D").mean(dim='time')
+  
+  try:
+    ssh_5day = ds2['zos'][:nt,:,:].resample(time="5D").mean(dim='time')
+  except:
+    ssh_5day = ds2[var][:nt,:,:].resample(time="5D").mean(dim='time')
+    
   ssh_bar=ssh_5day.mean('time')
   ssh_prime = ssh_5day - ssh_bar
   ssh_v=(ssh_prime**2).mean('time')
