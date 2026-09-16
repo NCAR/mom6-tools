@@ -96,15 +96,17 @@ def driver(args):
     return ds[variables]
 
   # load monthly means
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, parallel=parallel)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, parallel=parallel,
+                          data_vars='minimal', compat='override', coords='minimal')
   # load daily means
-  ds_daily = xr.open_mfdataset(OUTDIR+'/'+args.sfc, parallel=parallel)
-  ds = preprocess(ds1)
+  ds_daily = xr.open_mfdataset(OUTDIR+'/'+args.sfc, parallel=parallel,
+                          data_vars='minimal', compat='override', coords='minimal')
+  #ds = preprocess(ds1)
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   startTime = datetime.now()
-  ds = ds.sel(time=slice(args.start_date, args.end_date))
+  ds = preprocess(ds1.sel(time=slice(args.start_date, args.end_date)))
   ds_daily = ds_daily.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 

@@ -103,8 +103,8 @@ def main(stream=False):
         ds = xr.merge([ds, da])
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, \
-                          parallel=parallel)
+  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, parallel=parallel,
+                          data_vars='minimal', compat='override', coords='minimal')
 
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
