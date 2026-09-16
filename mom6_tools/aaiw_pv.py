@@ -103,7 +103,7 @@ def main(stream=False):
 
   ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel, \
                              combine="nested", concat_dim="time", \
-                             preprocess=preprocess).chunk({"time": 12})
+                             preprocess=preprocess,use_cftime=True).chunk({"time": 12})
 
   print('Time elasped: ', datetime.now() - startTime)
 

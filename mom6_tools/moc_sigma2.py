@@ -97,7 +97,7 @@ def main():
       'Y': ["dyt", "dyCu", "dyCv"]
   }
 
-  grid = Grid(grd_xr, coords=coords, periodic=['X'], autoparse_metadata=False)
+  grid = Grid(grd_xr, coords=coords, padding={'X': 'periodic'}, autoparse_metadata=False)
 
   parallel, cluster, client = get_cluster(nw, args=args,
                                           config=diag_config_yml.get('Jobqueue'))
