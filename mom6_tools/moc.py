@@ -149,6 +149,7 @@ def main():
   plt.gca().invert_yaxis()
   objOut = args.outdir+str(casename)+'_MOC_global.png'
   plt.savefig(objOut)
+  plt.close()
 
   if 'zl' in ds:
     zl = ds.zl.values
@@ -188,6 +189,7 @@ def main():
   plt.gca().invert_yaxis()
   objOut = args.outdir+str(casename)+'_MOC_IndoPacific.png'
   plt.savefig(objOut,format='png')
+  plt.close()
   moc['ipmoc'].data = psiPlot
 
   # Atlantic MOC
@@ -223,6 +225,7 @@ def main():
   plt.gca().invert_yaxis()
   objOut = args.outdir+str(casename)+'_MOC_Atlantic.png'
   plt.savefig(objOut,format='png')
+  plt.close()
   moc['amoc'].data = psiPlot
 
   print('Plotting AMOC profile at 26N...')
@@ -238,6 +241,7 @@ def main():
   ax.set_ylabel('Depth [m]')
   objOut = args.outdir+str(casename)+'_MOC_profile_26N.png'
   plt.savefig(objOut,format='png')
+  plt.close(fig)
 
   # --- Vectorized time series computation ---
   # Precompute Atlantic vmsk (m is the Atlantic mask from above)
@@ -312,6 +316,7 @@ def main():
   plt.legend(fontsize=13, ncol=2)
   objOut = args.outdir+str(casename)+'_MOC_26N_time_series.png'
   plt.savefig(objOut, format='png')
+  plt.close(fig)
 
   # plot AMOC @ 45N
   fig = plt.figure(figsize=(12, 6))
@@ -329,6 +334,7 @@ def main():
   plt.legend(fontsize=14)
   objOut = args.outdir+str(casename)+'_MOC_45N_time_series.png'
   plt.savefig(objOut, format='png')
+  plt.close(fig)
 
   # Submesoscale-induced Global MOC
   varName = 'vhml'
@@ -351,6 +357,7 @@ def main():
   plt.gca().invert_yaxis()
   objOut = args.outdir+str(casename)+'_FFH_MOC_global.png'
   plt.savefig(objOut)
+  plt.close()
   moc['moc_FFH'].data = psiPlot
 
   # GM-induced Global MOC
@@ -374,6 +381,7 @@ def main():
   findExtrema(yy, z, psiPlot, min_lat=-65., max_lat=-30, mult=-1.)
   objOut = args.outdir+str(casename)+'_GM_MOC_global.png'
   plt.savefig(objOut)
+  plt.close()
   moc['moc_GM'].data = psiPlot
 
   print('Saving netCDF files...')
