@@ -40,9 +40,8 @@ def main():
   args = options()
 
   nw = args.number_of_workers
-  if not os.path.isdir('PNG/MOC'):
-    print('Creating a directory to place figures (PNG/MOC)... \n')
-    os.system('mkdir -p PNG/MOC')
+  
+  os.makedirs('PNG/MOC', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)

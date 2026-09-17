@@ -1,0 +1,21 @@
+# case info
+Case:
+  CASEROOT: /glade/work/ajanney/CESM-cases/carib12_tides_runoff_test_mom6_tools
+  OCN_DIAG_ROOT: /glade/campaign/cgd/oce/projects/CROCODILE/model_output/carib12_tides_runoff_sections/mom6-tools-test
+  SNAME: "regional"
+
+# start and end dates to perform averages
+Avg:
+  start_date: '2000-01-01'
+  end_date: '2001-12-31'
+# cesm hist fname conventions
+Fnames:
+  z:      '.mom6.h.z.????-??.nc'
+  native: '.mom6.h.native.????-??.nc'
+  sfc:    '.mom6.h.sfc.????-??.nc'
+  static: '.mom6.h.static.nc'
+  geom:   '.mom6.h.ocean_geometry.nc'
+
+# Miscellaneous Settings
+Misc:
+  savefigs: False

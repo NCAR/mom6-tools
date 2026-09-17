@@ -45,9 +45,8 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  if not os.path.isdir('PNG/Equatorial'):
-    print('Creating a directory to place figures (PNG/Equatorial)... \n')
-    os.system('mkdir -p PNG/Equatorial')
+  
+  os.makedirs('PNG/Equatorial', exist_ok=True)
 
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)

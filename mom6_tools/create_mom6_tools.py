@@ -41,13 +41,11 @@ def main():
     print('Casename is:', dcase.casename)
   # Update dict
   case_config['Case'].update({'RUNDIR' : RUNDIR})
-  if not os.path.isdir(dcase.casename):
-    print('Creating {}... \n'.format(dcase.casename))
-    os.system('mkdir -p {}'.format(dcase.casename))
-    make_yaml(dcase.casename, case_config)
-    make_run_script(dcase.casename)
-  else:
-    print('Directory {} already exists. \n'.format(dcase.casename))
+  
+  ## Make dir and files
+  os.makedirs(dcase.casename, exist_ok=True)
+  make_yaml(dcase.casename, case_config)
+  make_run_script(dcase.casename)
 
   return
 
@@ -65,7 +63,7 @@ def make_run_script(casename):
   f.write("stats.py diag_config.yml -diff_rms -nw 6 &\n")
   f.write("TS_levels.py diag_config.yml -nw 6 &\n")
   f.close()
-  os.system('chmod +x '+casename+'/run_mom6_tools.sh')
+  os.chmod(casename+'/run_scripts.sh', 0o755)
   return
 def make_yaml(casename, case_config):
   """

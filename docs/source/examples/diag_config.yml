@@ -46,7 +46,7 @@ Transports:
            }
 
 # path to ocean-related datasets catalog
-oce_cat: /glade/u/home/gmarques/libs/oce-catalogs/reference-datasets.yml
+oce_cat: "reference-datasets.yml"
 
 # dask_jobqueue cluster settings.
 # Paths below are used verbatim -- edit <username> to your own username.
@@ -63,3 +63,6 @@ Jobqueue:
   log_directory: '/glade/derecho/scratch/<username>/dask/logs'
   local_directory: '/glade/derecho/scratch/<username>/dask/local-dir'
 
+# Miscellaneous Settings
+Misc:
+  savefigs: False

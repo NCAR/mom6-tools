@@ -57,7 +57,7 @@ def parseCommandLine():
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
 def driver(args):
-  os.system('mkdir PNG')
+  os.makedirs('PNG', exist_ok=True)
   # mom6 grid
   grd = MOM6grid(args.geometry)
 

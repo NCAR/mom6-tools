@@ -572,9 +572,7 @@ def main(stream=False):
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
 
-  if not os.path.isdir('PNG/Drift'):
-    print('Creating a directory to place figures (PNG)... \n')
-    os.system('mkdir -p PNG/Drift')
+  os.makedirs("PNG/Drift", exist_ok=True)
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
