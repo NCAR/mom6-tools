@@ -224,6 +224,7 @@ def driver(args):
     ax2.set_ylim(-400,0)
     plt.suptitle('Temperature [C] @ '+str(l)+ ', averaged between '+str(args.start_date)+' and '+str(args.end_date))
     plt.savefig(figname+'temperature_'+str(l)+'.png')
+    plt.close(fig)
 
     # Salt
     fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(17,7), sharey=True)
@@ -237,6 +238,7 @@ def driver(args):
     ax2.set_ylim(-400,0)
     plt.suptitle('Salinity [psu] @ '+str(l)+ ', averaged between '+str(args.start_date)+' and '+str(args.end_date))
     plt.savefig(figname+'salinity_'+str(l)+'.png')
+    plt.close(fig)
 
     # uo
     fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(17,7), sharey=True)
@@ -250,6 +252,7 @@ def driver(args):
     ax2.set_ylim(-400,0)
     plt.suptitle('Eastward velocity [m/s] @ '+str(l)+ ', averaged between '+str(args.start_date)+' and '+str(args.end_date))
     plt.savefig(figname+'uo_'+str(l)+'.png')
+    plt.close(fig)
 
   # Eastward velocity [m/s] along the Equatorial Pacific
   x_obs = johnson.XLON.values
@@ -273,8 +276,7 @@ def driver(args):
   ax2.set_xlim(143,265); ax2.set_ylim(-400,0); ax2.set_ylabel('')
   plt.suptitle('Eastward velocity [m/s] along the Equatorial Pacific, averaged between '+str(args.start_date)+' and '+str(args.end_date))
   plt.savefig(figname+'Equatorial_Pacific_uo.png')
-
-  plt.close('all')
+  plt.close(fig)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

@@ -205,6 +205,7 @@ def main(stream=False):
     os.makedirs(args.outdir, exist_ok=True)
     objOut = args.outdir+'/'+args.casename+'_section_transports.png'
   plt.savefig(objOut)
+  plt.close(fig)
 
   print('Total time elasped: ', datetime.now() - start)
   print('{} was run successfully!'.format(os.path.basename(__file__)))

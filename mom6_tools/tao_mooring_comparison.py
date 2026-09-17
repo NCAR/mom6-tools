@@ -186,8 +186,7 @@ def driver(args):
         ax[2].legend()
         pfile = 'u_ann.' + pos + '.png'
         plt.savefig(os.path.join(path_plt_out,pfile))
-
-    plt.close('all')
+        plt.close(fig)
 
     print('{} was run successfully!'.format(os.path.basename(__file__)))
 

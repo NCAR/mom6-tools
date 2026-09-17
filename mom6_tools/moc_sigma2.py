@@ -200,6 +200,7 @@ def main():
   cbar.set_ticks(clevels)
   objOut = args.outdir+str(casename)+'_MOC_sigma2_global.png'
   plt.savefig(objOut)
+  plt.close(fig)
 
   # zrho
   fig, axis = plt.subplots(1,1, figsize=(15,5))
@@ -229,6 +230,7 @@ def main():
   axis.set_title("Case {}, global meridional-zrho overturning".format(args.label),fontsize=10)
   objOut = args.outdir+str(casename)+'_MOC_zrho_global.png'
   plt.savefig(objOut)
+  plt.close(fig)
 
   # create dataset to store results
   moc = xr.Dataset(data_vars={ 'moc' :    (('rho2_l','yq'), psi.data),
@@ -270,6 +272,7 @@ def main():
   cbar.set_ticks(clevels)
   objOut = args.outdir+str(casename)+'_MOC_sigma2_global_vhml.png'
   plt.savefig(objOut)
+  plt.close(fig)
   moc['moc_FFH'].data = psi_vhml.data
   # zrho
   fig, axis = plt.subplots(1,1, figsize=(15,5))
@@ -302,6 +305,7 @@ def main():
 
   objOut = args.outdir+str(casename)+'_FFH_MOC_global.png'
   plt.savefig(objOut)
+  plt.close(fig)
   moc['moc_FFH'].data = psi.data
 
   # GM-induced Global MOC
@@ -328,6 +332,7 @@ def main():
   cbar.set_ticks(clevels)
   objOut = args.outdir+str(casename)+'_MOC_sigma2_global_vhGM.png'
   plt.savefig(objOut)
+  plt.close(fig)
   moc['moc_GM'].data = psi_vhGM.data
   # zrho
   fig, axis = plt.subplots(1,1, figsize=(15,5))
@@ -357,6 +362,7 @@ def main():
   axis.set_title("Case {}, global meridional-zrho overturning (Sv) due to vhGM".format(args.label),fontsize=10)
   objOut = args.outdir+str(casename)+'_MOC_zrho_global_vhGM.png'
   plt.savefig(objOut)
+  plt.close(fig)
 
   # Indo-Pacific
   atl = basin_code_xr.sel(region='AtlanticOcean') + basin_code_xr.sel(region='Arctic') + \
@@ -402,6 +408,7 @@ def main():
   cbar.set_ticks(clevels)
   objOut = args.outdir+str(casename)+'_MOC_sigma2_IndoPacific.png'
   plt.savefig(objOut,format='png')
+  plt.close(fig)
 
   #zrho
   fig, axis = plt.subplots(1,1, figsize=(15,5))
@@ -429,6 +436,7 @@ def main():
   axis.set_title("Case {}, Indo-Pacific meridional-zrho overturning".format(args.label),fontsize=10)
   objOut = args.outdir+str(casename)+'_MOC_zrho_IndoPacific.png'
   plt.savefig(objOut,format='png')
+  plt.close(fig)
   moc['ipmoc'].data = psi.data
   moc = moc.assign_coords({"ipmoc_depth": (["rho2_l","yq"], psi['depth'].data)})
 
@@ -477,6 +485,7 @@ def main():
   cbar.set_ticks(clevels)
   objOut = args.outdir+str(casename)+'_MOC_sigma2_Atlantic.png'
   plt.savefig(objOut,format='png')
+  plt.close(fig)
 
   # zrho
   fig, axis = plt.subplots(1,1, figsize=(15,5))
@@ -506,6 +515,7 @@ def main():
   axis.set_title("Case {}, Atlantic meridional-zrho overturning".format(args.label),fontsize=10)
   objOut = args.outdir+str(casename)+'_MOC_zrho_Atlantic.png'
   plt.savefig(objOut,format='png')
+  plt.close(fig)
   moc['amoc'].data = psi.data
   moc = moc.assign_coords({"amoc_depth": (["rho2_l","yq"], psi['depth'].data)})
 
