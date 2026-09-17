@@ -162,9 +162,9 @@ def main():
 
   # add a depth coordinate to psi, with depth
   # defined by zonal mean of the time mean depth of rho
-  psi.coords['depth'] = grid.interp(zrho, 'Y', boundary='extend')
-  psi_vhml.coords['depth'] = grid.interp(zrho, 'Y', boundary='extend')
-  psi_vhGM.coords['depth'] = grid.interp(zrho, 'Y', boundary='extend')
+  psi.coords['depth'] = grid.interp(zrho, 'Y', padding='extend')
+  psi_vhml.coords['depth'] = grid.interp(zrho, 'Y', padding='extend')
+  psi_vhGM.coords['depth'] = grid.interp(zrho, 'Y', padding='extend')
 
   psi.load()
   psi_vhml.load()
@@ -364,7 +364,7 @@ def main():
       basin_code_xr.sel(region='BlackSea')
 
   m = basin_code_xr.sel(region='Global') - atl
-  vmo  = ds_sel['vmo'].mean(dim='time') * grid.interp(m, 'Y', boundary='extend')
+  vmo  = ds_sel['vmo'].mean(dim='time') * grid.interp(m, 'Y', padding='extend')
   thk = h.mean(dim='time').where(m != 0)
   vmo  = vmo.where(vmo < 1e14)
   thk  = thk.where(thk < 1e10)
@@ -372,7 +372,7 @@ def main():
   vmo_xsum = vmo.sum(dim='xh')
   psi      = (vmo_xsum.cumsum(dim='rho2_l') - vmo_xsum.sum(dim='rho2_l'))/1e9 + 0.1
   psi.name = 'meridional-sigma2 overturning'
-  psi.coords['depth'] = grid.interp(zrho, 'Y', boundary='extend')
+  psi.coords['depth'] = grid.interp(zrho, 'Y', padding='extend')
   psi.load()
   zrho.load()
 
@@ -437,7 +437,7 @@ def main():
       basin_code_xr.sel(region='HudsonBay') + basin_code_xr.sel(region='MedSea') + \
       basin_code_xr.sel(region='BlackSea')
 
-  vmo  = ds_sel['vmo'].mean(dim='time') * grid.interp(m, 'Y', boundary='extend')
+  vmo  = ds_sel['vmo'].mean(dim='time') * grid.interp(m, 'Y', padding='extend')
   thk = h.mean(dim='time').where(m != 0)
   vmo  = vmo.where(vmo < 1e14)
   thk  = thk.where(thk < 1e10)
@@ -445,7 +445,7 @@ def main():
   vmo_xsum = vmo.sum(dim='xh')
   psi      = (vmo_xsum.cumsum(dim='rho2_l') - vmo_xsum.sum(dim='rho2_l'))/1e9 + 0.1
   psi.name = 'meridional-sigma2 overturning'
-  psi.coords['depth'] = grid.interp(zrho, 'Y', boundary='extend')
+  psi.coords['depth'] = grid.interp(zrho, 'Y', padding='extend')
   psi.load()
   zrho.load()
   levels  = [-30,-26,-22,-18,-14,-10,-6,-2,2,6,10,14,18,22,26,30]
