@@ -116,7 +116,8 @@ def driver(args):
     return ds[variables]
 
   ds1 = xr.open_mfdataset(OUTDIR+args.monthly, parallel=parallel,
-                          data_vars='minimal', compat='override', coords='minimal')
+                          data_vars='minimal', compat='override', coords='minimal',
+                          chunks={'time': 12})
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
 
