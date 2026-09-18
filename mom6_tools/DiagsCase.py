@@ -47,10 +47,15 @@ class DiagsCase(object,):
                 generate this dictionary:
 
                 Case:
-                    CIMEROOT: ...
-                    CASEROOT: ...
-                    RUNDIR: ...
-                    HIST_FILE_PREFIX: ...
+                    CASEROOT: ... # required; path to the case root directory
+                    OCN_DIAG_ROOT: ... #required; path to diagnostics output files
+                    SNAME: ... # required; short name of the case
+                    CIMEROOT: ... # optional; default is cime_xmlquery(caseroot, 'CIMEROOT')
+                    DOUT_S_ROOT: ... # optional; default is cime_xmlquery(caseroot, 'DOUT_S_ROOT')
+                    RUNDIR: ... # optional; default is cime_xmlquery(caseroot, 'RUNDIR')
+                    OUTDIR: ... # optional; default is cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
+                                                    or cime_xmlquery(caseroot, 'RUNDIR')
+                    HIST_FILE_PREFIX: ... # optional; prefix of history output files
 
             xrformat : boolean, optional
             If True, returns an xarray Dataset with the grid. Otherwise (default), returns an
@@ -66,19 +71,13 @@ class DiagsCase(object,):
         self.diag_fields = None
         self.xrformat = xrformat
 
-        rundir_provided = "RUNDIR" in self._config
-        dout_s_root_provided = "DOUT_S_ROOT" in self._config
-        caseroot_provided = "CASEROOT" in self._config
-        cimeroot_provided = "CIMEROOT" in self._config
-        output_root_provided = "OCN_DIAG_ROOT" in self._config
-
         # check if required keywords are in diag_config.yml
-        if not (rundir_provided or dout_s_root_provided):
-            if not ((caseroot_provided and cimeroot_provided) or output_root_provided):
-                raise AssertionError(
-                    "If 'RUNDIR' or 'DOUT_S_ROOT' are not provided,"
-                    " either 'CASEROOT' and 'CIMEROOT' or 'OCN_DIAG_ROOT' must be provided."
-                )
+        required_keys = ("CASEROOT", "OCN_DIAG_ROOT", "SNAME")
+        missing_keys = [key for key in required_keys if key not in self._config]
+        if missing_keys:
+            raise AssertionError(
+                f"Missing required case configuration key(s): {', '.join(missing_keys)}"
+            )
 
     # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None
     @property
