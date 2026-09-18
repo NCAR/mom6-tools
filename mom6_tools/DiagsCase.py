@@ -77,6 +77,36 @@ class DiagsCase(object,):
                 f"Missing required case configuration key(s): {', '.join(missing_keys)}"
             )
 
+    @classmethod
+    def read_diag_config(cls, yaml_path, xrformat=False):
+        """ Reads a diag_config.yml file and returns a DiagsCase instance.
+
+        Parameters
+        ----------
+        yaml_path : str
+            Full path to the diag_config.yml file.
+        xrformat : boolean, optional
+            Passed through to the DiagsCase constructor.
+
+        Returns
+        -------
+        DiagsCase
+            Instance built from the 'Case' section of the yaml file. The full parsed
+            yaml dictionary (including sections other than 'Case', e.g. 'Avg',
+            'Fnames', 'Transports') is stored on the returned instance as
+            `full_config`. See set_diag_params for the convenience attributes
+            derived from `full_config` (caseroot, start_date, end_date, savefigs,
+            jobqueue_config, label, outdir).
+        """
+
+        with open(yaml_path, 'r') as f:
+            full_config = yaml.load(f, Loader=yaml.Loader)
+
+        dcase = cls(full_config['Case'], xrformat=xrformat)
+        dcase.full_config = full_config
+        dcase.set_diag_params()
+        return dcase
+
     def set_diag_params(self):
         """ Sets convenience attributes derived from `self.full_config`, so that
         scripts share a single, consistent way of pulling common parameters out
@@ -94,7 +124,7 @@ class DiagsCase(object,):
         savefigs        : Misc['savefigs'] (or False if not present). Optional.
         jobqueue_config : the 'Jobqueue' section. Required; raises ValueError if not present.
         label           : value of SNAME. Required; raises ValueError if not provided.
-        ocn_diag_root   : output directory, created via create_output_dir() (OCN_DIAG_ROOT
+        outdir          : output directory, created via create_output_dir() (OCN_DIAG_ROOT
                            is therefore required).
         """
 

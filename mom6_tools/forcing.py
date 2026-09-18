@@ -41,13 +41,9 @@ def parseCommandLine():
 def driver(args):
   nw = args.number_of_workers
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-
-  # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'])
-  dcase.full_config = diag_config_yml
-  dcase.set_diag_params()
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.outdir
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
@@ -63,15 +59,14 @@ def driver(args):
   print('Number of workers: ', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
 
   parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading forcing dataset...')
   startTime = datetime.now()
