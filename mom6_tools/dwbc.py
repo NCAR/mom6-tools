@@ -99,7 +99,6 @@ def main():
   nw = args.number_of_workers
 
   os.makedirs('PNG/DWBC', exist_ok=True)
-  os.makedirs('ncfiles', exist_ok=True)
 
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
@@ -190,7 +189,7 @@ def main():
       'start_date'  : args.start_date,
       'end_date'    : args.end_date,
   }
-  outfile = 'ncfiles/{}_vo_mean_{:.1f}N_transect.nc'.format(casename, lat_transect)
+  outfile = '{}/{}_vo_mean_{:.1f}N_transect.nc'.format(dcase.outdir, casename, lat_transect)
   ds_out.to_netcdf(outfile)
   print('Saved:', outfile)
 
