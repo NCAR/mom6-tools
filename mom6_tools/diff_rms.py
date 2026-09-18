@@ -554,7 +554,7 @@ def main(stream=False):
   args.casename = dcase.casename
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.ocn_diag_root = dcase.outdir
+  args.ocn_diag_root = dcase.ocn_diag_root
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
@@ -565,7 +565,7 @@ def main(stream=False):
   print('Casename is:', dcase.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  os.makedirs('PNG/Horizontal_mean_biases', exist_ok=True)
+  dcase.create_png_dir('Horizontal_mean_biases')
 
   # read grid
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)

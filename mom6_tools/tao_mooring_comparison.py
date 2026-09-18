@@ -49,7 +49,7 @@ def driver(args):
     # Read in the yaml file
     dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
     diag_config_yml = dcase.full_config
-    ocn_diag_root = dcase.outdir
+    ocn_diag_root = dcase.ocn_diag_root
 
     caseroot = dcase.caseroot
     args.casename = cime_xmlquery(caseroot, 'CASE')
