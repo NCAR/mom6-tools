@@ -590,15 +590,15 @@ def main(stream=False):
   # Get masking for different regions
   # remove Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
-  #basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
+  basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
   # GMM
-  basins = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc').to_array()
+  #basins = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc').to_array()
 
   #select a few basins, namely, Global, MedSea,BalticSea,HudsonBay Arctic,
   # Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
   #basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
   # use all basins available
-  #basins = basin_code
+  basins = basin_code
 
   # load obs
   catalog = intake.open_catalog(diag_config_yml['oce_cat'])
