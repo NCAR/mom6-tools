@@ -21,7 +21,7 @@ def options():
     describing the run and diagnostics to be performed.''')
 
   parser.add_argument('-l','--label',    type=str, default='', help='''Label to add to the plot.''')
-  parser.add_argument('-o','--outdir',   type=str, default='PNG/Transports', help='''Directory in which to place plots.''')
+  parser.add_argument('-o','--outdir',   dest='pngdir', type=str, default='PNG/Transports', help='''Directory in which to place plots.''')
   parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',  help='''Start year to plot (default=0001-01-01)''')
   parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31', help='''Final year to plot (default=0100-12-31)''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=1, help='''Number of workers to use (default=1).''')
@@ -137,7 +137,7 @@ def main(stream=False):
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
-  ocn_diag_root = dcase.outdir
+  ocn_diag_root = dcase.ocn_diag_root
 
   # load sections where transports are computed online
   sections = diag_config_yml['Transports']['sections']
@@ -202,8 +202,8 @@ def main(stream=False):
 
   if stream is True: objOut = io.BytesIO()
   else:
-    os.makedirs(args.outdir, exist_ok=True)
-    objOut = args.outdir+'/'+args.casename+'_section_transports.png'
+    os.makedirs(args.pngdir, exist_ok=True)
+    objOut = args.pngdir+'/'+args.casename+'_section_transports.png'
   plt.savefig(objOut)
 
   print('Total time elasped: ', datetime.now() - start)

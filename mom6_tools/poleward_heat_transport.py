@@ -36,13 +36,11 @@ def main(stream=False):
   # Get options
   args = options()
   nw = args.number_of_workers
-  
-  os.makedirs('PNG/HT', exist_ok=True)
 
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
-  ocn_diag_root = dcase.outdir
+  ocn_diag_root = dcase.ocn_diag_root
 
   caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -53,7 +51,7 @@ def main(stream=False):
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
   variables = ['T_ady_2d', 'T_diffy_2d', 'T_hbd_diffy_2d']
-  args.savefigs = True; args.outdir = 'PNG/HT'
+  args.savefigs = True; args.pngdir = dcase.create_png_dir('HT')
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   #print('Variables to be processed:', args.variables)
@@ -302,7 +300,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   if hbd is None: annotatePlot('Warning: LBD component of transport is missing.')
 
   if args.savefigs:
-    objOut = args.outdir+'/'+args.casename+'_HeatTransport_global.png'
+    objOut = args.pngdir+'/'+args.casename+'_HeatTransport_global.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()
@@ -329,7 +327,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   if diffusive is None: annotatePlot('Warning: Diffusive component of transport is missing.')
   if hbd is None: annotatePlot('Warning: LBD component of transport is missing.')
   if args.savefigs:
-    objOut = args.outdir+'/'+args.casename+'_HeatTransport_Atlantic.png'
+    objOut = args.pngdir+'/'+args.casename+'_HeatTransport_Atlantic.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()
@@ -356,7 +354,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   plt.suptitle(suptitle)
   plt.legend(loc=0,fontsize=10)
   if args.savefigs:
-    objOut = args.outdir+'/'+args.casename+'_HeatTransport_IndoPacific.png'
+    objOut = args.pngdir+'/'+args.casename+'_HeatTransport_IndoPacific.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()

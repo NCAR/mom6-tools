@@ -25,7 +25,7 @@ class DiagsCase(object,):
     -------
     casename
         Case name
-    outdir
+    ocn_diag_root
         Directory used for diagnostic outputs (created at construction time)
     grid
         MOM6grid instance
@@ -34,6 +34,8 @@ class DiagsCase(object,):
     -------
     get_value(var)
         Returns the value of a variable defined in yaml config file.
+    create_png_dir(subdir)
+        Creates and returns the directory used for PNG figures (independent of OCN_DIAG_ROOT).
     stage_dset(fields)
         Returns an xarray dataset that contain the specified fields.
     """
@@ -96,7 +98,7 @@ class DiagsCase(object,):
             'Fnames', 'Transports') is stored on the returned instance as
             `full_config`. See set_diag_params for the convenience attributes
             derived from `full_config` (caseroot, start_date, end_date, savefigs,
-            jobqueue_config, label, outdir).
+            jobqueue_config, label, ocn_diag_root).
         """
 
         with open(yaml_path, 'r') as f:
@@ -124,7 +126,7 @@ class DiagsCase(object,):
         savefigs        : Misc['savefigs'] (or False if not present). Optional.
         jobqueue_config : the 'Jobqueue' section. Required; raises ValueError if not present.
         label           : value of SNAME. Required; raises ValueError if not provided.
-        outdir          : output directory, created via create_output_dir() (OCN_DIAG_ROOT
+        ocn_diag_root   : output directory, created via create_output_dir() (OCN_DIAG_ROOT
                            is therefore required).
         """
 
@@ -137,10 +139,10 @@ class DiagsCase(object,):
         avg = self.full_config.get('Avg', {})
         self.start_date = avg.get('start_date')
         self.end_date = avg.get('end_date')
-        self.savefigs = self.full_config.get('Misc', {}).get('savefigs', False)
+        self.savefigs = self.full_config.get('Misc', {}).get('savefigs', True)
         self.jobqueue_config = _require(self.full_config.get('Jobqueue'), 'Jobqueue')
         self.label = _require(self.get_value('SNAME'), 'Case.SNAME')
-        self.outdir = self.create_output_dir()
+        self.ocn_diag_root = self.create_output_dir()
 
     # William Xu: CIMEROOT is no longer used; commenting this section out.
     # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None
@@ -228,6 +230,28 @@ class DiagsCase(object,):
 
         os.makedirs(output_dir, exist_ok=True)
         return output_dir
+
+    def create_png_dir(self, subdir):
+        """Create and return the directory used for PNG figures.
+
+        Independent of OCN_DIAG_ROOT: always relative to the current working
+        directory (e.g. 'PNG/<subdir>'), since figures and diagnostic output
+        files are kept in separate locations.
+
+        Parameters
+        ----------
+        subdir : str
+            Subdirectory appended beneath 'PNG'.
+
+        Returns
+        -------
+        str
+            Path to the PNG output directory.
+        """
+
+        png_dir = os.path.join('PNG', subdir)
+        os.makedirs(png_dir, exist_ok=True)
+        return png_dir
 
     @staticmethod
     def convert_prefix_to_regex(prefix):

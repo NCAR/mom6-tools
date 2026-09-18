@@ -50,7 +50,7 @@ def driver(args):
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
-  args.ocn_diag_root = dcase.outdir
+  args.ocn_diag_root = dcase.ocn_diag_root
 
   caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -60,7 +60,7 @@ def driver(args):
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  args.savefigs = True; args.outdir = 'PNG/MOC/'
+  args.savefigs = True;
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
@@ -122,16 +122,16 @@ def driver(args):
     mld_obs = None
 
   # MLD
-  get_MLD(ds, 'mlotst', mld_obs, grd, args)
+  get_MLD(ds, 'mlotst', mld_obs, grd, args, dcase)
 
   # BLD
-  get_BLD(ds, 'oml', grd, args)
+  get_BLD(ds, 'oml', grd, args, dcase)
 
   # SSH
   get_SSH(ds, ds_daily, 'SSH', grd, args)
 
   # Speed
-  get_speed(ds, 'speed', grd, args)
+  get_speed(ds, 'speed', grd, args, dcase)
 
   release_workers(parallel, cluster, client)
 
@@ -139,13 +139,13 @@ def driver(args):
 
   return
 
-def get_speed(ds, var, grd, args):
+def get_speed(ds, var, grd, args, dcase):
   '''
   Compute sea surface speed climatology.
   '''
 
   if args.savefigs:
-    os.makedirs('PNG/SPEED', exist_ok=True)
+    dcase.create_png_dir('SPEED')
 
   print('Computing yearly means...')
   startTime = datetime.now()
@@ -234,14 +234,14 @@ def get_SSH(ds1, ds2, var, grd, args):
 
   return
 
-def get_MLD(ds, var, mld_obs, grd, args):
+def get_MLD(ds, var, mld_obs, grd, args, dcase):
   '''
   Calculate the monthly and seasonal (winter and summer) climatologies for
   Mixed Layer Depth (MLD) and compare the results with observational datasets.
   '''
 
   if args.savefigs:
-    os.makedirs('PNG/MLD', exist_ok=True)
+    dcase.create_png_dir('MLD')
 
   print('Computing monthly MLD climatology...')
   startTime = datetime.now()
@@ -423,12 +423,12 @@ def get_MLD(ds, var, mld_obs, grd, args):
               ' JFM (SH), JAS (NH)')
   return
 
-def get_BLD(ds, var, grd, args):
+def get_BLD(ds, var, grd, args, dcase):
   '''
   Compute and save surface BLD climatology.
   '''
   if args.savefigs:
-    os.makedirs('PNG/BLD', exist_ok=True)
+    dcase.create_png_dir('BLD')
 
   print('Computing monthly BLD climatology...')
   startTime = datetime.now()

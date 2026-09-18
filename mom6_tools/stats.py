@@ -383,7 +383,7 @@ def main(stream=False):
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
-  args.ocn_diag_root = dcase.outdir
+  args.ocn_diag_root = dcase.ocn_diag_root
 
   caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -408,7 +408,7 @@ def main(stream=False):
   print('Casename is:', args.casename)
   print('Number of workers: ', args.nw)
 
-  os.makedirs('PNG/Horizontal_mean_biases', exist_ok=True)
+  dcase.create_png_dir('Horizontal_mean_biases')
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)

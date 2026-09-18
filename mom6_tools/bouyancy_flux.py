@@ -58,7 +58,7 @@ def driver(args):
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
-  ocn_diag_root = dcase.outdir
+  ocn_diag_root = dcase.ocn_diag_root
   RUNDIR = dcase.get_value('RUNDIR')
   args.casename = dcase.casename
   args.static = args.casename+diag_config_yml['Fnames']['static']
@@ -127,7 +127,7 @@ def driver(args):
   BFW = beta * state.sos * frc.PRCmE * g * 1.0e-3
 
   print('\n Plotting...')
-  os.makedirs('PNG/BFLUX', exist_ok=True)
+  dcase.create_png_dir('BFLUX')
 
   bhf_val = np.ma.masked_invalid(BHF.values*1.0e8)
   bfw_val = np.ma.masked_invalid(BFW.values*1.0e8)
