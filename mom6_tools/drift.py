@@ -555,6 +555,8 @@ def main(stream=False):
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   dcase = DiagsCase(diag_config_yml['Case'])
+  dcase.full_config = diag_config_yml
+  dcase.set_diag_params()
   args.ocn_diag_root = dcase.outdir
   # Create the case instance
   args.casename = cime_xmlquery(caseroot, 'CASE')

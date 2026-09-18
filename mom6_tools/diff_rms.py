@@ -553,6 +553,8 @@ def main(stream=False):
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
+  dcase.full_config = diag_config_yml
+  dcase.set_diag_params()
   args.casename = dcase.casename
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']

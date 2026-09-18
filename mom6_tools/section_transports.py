@@ -137,6 +137,8 @@ def main(stream=False):
   # Read in the yaml file
   diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
   dcase = DiagsCase(diag_config_yml['Case'])
+  dcase.full_config = diag_config_yml
+  dcase.set_diag_params()
   ocn_diag_root = dcase.outdir
 
   # load sections where transports are computed online
