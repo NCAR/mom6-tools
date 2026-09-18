@@ -14,6 +14,7 @@ from datetime import datetime
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import cime_xmlquery,filter_vars_2D_tracers
 from mom6_tools.m6toolbox import replace_cell_content
+from mom6_tools.m6toolbox import genBasinMasks
 from mom6_tools.MOM6grid import MOM6grid
 
 # Suppress warnings
@@ -177,7 +178,7 @@ def main():
     print('Stream is:', stream)
 
     # GMM, update this
-    basin_code = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc')['basin_masks']
+    #basin_code = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc')['basin_masks']
     args.geom = args.casename+config['Fnames']['geom']
     args.static = args.casename+config['Fnames']['static']
 
@@ -188,6 +189,16 @@ def main():
       area = xr.where(grd.wet == 1, grd.area_t, 0.)
     except:
       area = xr.where(grd.wet == 1, grd.areacello, 0.)
+
+    try:
+      depth = grd.depth_ocean.values
+    except:
+      depth = grd.deptho.values
+
+    # Get masking for different regions
+    # remove Nan's, otherwise genBasinMasks won't work
+    depth[np.isnan(depth)] = 0.0
+    basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
 
     try:
       os.makedirs(ocn_diag_root, exist_ok=True)

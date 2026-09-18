@@ -753,18 +753,23 @@ def genBasinMasks(x,y,depth,verbose=False, xda=False):
   #code1[tmp > 0] = 15
   #rmask_od['Maritime'] = xr.where(code1 == 15, 1.0, 0.0)
 
+  # William Xu: Assuming boundary of Arctic Ocean is to the south of 80N
+  if verbose: print('Processing Arctic North of 80N ...')
+  tmp = (code == 4) & (y >= 80.)
+  code1[tmp] = 16
+  rmask_od['Arctic80N'] = xr.where(code1 == 16, 1.0, 0.0)
+
   if verbose:
     print("""
   Basin codes:
   -----------------------------------------------------------
-  (0) Global              (7) Black Sea
-  (1) Southern Ocean      (8) Hudson Bay
-  (2) Atlantic Ocean      (9) Baltic Sea
+  (0) Global              (7) Black Sea       (14) E Greenland
+  (1) Southern Ocean      (8) Hudson Bay      (15) Gulf of Mexico
+  (2) Atlantic Ocean      (9) Baltic Sea      (16) Arctic North of 80N
   (3) Pacific Ocean       (10) Red Sea
   (4) Arctic Ocean        (11) Persian Gulf
   (5) Indian Ocean        (12) Lab Sea
   (6) Mediterranean Sea   (13) Baffin Bay
-                          (14) E Greenland
 
   Important: basin codes overlap. Code 12 to 14 are only loaded if xda=True.
 
