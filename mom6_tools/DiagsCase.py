@@ -1,5 +1,5 @@
 import yaml
-import os, sys
+import os
 import re
 import logging as log
 import cftime as cft
@@ -23,8 +23,6 @@ class DiagsCase(object,):
 
     Attributes
     -------
-    cime_case
-        CIME case object
     casename
         Case name
     grid
@@ -50,7 +48,6 @@ class DiagsCase(object,):
                     CASEROOT: ... # required; path to the case root directory
                     OCN_DIAG_ROOT: ... #required; path to diagnostics output files
                     SNAME: ... # required; short name of the case
-                    CIMEROOT: ... # optional; default is cime_xmlquery(caseroot, 'CIMEROOT')
                     DOUT_S_ROOT: ... # optional; default is cime_xmlquery(caseroot, 'DOUT_S_ROOT')
                     RUNDIR: ... # optional; default is cime_xmlquery(caseroot, 'RUNDIR')
                     OUTDIR: ... # optional; default is cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
@@ -64,7 +61,6 @@ class DiagsCase(object,):
         """
 
         self._config = case_config
-        self._cime_case = None
         self._grid = None
         self._casename = None
         self.diag_files = None
@@ -79,27 +75,28 @@ class DiagsCase(object,):
                 f"Missing required case configuration key(s): {', '.join(missing_keys)}"
             )
 
+    # William Xu: CIMEROOT is no longer used; commenting this section out.
     # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None
-    @property
-    def cime_case(self):
-        """ Returns a CIME case object. Must provide the CIME source root
-            in case_config dict when instantiating this class. Any CIME xml variable,
-            e.g., OCN_GRID, may be retrieved from the returned object using get_value
-            method."""
-        if not self._cime_case:
-            caseroot = self.get_value('CASEROOT')
-            cimeroot = self.get_value('CIMEROOT')
-            if caseroot and cimeroot:
-                sys.path.append(cimeroot)
-                #sys.path.append(os.path.join(cimeroot, "CIME"))
-                sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
-                from CIME.case.case import Case
-                try:
-                  self._cime_case = Case(caseroot, non_local=True)
-                except:
-                  self._cime_case = Case(caseroot)
-
-        return self._cime_case
+    #@property
+    #def cime_case(self):
+    #    """ Returns a CIME case object. Must provide the CIME source root
+    #        in case_config dict when instantiating this class. Any CIME xml variable,
+    #        e.g., OCN_GRID, may be retrieved from the returned object using get_value
+    #        method."""
+    #    if not self._cime_case:
+    #        caseroot = self.get_value('CASEROOT')
+    #        cimeroot = self.get_value('CIMEROOT')
+    #        if caseroot and cimeroot:
+    #            sys.path.append(cimeroot)
+    #            #sys.path.append(os.path.join(cimeroot, "CIME"))
+    #            sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
+    #            from CIME.case.case import Case
+    #            try:
+    #              self._cime_case = Case(caseroot, non_local=True)
+    #            except:
+    #              self._cime_case = Case(caseroot)
+    #
+    #    return self._cime_case
 
     # deduce the case name:
     def _deduce_case_name(self):
@@ -123,9 +120,7 @@ class DiagsCase(object,):
         return self._casename
 
     def get_value(self, var):
-        """ Returns the value of a variable in yaml config file. If the variable is not
-        in yaml config file, then checks to see if it can retrieve the var from cime_case
-        instance.
+        """ Returns the value of a variable in yaml config file.
 
         Parameters
         ----------
@@ -134,11 +129,7 @@ class DiagsCase(object,):
 
         """
 
-        val = None
-        if var in self._config:
-            val =  self._config[var]
-        elif self.cime_case:
-            val = self.cime_case.get_value(var)
+        val = self._config.get(var)
 
         if type(val) == type("") and val.lower() == "none":
             val = None

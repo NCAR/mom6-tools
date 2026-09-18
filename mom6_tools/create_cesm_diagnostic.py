@@ -5,6 +5,7 @@ Create directory and template yaml file for a new case to be processed using mom
 '''
 import os, yaml
 from mom6_tools.DiagsCase import DiagsCase
+from mom6_tools.m6toolbox import cime_xmlquery
 import socket
 
 def options():
@@ -13,9 +14,6 @@ def options():
   parser = argparse.ArgumentParser(description='''Create a new case to be processed using mom6_tools.''')
   parser.add_argument('caseroot',  type=str, help='''Path to the CASEROOT''')
   parser.add_argument('shortname', type=str, help='''A short name descring the experiment''')
-  parser.add_argument('--cimeroot', type=str, default='/glade/work/gmarques/cesm.sandboxes/cesm2_3_beta08/cime/',
-                     help='''Path to the CIME root used in this experiment. Default is
-                     /glade/work/gmarques/cesm.sandboxes/cesm2_3_beta08/cime/''')
   parser.add_argument('-sd','--start_date', type=str, default='0038-01-01',
                       help='''Start year to compute averages. Default 0038-01-01''')
   parser.add_argument('-ed','--end_date', type=str, default='0059-01-01',
@@ -42,8 +40,7 @@ def main():
   case_config = {'Avg' : {'start_date' : args.start_date,
                           'end_date' : args.end_date}}
   case_config['Case'] = {'SNAME'   : args.shortname,
-                         'CASEROOT': args.caseroot,
-                         'CIMEROOT': args.cimeroot}
+                         'CASEROOT': args.caseroot}
 
   # extract info from args
   proj_code = args.proj_code
@@ -58,8 +55,8 @@ def main():
   # Create the case instance
   dcase = DiagsCase(case_config['Case'])
   ocn_diag_root = dcase.create_output_dir()
-  RUNDIR = dcase.get_value('RUNDIR')
-  DOUT_S_ROOT = dcase.get_value('DOUT_S_ROOT')
+  RUNDIR = cime_xmlquery(args.caseroot, 'RUNDIR')
+  DOUT_S_ROOT = cime_xmlquery(args.caseroot, 'DOUT_S_ROOT')
   if args.debug:
     print('RUNDIR:', RUNDIR)
     print('DOUT_S_ROOT:', DOUT_S_ROOT)
