@@ -50,7 +50,7 @@ def driver(args):
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
-  ocn_diag_root = dcase.outdir
+  args.ocn_diag_root = dcase.outdir
 
   caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -175,7 +175,7 @@ def get_speed(ds, var, grd, args):
            'description': 'Surface speed mean and climatology ',
            'module': os.path.basename(__file__)}
   add_global_attrs(ds_out,attrs)
-  ds_out.to_netcdf('ncfiles/'+str(args.casename)+'_sfc_speed.nc')
+  ds_out.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_sfc_speed.nc')
   return
 
 def get_SSH(ds1, ds2, var, grd, args):
@@ -229,7 +229,7 @@ def get_SSH(ds1, ds2, var, grd, args):
            #'obs': 'AVISO',
            'module': os.path.basename(__file__)}
   add_global_attrs(ds_out,attrs)
-  ds_out.to_netcdf('ncfiles/'+str(args.casename)+'_SSH.nc')
+  ds_out.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_SSH.nc')
 
 
   return
@@ -260,7 +260,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
            'description': 'MLD monthly climatology (m)',
            'module': os.path.basename(__file__)}
   add_global_attrs(mld_model,attrs)
-  mld_model.to_netcdf('ncfiles/'+str(args.casename)+'_MLD_monthly_clima.nc')
+  mld_model.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_MLD_monthly_clima.nc')
 
   try:
     area = grd.area_t
@@ -373,7 +373,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
            'description': 'Winter MLD (m)',
            'module': os.path.basename(__file__)}
   add_global_attrs(model_winter_da,attrs)
-  model_winter_da.to_netcdf('ncfiles/'+str(args.casename)+'_MLD_'+month+'.nc')
+  model_winter_da.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_MLD_'+month+'.nc')
   if args.savefigs and mld_obs is not None:
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
     xycompare(model_winter , obs_winter, grd.geolon, grd.geolat, area=area,
@@ -404,7 +404,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
   month = 'summer'
   attrs['description'] = 'Summer MLD (m)'
   add_global_attrs(model_summer_da,attrs)
-  model_summer_da.to_netcdf('ncfiles/'+str(args.casename)+'_MLD_'+month+'.nc')
+  model_summer_da.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_MLD_'+month+'.nc')
   if args.savefigs and mld_obs is not None:
     fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
     xycompare(model_summer , obs_summer, grd.geolon, grd.geolat, area=area,
@@ -450,7 +450,7 @@ def get_BLD(ds, var, grd, args):
            'description': 'BLD monthly climatology (m)',
            'module': os.path.basename(__file__)}
   add_global_attrs(bld_model,attrs)
-  bld_model.to_netcdf('ncfiles/'+str(args.casename)+'_BLD_monthly_clima.nc')
+  bld_model.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_BLD_monthly_clima.nc')
 
   try:
     area = grd.area_t
@@ -522,7 +522,7 @@ def get_BLD(ds, var, grd, args):
            'description': 'Winter MLD (m)',
            'module': os.path.basename(__file__)}
   add_global_attrs(model_winter_da,attrs)
-  model_winter_da.to_netcdf('ncfiles/'+str(args.casename)+'_BLD_'+month+'.nc')
+  model_winter_da.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_BLD_'+month+'.nc')
 
   if args.savefigs:
     fname = 'PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png'
@@ -542,7 +542,7 @@ def get_BLD(ds, var, grd, args):
   month = 'summer'
   attrs['description'] = 'Summer BLD (m)'
   add_global_attrs(model_summer_da,attrs)
-  model_summer_da.to_netcdf('ncfiles/'+str(args.casename)+'_BLD_'+month+'.nc')
+  model_summer_da.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_BLD_'+month+'.nc')
 
   if args.savefigs:
     fname = 'PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png'
