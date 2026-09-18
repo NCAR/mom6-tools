@@ -550,15 +550,12 @@ def main(stream=False):
   # Get options
   args = options()
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  dcase = DiagsCase(diag_config_yml['Case'])
-  dcase.full_config = diag_config_yml
-  dcase.set_diag_params()
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  diag_config_yml = dcase.full_config
   args.ocn_diag_root = dcase.outdir
-  # Create the case instance
+
+  caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
@@ -608,7 +605,7 @@ def main(stream=False):
 
   # diff_rms
   horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR,
-                           jobqueue_config=diag_config_yml.get('Jobqueue'))
+                           jobqueue_config=dcase.jobqueue_config)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

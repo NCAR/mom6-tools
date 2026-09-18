@@ -544,17 +544,13 @@ def main(stream=False):
   # Get options
   args = options()
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path, xrformat=True)
+  diag_config_yml = dcase.full_config
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
-  # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
-  dcase.full_config = diag_config_yml
-  dcase.set_diag_params()
   args.casename = dcase.casename
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
@@ -595,7 +591,7 @@ def main(stream=False):
 
   # diff_rms
   horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR,
-                           jobqueue_config=diag_config_yml.get('Jobqueue'))
+                           jobqueue_config=dcase.jobqueue_config)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

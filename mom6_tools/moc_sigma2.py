@@ -44,13 +44,11 @@ def main():
   os.makedirs('PNG/MOC', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  dcase.full_config = diag_config_yml
-  dcase.set_diag_params()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.outdir
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
+  caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
@@ -64,15 +62,14 @@ def main():
   print('Number of workers to be used:', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   # file names are provided via yaml
   args.sigma2 = args.casename+diag_config_yml['Fnames']['rho2']
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.label = diag_config_yml['Case']['SNAME']
+  args.label = dcase.label
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
@@ -101,7 +98,7 @@ def main():
   grid = Grid(grd_xr, coords=coords, padding={'X': 'periodic'}, autoparse_metadata=False)
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading {} dataset...'.format(args.sigma2))
   startTime = datetime.now()
@@ -242,8 +239,8 @@ def main():
                             coords={'rho2_l': ycoord, 'yq':xcoord,
                                     'moc_depth':psi['depth']})
 
-  attrs = {'description': 'MOC sigma2 time-mean sections', 'units': 'Sv', 'start_date': avg['start_date'],
-       'end_date': avg['end_date'], 'casename': args.casename}
+  attrs = {'description': 'MOC sigma2 time-mean sections', 'units': 'Sv', 'start_date': dcase.start_date,
+       'end_date': dcase.end_date, 'casename': args.casename}
   m6toolbox.add_global_attrs(moc,attrs)
 
   # Submesoscale-induced Global MOC

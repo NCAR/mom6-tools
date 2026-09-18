@@ -39,13 +39,11 @@ def main():
   os.makedirs('PNG/MOC', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  dcase.full_config = diag_config_yml
-  dcase.set_diag_params()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.outdir
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
+  caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
@@ -59,9 +57,8 @@ def main():
   print('Number of workers to be used:', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   # file names are provided via yaml
   args.monthly = args.casename+diag_config_yml['Fnames']['z']
@@ -82,7 +79,7 @@ def main():
   basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, verbose=False, xda=True)
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading {} dataset...'.format(args.monthly))
   startTime = datetime.now()
@@ -172,7 +169,7 @@ def main():
                                 'amoc_26' :   (('time'), np.zeros(ds_ann.time.shape)) },
                             coords={'zl': zl, 'yq': ds.yq, 'time': ds_ann.time})
   attrs = {'description': 'MOC time-mean sections and time-series', 'units': 'Sv',
-           'start_date': avg['start_date'], 'end_date': avg['end_date'], 'casename': args.casename}
+           'start_date': dcase.start_date, 'end_date': dcase.end_date, 'casename': args.casename}
   m6toolbox.add_global_attrs(moc, attrs)
 
   m6plot.setFigureSize([16,9],576,debug=False)

@@ -135,15 +135,13 @@ def main(stream=False):
 
   nw = args.number_of_workers
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  dcase.full_config = diag_config_yml
-  dcase.set_diag_params()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.outdir
 
   # load sections where transports are computed online
   sections = diag_config_yml['Transports']['sections']
-  caseroot = diag_config_yml['Case']['CASEROOT']
+  caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
@@ -152,7 +150,7 @@ def main(stream=False):
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   args.parallel = parallel
   args.infile = OUTDIR

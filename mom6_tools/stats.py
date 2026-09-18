@@ -380,15 +380,12 @@ def main(stream=False):
   if not args.ocean_stats and not args.surface and not args.forcing and not args.time_series:
     raise ValueError("Please select -ocean_stats, -time_series, -surface and/or -forcing.")
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  dcase.full_config = diag_config_yml
-  dcase.set_diag_params()
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  diag_config_yml = dcase.full_config
   args.ocn_diag_root = dcase.outdir
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  # Create the case instance
+  caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
@@ -398,9 +395,8 @@ def main(stream=False):
 
 
   # set avg dates and other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.native = args.casename+diag_config_yml['Fnames']['native']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
@@ -443,18 +439,18 @@ def main(stream=False):
     #variables = ['SSH','tos','sos','mlotst','oml','speed', 'SSU', 'SSV']
     variables = ['SSH','tos','sos','mlotst','oml','speed']
     xystats(args.native, variables, grd, basins, args,
-            jobqueue_config=diag_config_yml.get('Jobqueue'))
+            jobqueue_config=dcase.jobqueue_config)
 
   if args.forcing:
     variables = ['friver','ficeberg','fsitherm','hfsnthermds','sfdsi', 'hflso',
              'seaice_melt_heat', 'wfo', 'hfds', 'Heat_PmE']
     xystats(args.native, variables, grd, basins, args,
-            jobqueue_config=diag_config_yml.get('Jobqueue'))
+            jobqueue_config=dcase.jobqueue_config)
 
   if args.time_series:
     variables = ['thetaoga','soga','opottempmint','somint']
     _ds = extract_time_series(args.native, variables, area, args,
-                              jobqueue_config=diag_config_yml.get('Jobqueue'))
+                              jobqueue_config=dcase.jobqueue_config)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
