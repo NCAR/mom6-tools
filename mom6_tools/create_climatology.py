@@ -20,7 +20,6 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Create monthly climatology and averages for datasets.')
     parser.add_argument('config_yml', type=str, help='Path to YAML configuration file.')
     parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty).')
-    parser.add_argument('-s', '--stream', type=str, default='.mom6.h.z.????-??.nc', help='History file stream (default is .mom6.h.z.????-??.nc)')
     parser.add_argument('-f', '--fname', type=str, default='z', help='Name of the history file stream (default is z)')
     parser.add_argument('-sd', '--start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
     parser.add_argument('-ed', '--end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
@@ -28,7 +27,7 @@ def parse_args():
     return parser.parse_args()
 
 # Function to submit PBS script for each variable
-def submit_pbs_script(var, stream, fname):
+def submit_pbs_script(var, fname):
     """Create and submit a PBS script for generating climatology."""
     pbs_script = textwrap.dedent(f"""\
     #!/bin/bash
@@ -43,7 +42,7 @@ def submit_pbs_script(var, stream, fname):
     module load conda
     conda activate mom6-tools
 
-    mom6-tools_create_climatology diag_config.yml -v {var} -s {stream} -f {fname}
+    mom6-tools_create_climatology diag_config.yml -v {var} -f {fname}
     """)
 
     # Create the directory if it does not exist
@@ -121,10 +120,10 @@ def main():
 
     args = parse_args()
     variable = args.variable
-    stream = args.stream
     fname = args.fname
     # Read in the yaml file
     config = yaml.load(open(args.config_yml,'r'), Loader=yaml.Loader)
+    stream = config['Fnames'][fname]
 
     caseroot = config['Case']['CASEROOT']
     ocn_diag_root = config['Case']['OCN_DIAG_ROOT']
@@ -194,7 +193,7 @@ def main():
       # Loop over the variables in the dataset and submit a PBS job for each
       for var in ds_file.data_vars:
         # Submit a PBS script for the variable
-        submit_pbs_script(var, stream, fname)
+        submit_pbs_script(var, fname)
 
     else:
       print("The variable is not an empty string.")

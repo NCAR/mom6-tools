@@ -550,13 +550,12 @@ def main(stream=False):
   # Get options
   args = options()
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  diag_config_yml = dcase.full_config
+  args.ocn_diag_root = dcase.ocn_diag_root
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  dcase = DiagsCase(diag_config_yml['Case'])
-  args.ocn_diag_root = dcase.create_output_dir()
-  # Create the case instance
+  caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
@@ -572,7 +571,7 @@ def main(stream=False):
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
 
-  os.makedirs("PNG/Drift", exist_ok=True)
+  dcase.create_png_dir('Drift')
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
@@ -606,7 +605,7 @@ def main(stream=False):
 
   # diff_rms
   horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR,
-                           jobqueue_config=diag_config_yml.get('Jobqueue'))
+                           jobqueue_config=dcase.jobqueue_config)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

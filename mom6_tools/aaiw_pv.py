@@ -47,15 +47,13 @@ def main(stream=False):
   # Get options
   args = options()
   nw = args.number_of_workers
-  
-  os.makedirs('PNG/AAIW_PV', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  diag_config_yml = dcase.full_config
+  ocn_diag_root = dcase.ocn_diag_root
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
+  caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
@@ -68,15 +66,14 @@ def main(stream=False):
   print('Number of workers to be used:', nw)
 
   # set avg dates and other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
   args.monthly = args.casename+diag_config_yml['Fnames']['z']
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
   args.savefigs = True
-  args.label = diag_config_yml['Case']['SNAME']
-  args.outdir = 'PNG/AAIW_PV/'
+  args.label = dcase.label
+  args.pngdir = dcase.create_png_dir('AAIW_PV') + '/'
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
@@ -90,7 +87,7 @@ def main(stream=False):
   coriolis = ml.derived.calc_coriolis(grd.geolat)
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   def preprocess(ds):
     ''' Return a dataset desired variables'''
@@ -325,7 +322,7 @@ def plot_aaiw_pv(y, zl, pv, volume, levels, colors, args):
 
   plt.colorbar(cb, ticks=[5, 20, 60, 80, 100, 200], label=r"cm$^{-2}$ s$^{-1}$")
   if args.savefigs:
-    fname = args.outdir + str(args.casename)+'_AAIW_PV.png'
+    fname = args.pngdir + str(args.casename)+'_AAIW_PV.png'
     plt.savefig(fname, bbox_inches='tight')
 
 if __name__ == '__main__':

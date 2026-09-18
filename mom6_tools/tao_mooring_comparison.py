@@ -47,11 +47,11 @@ def driver(args):
     os.makedirs(path_plt_out, exist_ok=True)
 
     # Read in the yaml file
-    diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-    dcase = DiagsCase(diag_config_yml['Case'])
-    ocn_diag_root = dcase.create_output_dir()
+    dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+    diag_config_yml = dcase.full_config
+    ocn_diag_root = dcase.ocn_diag_root
 
-    caseroot = diag_config_yml['Case']['CASEROOT']
+    caseroot = dcase.caseroot
     args.casename = cime_xmlquery(caseroot, 'CASE')
     DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
     if DOUT_S:
@@ -70,9 +70,8 @@ def driver(args):
     print('Number of workers: ', nw)
 
     # set avg dates
-    avg = diag_config_yml['Avg']
-    if not args.start_date : args.start_date = avg['start_date']
-    if not args.end_date : args.end_date = avg['end_date']
+    if not args.start_date : args.start_date = dcase.start_date
+    if not args.end_date : args.end_date = dcase.end_date
 
 
     # read grid info
@@ -86,7 +85,7 @@ def driver(args):
     path_obs = '/glade/campaign/cgd/oce/datasets/obs/TAO_adcp_mon'
 
     parallel, cluster, client = get_cluster(nw, args=args,
-                                            config=diag_config_yml.get('Jobqueue'))
+                                            config=dcase.jobqueue_config)
 
     print('Reading monthly dataset ...')
     startTime = datetime.now()

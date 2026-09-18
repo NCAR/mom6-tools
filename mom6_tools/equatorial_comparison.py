@@ -45,15 +45,14 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  
-  os.makedirs('PNG/Equatorial', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  diag_config_yml = dcase.full_config
+  ocn_diag_root = dcase.ocn_diag_root
+  dcase.create_png_dir('Equatorial')
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
+  caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
@@ -65,7 +64,7 @@ def driver(args):
   args.monthly = args.casename+diag_config_yml['Fnames']['z']
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.label = diag_config_yml['Case']['SNAME']
+  args.label = dcase.label
 
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
@@ -74,9 +73,8 @@ def driver(args):
   print('Number of workers: ', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
@@ -97,7 +95,7 @@ def driver(args):
   johnson =catalog['eq-uvts-johnson'].to_dask()
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading monthly dataset...')
   startTime = datetime.now()

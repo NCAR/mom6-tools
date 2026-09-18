@@ -71,9 +71,10 @@ def driver(args):
   jobqueue_config = None
   if args.input_path.endswith('.yml') or args.input_path.endswith('.yaml'):
     # yaml-based workflow
-    diag_config_yml = yaml.load(open(args.input_path,'r'), Loader=yaml.Loader)
-    jobqueue_config = diag_config_yml.get('Jobqueue')
-    caseroot = diag_config_yml['Case']['CASEROOT']
+    dcase = DiagsCase.read_diag_config(args.input_path)
+    diag_config_yml = dcase.full_config
+    jobqueue_config = dcase.jobqueue_config
+    caseroot = dcase.caseroot
     casename = cime_xmlquery(caseroot, 'CASE')
     DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
     if DOUT_S.lower() == "true":
@@ -83,16 +84,13 @@ def driver(args):
 
     native_suffix = diag_config_yml['Fnames']['native']
     file_pattern = OUTDIR + '/' + casename + native_suffix
-    avg = diag_config_yml['Avg']
-    if not args.start_date: args.start_date = avg['start_date']
-    if not args.end_date: args.end_date = avg['end_date']
-    if not args.label: args.label = diag_config_yml['Case'].get('SNAME', casename)
+    if not args.start_date: args.start_date = dcase.start_date
+    if not args.end_date: args.end_date = dcase.end_date
+    if not args.label: args.label = dcase.label
 
     # Use OCN_DIAG_ROOT from yaml for output directories
-    ocn_diag_root = diag_config_yml['Case'].get('OCN_DIAG_ROOT', '')
-    if ocn_diag_root:
-      args.output_dir = ocn_diag_root
-      args.plot_dir = os.path.join(ocn_diag_root, 'PNG', 'WIND')
+    args.output_dir = dcase.ocn_diag_root
+    args.plot_dir = os.path.join(dcase.ocn_diag_root, 'PNG', 'WIND')
   else:
     # standalone mode: input_path is a glob pattern
     file_pattern = args.input_path

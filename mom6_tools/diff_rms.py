@@ -544,19 +544,17 @@ def main(stream=False):
   # Get options
   args = options()
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path, xrformat=True)
+  diag_config_yml = dcase.full_config
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
-  # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
   args.casename = dcase.casename
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.ocn_diag_root = dcase.create_output_dir()
+  args.ocn_diag_root = dcase.ocn_diag_root
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
@@ -567,7 +565,7 @@ def main(stream=False):
   print('Casename is:', dcase.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  os.makedirs('PNG/Horizontal_mean_biases', exist_ok=True)
+  dcase.create_png_dir('Horizontal_mean_biases')
 
   # read grid
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
@@ -593,7 +591,7 @@ def main(stream=False):
 
   # diff_rms
   horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR,
-                           jobqueue_config=diag_config_yml.get('Jobqueue'))
+                           jobqueue_config=dcase.jobqueue_config)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

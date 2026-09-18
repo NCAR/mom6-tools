@@ -51,15 +51,13 @@ def main(stream=False):
   # Get options
   args = options()
   nw = args.number_of_workers
-  
-  os.makedirs("PNG/ENSO", exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  diag_config_yml = dcase.full_config
+  ocn_diag_root = dcase.ocn_diag_root
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
+  caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
@@ -72,15 +70,14 @@ def main(stream=False):
   print('Number of workers to be used:', nw)
 
   # set avg dates and other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
   args.native = args.casename+diag_config_yml['Fnames']['native']
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
   args.savefigs = True
-  args.label = diag_config_yml['Case']['SNAME']
-  args.outdir = 'PNG/ENSO/'
+  args.label = dcase.label
+  args.pngdir = dcase.create_png_dir('ENSO') + '/'
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
@@ -91,7 +88,7 @@ def main(stream=False):
     depth = grd.deptho
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   def preprocess(ds):
     ''' Return a dataset desired variables'''
@@ -194,12 +191,12 @@ def main(stream=False):
     plt.axhline(0.4, color='black', linewidth=0.5, linestyle='dotted')
     plt.axhline(-0.4, color='black', linewidth=0.5, linestyle='dotted')
     plt.title('Case {}, Niño 3.4 Index'.format(args.label));
-    fname = args.outdir + str(args.casename)+'_nino34_index.png'
+    fname = args.pngdir + str(args.casename)+'_nino34_index.png'
     plt.savefig(fname, bbox_inches='tight')
     plt.close()
 
     fig = result_model.composite()
-    fname = args.outdir + str(args.casename)+'_nino34_composite.png'
+    fname = args.pngdir + str(args.casename)+'_nino34_composite.png'
     plt.savefig(fname, bbox_inches='tight')
     plt.close()
 

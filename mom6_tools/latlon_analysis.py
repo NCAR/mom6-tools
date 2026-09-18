@@ -13,6 +13,7 @@ from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.DiagsCase import DiagsCase
 
 class MyError(Exception):
   """
@@ -76,11 +77,12 @@ def driver(args):
   os.makedirs('PNG', exist_ok=True)
   os.makedirs('ncfiles', exist_ok=True)
 
-  # Read in the yaml file
+  # Read in the yaml file and create the case instance
   diag_config_yml_path = "diag_config.yml"
-  diag_config_yml = yaml.load(open(diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase.read_diag_config(diag_config_yml_path)
+  diag_config_yml = dcase.full_config
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
+  caseroot = dcase.caseroot
   casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
   if DOUT_S:
@@ -99,7 +101,7 @@ def driver(args):
 
   variables = args.variables.split(',')
   time_mean_latlon(args, grd, variables,
-                   jobqueue_config=diag_config_yml.get('Jobqueue'))
+                   jobqueue_config=dcase.jobqueue_config)
 
   return
 
