@@ -5,6 +5,7 @@ Create directory and template yaml file for a new case to be processed using mom
 '''
 import os, yaml
 from mom6_tools.DiagsCase import DiagsCase
+from mom6_tools.m6toolbox import cime_xmlquery
 
 def options():
   try: import argparse
@@ -15,9 +16,6 @@ def options():
   parser.add_argument('--ocn_diag_root', type=str, default=None,
                      help='''Path to store diagnostics output. Default is
                      <current directory>/<casename>/ncfiles/''')
-  parser.add_argument('--cimeroot', type=str, default='/glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04d_mom6/cime',
-                     help='''Path to the CIME root used in this experiment. Default is
-                     /glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04b_mom6/cime''')
   parser.add_argument('-sd','--start_date', type=str, default='0038-01-01',
                       help='''Start year to compute averages. Default 0038-01-01''')
   parser.add_argument('-ed','--end_date', type=str, default='0059-01-01',
@@ -37,7 +35,6 @@ def main():
   casename = os.path.basename(os.path.normpath(args.caseroot))
   ocn_diag_root = args.ocn_diag_root or os.path.join(os.getcwd(), casename, 'ncfiles')
   case_config['Case'] = {'CASEROOT': args.caseroot,
-                         'CIMEROOT': args.cimeroot,
                          'SNAME': args.shortname,
                          'OCN_DIAG_ROOT': ocn_diag_root}
 
@@ -45,7 +42,7 @@ def main():
   dcase = DiagsCase(case_config['Case'])
   ocn_diag_root = dcase.create_output_dir()
   case_config['Case'].update({'OCN_DIAG_ROOT' : ocn_diag_root})
-  RUNDIR = dcase.get_value('RUNDIR')
+  RUNDIR = cime_xmlquery(args.caseroot, 'RUNDIR')
   if args.debug:
     print('Run directory is:', RUNDIR)
     print('Casename is:', dcase.casename)
