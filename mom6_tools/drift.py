@@ -555,7 +555,7 @@ def main(stream=False):
 
   caseroot = diag_config_yml['Case']['CASEROOT']
   dcase = DiagsCase(diag_config_yml['Case'])
-  args.ocn_diag_root = dcase.create_output_dir()
+  args.ocn_diag_root = dcase.outdir
   # Create the case instance
   args.casename = cime_xmlquery(caseroot, 'CASE')
   DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
