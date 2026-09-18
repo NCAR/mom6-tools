@@ -25,6 +25,8 @@ class DiagsCase(object,):
     -------
     casename
         Case name
+    outdir
+        Directory used for diagnostic outputs (created at construction time)
     grid
         MOM6grid instance
 
@@ -74,6 +76,8 @@ class DiagsCase(object,):
             raise AssertionError(
                 f"Missing required case configuration key(s): {', '.join(missing_keys)}"
             )
+
+        self.outdir = self.create_output_dir()
 
     # William Xu: CIMEROOT is no longer used; commenting this section out.
     # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None

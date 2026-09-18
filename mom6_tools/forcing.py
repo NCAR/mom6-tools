@@ -46,7 +46,7 @@ def driver(args):
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  ocn_diag_root = dcase.outdir
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
     OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
