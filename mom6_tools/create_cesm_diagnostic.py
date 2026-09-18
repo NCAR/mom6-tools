@@ -54,7 +54,7 @@ def main():
 
   # Create the case instance
   dcase = DiagsCase(case_config['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  ocn_diag_root = dcase.outdir
   RUNDIR = cime_xmlquery(args.caseroot, 'RUNDIR')
   DOUT_S_ROOT = cime_xmlquery(args.caseroot, 'DOUT_S_ROOT')
   if args.debug:
