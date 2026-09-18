@@ -77,6 +77,39 @@ class DiagsCase(object,):
                 f"Missing required case configuration key(s): {', '.join(missing_keys)}"
             )
 
+    def set_diag_params(self):
+        """ Sets convenience attributes derived from `self.full_config`, so that
+        scripts share a single, consistent way of pulling common parameters out
+        of diag_config.yml instead of indexing into the yaml dictionary themselves.
+        Called automatically by read_diag_config; may be called again if
+        `full_config` is modified after construction.
+
+        Sets
+        ----
+        caseroot        : value of CASEROOT. Required; raises ValueError if not provided.
+        start_date      : Avg['start_date'] (or None if not present). Optional, since
+                           downstream code uses it as a `slice(start_date, end_date)`
+                           bound, and None means an open-ended (unbounded) slice.
+        end_date        : Avg['end_date'] (or None if not present). Optional; see start_date.
+        savefigs        : Misc['savefigs'] (or False if not present). Optional.
+        jobqueue_config : the 'Jobqueue' section. Required; raises ValueError if not present.
+        label           : value of SNAME. Required; raises ValueError if not provided.
+        ocn_diag_root   : output directory, created via create_output_dir() (OCN_DIAG_ROOT
+                           is therefore required).
+        """
+
+        def _require(value, name):
+            if not value:
+                raise ValueError(f"'{name}' must be provided in diag_config.yml")
+            return value
+
+        self.caseroot = _require(self.get_value('CASEROOT'), 'Case.CASEROOT')
+        avg = self.full_config.get('Avg', {})
+        self.start_date = avg.get('start_date')
+        self.end_date = avg.get('end_date')
+        self.savefigs = self.full_config.get('Misc', {}).get('savefigs', False)
+        self.jobqueue_config = _require(self.full_config.get('Jobqueue'), 'Jobqueue')
+        self.label = _require(self.get_value('SNAME'), 'Case.SNAME')
         self.outdir = self.create_output_dir()
 
     # William Xu: CIMEROOT is no longer used; commenting this section out.

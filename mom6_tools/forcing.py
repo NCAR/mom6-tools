@@ -46,6 +46,8 @@ def driver(args):
 
   # Create the case instance
   dcase = DiagsCase(diag_config_yml['Case'])
+  dcase.full_config = diag_config_yml
+  dcase.set_diag_params()
   ocn_diag_root = dcase.outdir
   DOUT_S = dcase.get_value('DOUT_S')
   if DOUT_S:
