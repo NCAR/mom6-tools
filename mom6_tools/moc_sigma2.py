@@ -40,13 +40,11 @@ def main():
   args = options()
 
   nw = args.number_of_workers
-  
-  os.makedirs('PNG/MOC', exist_ok=True)
 
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
-  ocn_diag_root = dcase.outdir
+  ocn_diag_root = dcase.ocn_diag_root
 
   caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -56,7 +54,7 @@ def main():
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  args.savefigs = True; args.outdir = 'PNG/MOC/'
+  args.savefigs = True; args.pngdir = dcase.create_png_dir('MOC') + '/'
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
@@ -197,7 +195,7 @@ def main():
   cbar = plt.colorbar(p,pad=0.01,spacing='uniform', extend='both',
                       shrink=0.95,orientation='vertical')
   cbar.set_ticks(clevels)
-  objOut = args.outdir+str(casename)+'_MOC_sigma2_global.png'
+  objOut = args.pngdir+str(casename)+'_MOC_sigma2_global.png'
   plt.savefig(objOut)
   plt.close(fig)
 
@@ -227,7 +225,7 @@ def main():
   axis.set_xlabel("Latitude",fontsize=8)
   axis.set_facecolor('gray')
   axis.set_title("Case {}, global meridional-zrho overturning".format(args.label),fontsize=10)
-  objOut = args.outdir+str(casename)+'_MOC_zrho_global.png'
+  objOut = args.pngdir+str(casename)+'_MOC_zrho_global.png'
   plt.savefig(objOut)
   plt.close(fig)
 
@@ -269,7 +267,7 @@ def main():
   cbar = plt.colorbar(p,pad=0.01,spacing='uniform', extend='both',
                       shrink=0.95,orientation='vertical')
   cbar.set_ticks(clevels)
-  objOut = args.outdir+str(casename)+'_MOC_sigma2_global_vhml.png'
+  objOut = args.pngdir+str(casename)+'_MOC_sigma2_global_vhml.png'
   plt.savefig(objOut)
   plt.close(fig)
   moc['moc_FFH'].data = psi_vhml.data
@@ -299,10 +297,10 @@ def main():
   axis.set_xlabel("Latitude",fontsize=8)
   axis.set_facecolor('gray')
   axis.set_title("Case {}, global meridional-zrho overturning (Sv) due to vhml".format(args.label),fontsize=10)
-  objOut = args.outdir+str(casename)+'_MOC_zrho_global_vhml.png'
+  objOut = args.pngdir+str(casename)+'_MOC_zrho_global_vhml.png'
   plt.savefig(objOut)
 
-  objOut = args.outdir+str(casename)+'_FFH_MOC_global.png'
+  objOut = args.pngdir+str(casename)+'_FFH_MOC_global.png'
   plt.savefig(objOut)
   plt.close(fig)
   moc['moc_FFH'].data = psi.data
@@ -329,7 +327,7 @@ def main():
   cbar = plt.colorbar(p,pad=0.01,spacing='uniform', extend='both',
                       shrink=0.95,orientation='vertical')
   cbar.set_ticks(clevels)
-  objOut = args.outdir+str(casename)+'_MOC_sigma2_global_vhGM.png'
+  objOut = args.pngdir+str(casename)+'_MOC_sigma2_global_vhGM.png'
   plt.savefig(objOut)
   plt.close(fig)
   moc['moc_GM'].data = psi_vhGM.data
@@ -359,7 +357,7 @@ def main():
   axis.set_xlabel("Latitude",fontsize=8)
   axis.set_facecolor('gray')
   axis.set_title("Case {}, global meridional-zrho overturning (Sv) due to vhGM".format(args.label),fontsize=10)
-  objOut = args.outdir+str(casename)+'_MOC_zrho_global_vhGM.png'
+  objOut = args.pngdir+str(casename)+'_MOC_zrho_global_vhGM.png'
   plt.savefig(objOut)
   plt.close(fig)
 
@@ -405,7 +403,7 @@ def main():
   cbar = plt.colorbar(p,pad=0.01,spacing='uniform', extend='both',
                       shrink=0.95,orientation='vertical')
   cbar.set_ticks(clevels)
-  objOut = args.outdir+str(casename)+'_MOC_sigma2_IndoPacific.png'
+  objOut = args.pngdir+str(casename)+'_MOC_sigma2_IndoPacific.png'
   plt.savefig(objOut,format='png')
   plt.close(fig)
 
@@ -433,7 +431,7 @@ def main():
   axis.set_xlabel("Latitude",fontsize=8)
   axis.set_facecolor('gray')
   axis.set_title("Case {}, Indo-Pacific meridional-zrho overturning".format(args.label),fontsize=10)
-  objOut = args.outdir+str(casename)+'_MOC_zrho_IndoPacific.png'
+  objOut = args.pngdir+str(casename)+'_MOC_zrho_IndoPacific.png'
   plt.savefig(objOut,format='png')
   plt.close(fig)
   moc['ipmoc'].data = psi.data
@@ -482,7 +480,7 @@ def main():
   cbar = plt.colorbar(p,pad=0.01,spacing='uniform', extend='both',
                       shrink=0.95,orientation='vertical')
   cbar.set_ticks(clevels)
-  objOut = args.outdir+str(casename)+'_MOC_sigma2_Atlantic.png'
+  objOut = args.pngdir+str(casename)+'_MOC_sigma2_Atlantic.png'
   plt.savefig(objOut,format='png')
   plt.close(fig)
 
@@ -512,7 +510,7 @@ def main():
   axis.set_xlabel("Latitude",fontsize=8)
   axis.set_facecolor('gray')
   axis.set_title("Case {}, Atlantic meridional-zrho overturning".format(args.label),fontsize=10)
-  objOut = args.outdir+str(casename)+'_MOC_zrho_Atlantic.png'
+  objOut = args.pngdir+str(casename)+'_MOC_zrho_Atlantic.png'
   plt.savefig(objOut,format='png')
   plt.close(fig)
   moc['amoc'].data = psi.data

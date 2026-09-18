@@ -98,11 +98,10 @@ def main():
   args = options()
   nw = args.number_of_workers
 
-  os.makedirs('PNG/DWBC', exist_ok=True)
-
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
+  dcase.create_png_dir('DWBC')
 
   caseroot = dcase.caseroot
   casename = cime_xmlquery(caseroot, 'CASE')
@@ -189,7 +188,7 @@ def main():
       'start_date'  : args.start_date,
       'end_date'    : args.end_date,
   }
-  outfile = '{}/{}_vo_mean_{:.1f}N_transect.nc'.format(dcase.outdir, casename, lat_transect)
+  outfile = '{}/{}_vo_mean_{:.1f}N_transect.nc'.format(dcase.ocn_diag_root, casename, lat_transect)
   ds_out.to_netcdf(outfile)
   print('Saved:', outfile)
 

@@ -51,13 +51,11 @@ def main(stream=False):
   # Get options
   args = options()
   nw = args.number_of_workers
-  
-  os.makedirs("PNG/ENSO", exist_ok=True)
 
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
-  ocn_diag_root = dcase.outdir
+  ocn_diag_root = dcase.ocn_diag_root
 
   caseroot = dcase.caseroot
   args.casename = cime_xmlquery(caseroot, 'CASE')
@@ -79,7 +77,7 @@ def main(stream=False):
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
   args.savefigs = True
   args.label = dcase.label
-  args.outdir = 'PNG/ENSO/'
+  args.pngdir = dcase.create_png_dir('ENSO') + '/'
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
@@ -193,12 +191,12 @@ def main(stream=False):
     plt.axhline(0.4, color='black', linewidth=0.5, linestyle='dotted')
     plt.axhline(-0.4, color='black', linewidth=0.5, linestyle='dotted')
     plt.title('Case {}, Niño 3.4 Index'.format(args.label));
-    fname = args.outdir + str(args.casename)+'_nino34_index.png'
+    fname = args.pngdir + str(args.casename)+'_nino34_index.png'
     plt.savefig(fname, bbox_inches='tight')
     plt.close()
 
     fig = result_model.composite()
-    fname = args.outdir + str(args.casename)+'_nino34_composite.png'
+    fname = args.pngdir + str(args.casename)+'_nino34_composite.png'
     plt.savefig(fname, bbox_inches='tight')
     plt.close()
 

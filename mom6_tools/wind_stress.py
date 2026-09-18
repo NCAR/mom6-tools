@@ -89,8 +89,8 @@ def driver(args):
     if not args.label: args.label = dcase.label
 
     # Use OCN_DIAG_ROOT from yaml for output directories
-    args.output_dir = dcase.outdir
-    args.plot_dir = os.path.join(dcase.outdir, 'PNG', 'WIND')
+    args.output_dir = dcase.ocn_diag_root
+    args.plot_dir = os.path.join(dcase.ocn_diag_root, 'PNG', 'WIND')
   else:
     # standalone mode: input_path is a glob pattern
     file_pattern = args.input_path
