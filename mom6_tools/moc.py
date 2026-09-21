@@ -246,33 +246,47 @@ def main():
   print('Computing time series (vectorized)...')
   startTime = datetime.now()
 
-  # Load all annual data at once — one dask graph evaluation vs T separate ones
-  vmo_all  = np.ma.filled(np.ma.masked_invalid(ds_ann['vmo'].values),  0.)  # (T,K,J,I)
-  vhGM_all = np.ma.filled(np.ma.masked_invalid(ds_ann['vhGM'].values), 0.)  # (T,K,J,I)
-
-  # Compute streamfunctions for all time steps at once
-  psi_atl_all = MOCpsi(vmo_all, vmsk=vmsk_atl) * conversion_factor   # (T,K+1,J)
-  psi_atl_all = 0.5 * (psi_atl_all[:, :-1, :] + psi_atl_all[:, 1:, :])  # (T,K,J)
-
-  psiGM_all = MOCpsi(vhGM_all) * conversion_factor                    # (T,K+1,J)
-  psiGM_all = 0.5 * (psiGM_all[:, :-1, :] + psiGM_all[:, 1:, :])    # (T,K,J)
-
-  psi_global_all = MOCpsi(vmo_all) * conversion_factor                # (T,K+1,J)
-  psi_global_all = 0.5 * (psi_global_all[:, :-1, :] + psi_global_all[:, 1:, :])  # (T,K,J)
-
-  # Vectorized extrema extraction
-  amoc_26    = findExtrema_batch(yy,  z,  psi_atl_all, min_lat=min_lat_rapid, max_lat=max_lat_rapid, min_depth=250.)
-  amoc_45    = findExtrema_batch(yy,  z,  psi_atl_all, min_lat=44.,           max_lat=46.,           min_depth=250.)
-  moc_GM_ACC = findExtrema_batch(yyg, zg, psiGM_all,   min_lat=-65.,          max_lat=-30.,          mult=-1.)
-
   # Global MOC at fixed lat/depth points — precompute indices to avoid xr.DataArray overhead per step
   lat_1d = yyg[0, :]   # surface-level latitude for each j  (J,)
   j_70S  = np.argmin(np.abs(lat_1d - (-70.)))
   j_35S  = np.argmin(np.abs(lat_1d - (-35.)))
   k_1000 = np.argmin(np.abs(zl - 1000.))
   k_4000 = np.argmin(np.abs(zl - 4000.))
-  moc_70S = psi_global_all[:, k_1000, j_70S]
-  moc_35S = psi_global_all[:, k_4000, j_35S]
+
+  # Process the time series in bounded batches of years rather than pulling
+  # the whole (T,K,J,I) record for vmo and vhGM into memory at once, which
+  # for long/high-res runs is large enough to OOM the workers during the
+  # final gather of ds_ann[...].values.
+  time_batch = 24
+  nT = ds_ann.sizes['time']
+  amoc_26_parts, amoc_45_parts, moc_GM_ACC_parts = [], [], []
+  moc_70S_parts, moc_35S_parts = [], []
+
+  for t0 in range(0, nT, time_batch):
+    tsel = slice(t0, min(t0 + time_batch, nT))
+    vmo_chunk  = np.ma.filled(np.ma.masked_invalid(ds_ann['vmo'].isel(time=tsel).values),  0.)
+    vhGM_chunk = np.ma.filled(np.ma.masked_invalid(ds_ann['vhGM'].isel(time=tsel).values), 0.)
+
+    psi_atl_chunk = MOCpsi(vmo_chunk, vmsk=vmsk_atl) * conversion_factor
+    psi_atl_chunk = 0.5 * (psi_atl_chunk[:, :-1, :] + psi_atl_chunk[:, 1:, :])
+
+    psiGM_chunk = MOCpsi(vhGM_chunk) * conversion_factor
+    psiGM_chunk = 0.5 * (psiGM_chunk[:, :-1, :] + psiGM_chunk[:, 1:, :])
+
+    psi_global_chunk = MOCpsi(vmo_chunk) * conversion_factor
+    psi_global_chunk = 0.5 * (psi_global_chunk[:, :-1, :] + psi_global_chunk[:, 1:, :])
+
+    amoc_26_parts.append(findExtrema_batch(yy, z, psi_atl_chunk, min_lat=min_lat_rapid, max_lat=max_lat_rapid, min_depth=250.))
+    amoc_45_parts.append(findExtrema_batch(yy, z, psi_atl_chunk, min_lat=44., max_lat=46., min_depth=250.))
+    moc_GM_ACC_parts.append(findExtrema_batch(yyg, zg, psiGM_chunk, min_lat=-65., max_lat=-30., mult=-1.))
+    moc_70S_parts.append(psi_global_chunk[:, k_1000, j_70S])
+    moc_35S_parts.append(psi_global_chunk[:, k_4000, j_35S])
+
+  amoc_26    = np.concatenate(amoc_26_parts)
+  amoc_45    = np.concatenate(amoc_45_parts)
+  moc_GM_ACC = np.concatenate(moc_GM_ACC_parts)
+  moc_70S    = np.concatenate(moc_70S_parts)
+  moc_35S    = np.concatenate(moc_35S_parts)
 
   print('Time elasped: ', datetime.now() - startTime)
 
