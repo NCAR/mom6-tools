@@ -113,7 +113,7 @@ def driver(args):
 
     print('Clim. Mean and Annual Cycle then time averaging...')
     startTime = datetime.now()
-    uo_ann_clim = weighted_temporal_mean(ds_sel,'uo').mean('time')
+    uo_ann_clim = weighted_temporal_mean(ds_sel,'uo').mean('time').compute()
     uo_mon_clim = ds_sel['uo'].transpose().groupby('time.month').mean('time').squeeze().compute()
     print('Time elasped: ', datetime.now() - startTime)
 
