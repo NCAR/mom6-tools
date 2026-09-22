@@ -35,8 +35,6 @@ def parseCommandLine():
                       help='''Name of the observation-based MLD dataset in the oce-catalog. Default is mld-deboyer-2023-tx2_3v2''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
-  parser.add_argument('--savefigs', action='store_true', default=None,
-                      help='''Save figures (default is to use value set in diag_config_yml_path)''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   add_jobqueue_args(parser)
   optCmdLineArgs = parser.parse_args()
@@ -60,7 +58,6 @@ def driver(args):
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  args.savefigs = True;
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
@@ -73,7 +70,7 @@ def driver(args):
   args.static = args.casename + diag_config_yml['Fnames']['static']
   args.geom = args.casename + diag_config_yml['Fnames']['geom']
   args.label = dcase.label
-  if args.savefigs is None: args.savefigs = diag_config_yml.get('Misc',{}).get('savefigs',False) 
+  args.savefigs = dcase.savefigs
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)

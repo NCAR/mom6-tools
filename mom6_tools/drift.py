@@ -32,8 +32,6 @@ def options():
                       help='''Compute drift. Default is False''')
   parser.add_argument('--rms', action='store_true',
                       help='''Compute rms. Default is False''')
-  parser.add_argument('--savefig', action='store_true',
-                      help='''Save figures (PNG). Default is False''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
   parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
@@ -570,6 +568,7 @@ def main(stream=False):
   args.z = args.casename+diag_config_yml['Fnames']['z']
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.savefigs = dcase.savefigs
 
   dcase.create_png_dir('Drift')
 
@@ -726,7 +725,7 @@ def horizontal_mean_diff_rms(grd, basins, args, obs, OUTDIR, jobqueue_config=Non
     add_global_attrs(rms,attrs)
     rms.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_{}_rmse.nc'.format(var))
 
-  if args.savefig:
+  if args.savefigs:
     # save plots
     if args.drift:
       if var == 'thetao':

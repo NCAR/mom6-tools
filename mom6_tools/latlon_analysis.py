@@ -55,9 +55,6 @@ def parseCommandLine():
   parser.add_argument('-year_end', type=int, default=100,
       help='''End year to compute averages. Default is 100.''')
 
-  parser.add_argument('-to_netcdf', help='''Save data into a netCDF file.''',
-      action="store_true")
-
   parser.add_argument('-savefigs', help='''Save figures in a PNG format.''',
       action="store_true")
 
@@ -74,13 +71,11 @@ def parseCommandLine():
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
 def driver(args):
-  os.makedirs('PNG', exist_ok=True)
-  os.makedirs('ncfiles', exist_ok=True)
-
   # Read in the yaml file and create the case instance
   diag_config_yml_path = "diag_config.yml"
   dcase = DiagsCase.read_diag_config(diag_config_yml_path)
   diag_config_yml = dcase.full_config
+  dcase.create_png_dir()
 
   caseroot = dcase.caseroot
   casename = cime_xmlquery(caseroot, 'CASE')

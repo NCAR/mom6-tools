@@ -231,7 +231,7 @@ class DiagsCase(object,):
         os.makedirs(output_dir, exist_ok=True)
         return output_dir
 
-    def create_png_dir(self, subdir):
+    def create_png_dir(self, subdir=None):
         """Create and return the directory used for PNG figures.
 
         Independent of OCN_DIAG_ROOT: always relative to the current working
@@ -240,8 +240,8 @@ class DiagsCase(object,):
 
         Parameters
         ----------
-        subdir : str
-            Subdirectory appended beneath 'PNG'.
+        subdir : str, optional
+            Optional subdirectory appended beneath 'PNG'.
 
         Returns
         -------
@@ -249,7 +249,7 @@ class DiagsCase(object,):
             Path to the PNG output directory.
         """
 
-        png_dir = os.path.join('PNG', subdir)
+        png_dir = os.path.join('PNG', subdir) if subdir else 'PNG'
         os.makedirs(png_dir, exist_ok=True)
         return png_dir
 

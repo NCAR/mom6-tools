@@ -20,12 +20,9 @@ def options():
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
 
-  parser.add_argument('-l','--label',    type=str, default='', help='''Label to add to the plot.''')
-  parser.add_argument('-o','--outdir',   dest='pngdir', type=str, default='PNG/Transports', help='''Directory in which to place plots.''')
   parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',  help='''Start year to plot (default=0001-01-01)''')
   parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31', help='''Final year to plot (default=0100-12-31)''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=1, help='''Number of workers to use (default=1).''')
-  parser.add_argument('-save_ncfile', help='''Save a netCDF file with transport data''', action="store_true")
   parser.add_argument('-debug', help='''Add priting statements for debugging purposes''', action="store_true")
   add_jobqueue_args(parser)
   args = parser.parse_args()
@@ -138,6 +135,8 @@ def main(stream=False):
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.ocn_diag_root
+  args.label = dcase.label
+  args.pngdir = dcase.create_png_dir('Transports')
 
   # load sections where transports are computed online
   sections = diag_config_yml['Transports']['sections']
@@ -175,19 +174,18 @@ def main(stream=False):
     except: print('\n WARNING: unable to process {}'.format(key))
     print('Time elasped: ', datetime.now() - startTime)
 
-  if args.save_ncfile:
-    print('Saving netCDF file with transports...\n')
-    # create a dataaray
-    labels = [];
-    for n in range(len(plotSections)): labels.append(plotSections[n].label)
-    var = numpy.zeros((len(plotSections),len(plotSections[0].time)))
-    ds = xr.Dataset(data_vars={ 'transport' : (('sections', 'time'), var)},
-                           coords={'sections': labels,
-                                   'time': plotSections[0].time})
-    for n in range(len(plotSections)):
-      ds.transport.values[n,:] = plotSections[n].data
+  print('Saving netCDF file with transports...\n')
+  # create a dataaray
+  labels = [];
+  for n in range(len(plotSections)): labels.append(plotSections[n].label)
+  var = numpy.zeros((len(plotSections),len(plotSections[0].time)))
+  ds = xr.Dataset(data_vars={ 'transport' : (('sections', 'time'), var)},
+                         coords={'sections': labels,
+                                 'time': plotSections[0].time})
+  for n in range(len(plotSections)):
+    ds.transport.values[n,:] = plotSections[n].data
 
-    ds.to_netcdf(ocn_diag_root+'/'+args.casename+'_section_transports.nc')
+  ds.to_netcdf(ocn_diag_root+'/'+args.casename+'_section_transports.nc')
 
   print('Plotting {} sections...\n'.format(len(plotSections)))
   imgbufs = []
@@ -202,7 +200,6 @@ def main(stream=False):
 
   if stream is True: objOut = io.BytesIO()
   else:
-    os.makedirs(args.pngdir, exist_ok=True)
     objOut = args.pngdir+'/'+args.casename+'_section_transports.png'
   plt.savefig(objOut)
   plt.close(fig)
