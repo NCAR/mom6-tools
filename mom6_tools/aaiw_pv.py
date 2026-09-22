@@ -71,7 +71,7 @@ def main(stream=False):
   args.monthly = args.casename+diag_config_yml['Fnames']['z']
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.savefigs = True
+  args.savefigs = dcase.savefigs
   args.label = dcase.label
   args.pngdir = dcase.create_png_dir('AAIW_PV') + '/'
 

@@ -49,12 +49,6 @@ def parseCommandLine():
   parser.add_argument('-ed','--end_date', type=str, default='',
                       help='''End date to select data. Default is to use all available data
                       (or value set in yaml config).''')
-  parser.add_argument('-o','--output_dir', type=str, default='ncfiles',
-                      help='''Directory for output NetCDF files (default: ncfiles).''')
-  parser.add_argument('-p','--plot_dir', type=str, default='PNG/WIND',
-                      help='''Directory for output plots (default: PNG/WIND).''')
-  parser.add_argument('-label','--label', type=str, default='',
-                      help='''Label for the case (used in plot titles).''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   add_jobqueue_args(parser)
@@ -64,8 +58,6 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  os.makedirs(args.output_dir, exist_ok=True)
-  os.makedirs(args.plot_dir, exist_ok=True)
 
   # Determine if input is a yaml config or a file glob pattern
   jobqueue_config = None
@@ -86,11 +78,11 @@ def driver(args):
     file_pattern = OUTDIR + '/' + casename + native_suffix
     if not args.start_date: args.start_date = dcase.start_date
     if not args.end_date: args.end_date = dcase.end_date
-    if not args.label: args.label = dcase.label
+    args.label = dcase.label
 
-    # Use OCN_DIAG_ROOT from yaml for output directories
+    # Use OCN_DIAG_ROOT / PNG conventions from DiagsCase for output directories
     args.output_dir = dcase.ocn_diag_root
-    args.plot_dir = os.path.join(dcase.ocn_diag_root, 'PNG', 'WIND')
+    args.plot_dir = dcase.create_png_dir('WIND')
   else:
     # standalone mode: input_path is a glob pattern
     file_pattern = args.input_path
@@ -98,7 +90,11 @@ def driver(args):
     if not files:
       raise FileNotFoundError(f'No files matched: {file_pattern}')
     casename = os.path.basename(files[0]).split('.mom6.')[0]
-    if not args.label: args.label = casename
+    args.label = casename
+    args.output_dir = 'ncfiles'
+    args.plot_dir = 'PNG/WIND'
+    os.makedirs(args.output_dir, exist_ok=True)
+    os.makedirs(args.plot_dir, exist_ok=True)
 
   print(f'Case: {casename}')
   print(f'File pattern: {file_pattern}')

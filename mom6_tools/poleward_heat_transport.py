@@ -51,7 +51,7 @@ def main(stream=False):
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
   variables = ['T_ady_2d', 'T_diffy_2d', 'T_hbd_diffy_2d']
-  args.savefigs = True; args.pngdir = dcase.create_png_dir('HT')
+  args.savefigs = dcase.savefigs; args.pngdir = dcase.create_png_dir('HT')
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   #print('Variables to be processed:', args.variables)
@@ -64,7 +64,6 @@ def main(stream=False):
   args.native = args.casename+diag_config_yml['Fnames']['native']
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.savefigs = False
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)

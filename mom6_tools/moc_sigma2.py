@@ -54,7 +54,7 @@ def main():
   else:
     OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
 
-  args.savefigs = True; args.pngdir = dcase.create_png_dir('MOC') + '/'
+  args.savefigs = dcase.savefigs; args.pngdir = dcase.create_png_dir('MOC') + '/'
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
