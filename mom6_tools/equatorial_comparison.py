@@ -52,13 +52,8 @@ def driver(args):
   ocn_diag_root = dcase.ocn_diag_root
   dcase.create_png_dir('Equatorial')
 
-  caseroot = dcase.caseroot
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  args.casename = dcase.casename
+  OUTDIR = dcase.hist_dir
 
   # file streams
   args.monthly = args.casename+diag_config_yml['Fnames']['z']

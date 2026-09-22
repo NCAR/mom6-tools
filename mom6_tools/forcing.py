@@ -45,11 +45,7 @@ def driver(args):
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.ocn_diag_root
-  DOUT_S = dcase.get_value('DOUT_S')
-  if DOUT_S:
-    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = dcase.get_value('RUNDIR')
+  OUTDIR = dcase.hist_dir
 
   args.casename = dcase.casename
   args.static = args.casename+diag_config_yml['Fnames']['static']

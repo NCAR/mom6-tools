@@ -140,13 +140,8 @@ def main(stream=False):
 
   # load sections where transports are computed online
   sections = diag_config_yml['Transports']['sections']
-  caseroot = dcase.caseroot
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  args.casename = dcase.casename
+  OUTDIR = dcase.hist_dir
 
   parallel, cluster, client = get_cluster(nw, args=args,
                                           config=dcase.jobqueue_config)

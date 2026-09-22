@@ -555,11 +555,7 @@ def main(stream=False):
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']
   args.ocn_diag_root = dcase.ocn_diag_root
-  DOUT_S = dcase.get_value('DOUT_S')
-  if DOUT_S:
-    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = dcase.get_value('RUNDIR')
+  OUTDIR = dcase.hist_dir
 
   print('Output directory is:', OUTDIR)
   print('Casename is:', dcase.casename)

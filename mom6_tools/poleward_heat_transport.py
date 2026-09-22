@@ -42,13 +42,8 @@ def main(stream=False):
   diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.ocn_diag_root
 
-  caseroot = dcase.caseroot
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  args.casename = dcase.casename
+  OUTDIR = dcase.hist_dir
 
   variables = ['T_ady_2d', 'T_diffy_2d', 'T_hbd_diffy_2d']
   args.savefigs = dcase.savefigs; args.pngdir = dcase.create_png_dir('HT')

@@ -66,13 +66,8 @@ def driver(args):
     dcase = DiagsCase.read_diag_config(args.input_path)
     diag_config_yml = dcase.full_config
     jobqueue_config = dcase.jobqueue_config
-    caseroot = dcase.caseroot
-    casename = cime_xmlquery(caseroot, 'CASE')
-    DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-    if DOUT_S.lower() == "true":
-      OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-    else:
-      OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+    casename = dcase.casename
+    OUTDIR = dcase.hist_dir
 
     native_suffix = diag_config_yml['Fnames']['native']
     file_pattern = OUTDIR + '/' + casename + native_suffix

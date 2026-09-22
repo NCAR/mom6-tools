@@ -103,14 +103,9 @@ def main():
   diag_config_yml = dcase.full_config
   dcase.create_png_dir('DWBC')
 
-  caseroot = dcase.caseroot
-  casename = cime_xmlquery(caseroot, 'CASE')
+  casename = dcase.casename
   label = dcase.label
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  OUTDIR = dcase.hist_dir
 
   z_stream    = casename + diag_config_yml['Fnames']['z']
   static_file = OUTDIR + '/' + casename + diag_config_yml['Fnames']['static']

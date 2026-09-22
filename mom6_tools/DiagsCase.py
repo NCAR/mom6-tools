@@ -6,6 +6,7 @@ import cftime as cft
 from collections import OrderedDict, namedtuple
 import xarray as xr
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.m6toolbox import cime_xmlquery
 
 
 DiagFileEntry = namedtuple('DiagFileEntry',
@@ -27,6 +28,9 @@ class DiagsCase(object,):
         Case name
     ocn_diag_root
         Directory used for diagnostic outputs (created at construction time)
+    hist_dir
+        Directory containing MOM6 history (output) files, read from -- distinct
+        from ocn_diag_root, which is written to
     grid
         MOM6grid instance
 
@@ -67,6 +71,7 @@ class DiagsCase(object,):
         self._config = case_config
         self._grid = None
         self._casename = None
+        self._hist_dir = None
         self.diag_files = None
         self.diag_fields = None
         self.xrformat = xrformat
@@ -167,26 +172,30 @@ class DiagsCase(object,):
     #
     #    return self._cime_case
 
-    # deduce the case name:
-    def _deduce_case_name(self):
-        caseroot = self.get_value('CASEROOT')
-        dout_s_root = self.get_value('DOUT_S_ROOT')
-        rundir = self.get_value('RUNDIR')
-        if caseroot:
-            self._casename = os.path.basename(os.path.normpath(caseroot))
-        elif dout_s_root:
-            self._casename = os.path.basename(os.path.normpath(dout_s_root))
-        elif rundir:
-            self._casename = os.path.basename(os.path.normpath(rundir[:-4]))
-        else:
-            raise RuntimeError(f"Cannot deduce casename")
-
     @property
     def casename(self):
-        """ Returns case name by inferring it from CASEROOT. """
+        """ Returns the CIME case name (cime_xmlquery(caseroot, 'CASE')). """
         if not self._casename:
-            self._deduce_case_name()
+            self._casename = cime_xmlquery(self.get_value('CASEROOT'), 'CASE')
         return self._casename
+
+    @property
+    def hist_dir(self):
+        """ Returns the directory containing MOM6 history (output) files, i.e.
+        where raw model output is read from -- not to be confused with
+        `ocn_diag_root`, where this package's own diagnostic output is written.
+
+        Derived via cime_xmlquery: DOUT_S_ROOT + '/ocn/hist/' if the case's
+        short-term archiver is on (DOUT_S is 'TRUE'), otherwise RUNDIR.
+        """
+        if not self._hist_dir:
+            caseroot = self.get_value('CASEROOT')
+            dout_s = cime_xmlquery(caseroot, 'DOUT_S')
+            if dout_s.strip().lower() == 'true':
+                self._hist_dir = cime_xmlquery(caseroot, 'DOUT_S_ROOT') + '/ocn/hist/'
+            else:
+                self._hist_dir = cime_xmlquery(caseroot, 'RUNDIR')
+        return self._hist_dir
 
     def get_value(self, var):
         """ Returns the value of a variable in yaml config file.
