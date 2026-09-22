@@ -59,7 +59,7 @@ def driver(args):
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.ocn_diag_root
-  RUNDIR = dcase.get_value('RUNDIR')
+  RUNDIR = dcase.hist_dir
   args.casename = dcase.casename
   args.static = args.casename+diag_config_yml['Fnames']['static']
   args.geom = args.casename+diag_config_yml['Fnames']['geom']

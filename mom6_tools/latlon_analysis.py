@@ -77,13 +77,8 @@ def driver(args):
   diag_config_yml = dcase.full_config
   dcase.create_png_dir()
 
-  caseroot = dcase.caseroot
-  casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  casename = dcase.casename
+  OUTDIR = dcase.hist_dir
 
   print('Output directory is:', OUTDIR)
   print('Casename is:', casename)
