@@ -84,7 +84,7 @@ def main():
   except:
     depth = grd.deptho
 
-  basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, verbose=False, xda=True, basin_from_file=args.basin)
+  basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, basin_from_file=args.basin)
 
   # create a grid using xgcm
   coords = {

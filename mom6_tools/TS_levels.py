@@ -89,7 +89,7 @@ def driver(args):
     depth = grd.depth_ocean
   except:
     depth = grd.deptho
-  basin_code = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True, basin_from_file=args.basin)
+  basin_code = genBasinMasks(grd.geolon, grd.geolat, depth, basin_from_file=args.basin)
 
   # load obs
   catalog = intake.open_catalog(diag_config_yml['oce_cat'])

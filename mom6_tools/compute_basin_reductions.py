@@ -197,7 +197,7 @@ def main():
       depth = grd.deptho.values
 
     # Get masking for different regions
-    basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True, basin_from_file=args.basin)
+    basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, basin_from_file=args.basin)
 
     try:
       os.makedirs(ocn_diag_root, exist_ok=True)

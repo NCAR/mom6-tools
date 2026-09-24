@@ -81,7 +81,7 @@ def main(stream=False):
     depth = grd.deptho
 
   # Get masking for different regions
-  basin_code_xr = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True, basin_from_file=args.basin)
+  basin_code_xr = genBasinMasks(grd.geolon, grd.geolat, depth, basin_from_file=args.basin)
 
   # Atlantic, Arctic, Med, Black and Hudson Bay combined
   atl_regions = ['AtlanticOcean', 'Arctic', 'MedSea', 'BlackSea', 'HudsonBay']

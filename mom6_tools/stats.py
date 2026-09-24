@@ -429,7 +429,7 @@ def main(stream=False):
     depth = grd.deptho.values
 
   # Get masking for different regions
-  basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True, basin_from_file=args.basin)
+  basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, basin_from_file=args.basin)
 
   #select a few basins, namely, Global, MedSea,BalticSea,HudsonBay Arctic,
   # Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay

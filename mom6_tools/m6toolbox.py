@@ -533,7 +533,7 @@ def southOf(x, y, xy0, xy1):
   Y[Y>=0] = 1; Y[Y<=0] = 0
   return Y
 
-def genBasinMasks(x=None,y=None,depth=None,verbose=False, xda=False, basin_from_file=None):
+def genBasinMasks(x=None,y=None,depth=None,verbose=False, xda=True, basin_from_file=None):
   """
   Returns masking for different regions.
 
@@ -552,7 +552,10 @@ def genBasinMasks(x=None,y=None,depth=None,verbose=False, xda=False, basin_from_
     If True, print some stuff. Default is false.
 
   xda : boolean, optional
-    If True, returns an xarray Dataset. Default is false.
+    If True, returns a region-labeled xarray DataArray. If False, returns a plain
+    2D array of numeric basin codes. Note: codes 12-17 are overlapping sub-regions
+    and can only be represented when xda=True. They are absent from the plain array.
+    Default is true.
 
   basin_from_file : str, optional
     Path to a netCDF file with pre-computed basin masks (e.g. saved from a previous
