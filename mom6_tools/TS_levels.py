@@ -34,6 +34,9 @@ def parseCommandLine():
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
+  parser.add_argument('-b','--basin',  type=str, default='',
+                      help='''Read basin code from file. Default is empty, \
+                              which will generate basin code using genBasinMasks.''')
   parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
                       help='''Name of observational product in the oce-catalog  \
                               to compare against. Default is woa-2018-tx2_3v2-annual-all''')
@@ -86,9 +89,7 @@ def driver(args):
     depth = grd.depth_ocean
   except:
     depth = grd.deptho
-  # remote Nan's, otherwise genBasinMasks won't work
-  depth[np.isnan(depth)] = 0.0
-  basin_code = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
+  basin_code = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True, basin_from_file=args.basin)
 
   # load obs
   catalog = intake.open_catalog(diag_config_yml['oce_cat'])

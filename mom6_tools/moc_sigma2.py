@@ -28,6 +28,9 @@ def options():
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
+  parser.add_argument('-b','--basin',  type=str, default='',
+                      help='''Read basin code from file. Default is empty, \
+                              which will generate basin code using genBasinMasks.''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
                       action="store_true")
   add_jobqueue_args(parser)
@@ -81,9 +84,7 @@ def main():
   except:
     depth = grd.deptho
 
-  # remote Nan's, otherwise genBasinMasks won't work
-  depth[np.isnan(depth)] = 0.0
-  basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, verbose=False, xda=True)
+  basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, verbose=False, xda=True, basin_from_file=args.basin)
 
   # create a grid using xgcm
   coords = {

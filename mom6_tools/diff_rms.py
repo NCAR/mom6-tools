@@ -31,6 +31,9 @@ def options():
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
+  parser.add_argument('-b','--basin',  type=str, default='',
+                      help='''Read basin code from file. Default is empty, \
+                              which will generate basin code using genBasinMasks.''')
   parser.add_argument('-o','--obs', type=str, default='WOA18', help='''Observational product to compare agaist.  \
     Valid options are: WOA18 (default) or PHC2''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
@@ -583,9 +586,7 @@ def main(stream=False):
     depth = grd.deptho.values
 
   # Get masking for different regions
-  # remove Nan's, otherwise genBasinMasks won't work
-  depth[np.isnan(depth)] = 0.0
-  basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
+  basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True, basin_from_file=args.basin)
 
   #select a few basins, namely, Global, MedSea,BalticSea,HudsonBay Arctic,
   # Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay

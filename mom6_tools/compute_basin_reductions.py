@@ -30,6 +30,8 @@ def parse_args():
     parser.add_argument('-f', '--fname', type=str, default='native', help='Name of the history file stream (default is native)')
     parser.add_argument('-sd', '--start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
     parser.add_argument('-ed', '--end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
+    parser.add_argument('-b', '--basin', type=str, default='', help='Read basin code from file. Default is empty, '
+                         'which will generate basin code using genBasinMasks.')
     parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
     return parser.parse_args()
 
@@ -195,9 +197,7 @@ def main():
       depth = grd.deptho.values
 
     # Get masking for different regions
-    # remove Nan's, otherwise genBasinMasks won't work
-    depth[np.isnan(depth)] = 0.0
-    basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
+    basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True, basin_from_file=args.basin)
 
     try:
       os.makedirs(ocn_diag_root, exist_ok=True)

@@ -25,6 +25,9 @@ def options():
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
+  parser.add_argument('-b','--basin',  type=str, default='',
+                      help='''Read basin code from file. Default is empty, \
+                              which will generate basin code using genBasinMasks.''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
                       action="store_true")
 
@@ -77,10 +80,11 @@ def main(stream=False):
   except:
     depth = grd.deptho
 
-  # remote Nan's, otherwise genBasinMasks won't work
-  depth[np.isnan(depth)] = 0.0
-  basin_code = genBasinMasks(grd.geolon, grd.geolat, depth)
-  basin_code_xr = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
+  # Get masking for different regions
+  basin_code_xr = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True, basin_from_file=args.basin)
+
+  # Atlantic, Arctic, Med, Black and Hudson Bay combined
+  atl_regions = ['AtlanticOcean', 'Arctic', 'MedSea', 'BlackSea', 'HudsonBay']
 
   parallel, cluster, client = get_cluster(nw, args=args,
                                           config=diag_config_yml.get('Jobqueue'))
@@ -170,8 +174,8 @@ def main(stream=False):
   ds_atl_ts = ds_atl_ts.rename(rename_dict)
 
   # Heat Transport Time Series at 75N (Atlantic)
-  # Atlantic Heat Transport
-  m = 0*basin_code; m[(basin_code==2) | (basin_code==4) | (basin_code==6) | (basin_code==7) | (basin_code==8)] = 1
+  # Atlantic, Arctic, Med, Black and Hudson Bay combined
+  m = (basin_code_xr.sel(region=atl_regions).sum('region') > 0).astype(int).values
   m_xr = xr.DataArray(
     m,
     dims=('yq', 'xh'),
@@ -237,11 +241,13 @@ def main(stream=False):
     hbd = None
     warnings.warn('Quasi-horizontal boundary mixing term not found. This will result in an underestimation of the heat transport.')
 
-  plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, args)
+  plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code_xr, grd, args)
   return
 
-def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, args):
+def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code_xr, grd, args):
   """Plots model vs obs poleward heat transport for the global, Pacific and Atlantic basins"""
+  # Atlantic, Arctic, Med, Black and Hudson Bay combined
+  atl_regions = ['AtlanticOcean', 'Arctic', 'MedSea', 'BlackSea', 'HudsonBay']
   # Load Observations
   fObs = xr.open_dataset('/glade/work/gmarques/cesm/datasets/Trenberth_and_Caron_Heat_Transport.nc')
   # POP JRA-55, 31 year (years 29-59)
@@ -308,7 +314,8 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   else:
     plt.show()
   # Atlantic Heat Transport
-  m = 0*basin_code; m[(basin_code==2) | (basin_code==4) | (basin_code==6) | (basin_code==7) | (basin_code==8)] = 1
+  # Atlantic, Arctic, Med, Black and Hudson Bay combined
+  m = (basin_code_xr.sel(region=atl_regions).sum('region') > 0).astype(int).values
   plt.figure(figsize=(12,10))
   HTplot = heatTrans(advective, diffusive, hbd, vmask=m*np.roll(m,-1,axis=-2))
   yy = grd.geolat_c[:,:].max(axis=-1)
@@ -335,7 +342,8 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   else:
     plt.show()
   # Indo-Pacific Heat Transport
-  m = 0*basin_code; m[(basin_code==3) | (basin_code==5)] = 1
+  # Pacific and Indian combined
+  m = (basin_code_xr.sel(region=['PacificOcean', 'IndianOcean']).sum('region') > 0).astype(int).values
   plt.figure(figsize=(12,10))
   HTplot = heatTrans(advective, diffusive, hbd, vmask=m*np.roll(m,-1,axis=-2))
   yy = grd.geolat_c[:,:].max(axis=-1)

@@ -533,7 +533,7 @@ def southOf(x, y, xy0, xy1):
   Y[Y>=0] = 1; Y[Y<=0] = 0
   return Y
 
-def genBasinMasks(x,y,depth,verbose=False, xda=False):
+def genBasinMasks(x=None,y=None,depth=None,verbose=False, xda=False, basin_from_file=None):
   """
   Returns masking for different regions.
 
@@ -554,9 +554,23 @@ def genBasinMasks(x,y,depth,verbose=False, xda=False):
   xda : boolean, optional
     If True, returns an xarray Dataset. Default is false.
 
+  basin_from_file : str, optional
+    Path to a netCDF file with pre-computed basin masks (e.g. saved from a previous
+    genBasinMasks(..., xda=True) call). When given, x/y/depth are ignored and the
+    masks are loaded from this file instead of being computed. Requires xda=True.
+    Default is None.
+
   Returns
   -------
   """
+  if basin_from_file:
+    if not xda:
+      raise ValueError("basin_from_file requires xda=True.")
+    return xr.open_dataset(basin_from_file).to_array().squeeze(drop=True)
+
+  # remove Nan's, otherwise genBasinMasks won't work
+  depth[np.isnan(depth)] = 0.0
+
   rmask_od = OrderedDict()
   rmask_od['Global'] = xr.where(depth > 0, 1.0, 0.0)
 

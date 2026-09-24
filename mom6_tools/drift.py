@@ -36,9 +36,12 @@ def options():
                       help='''Save figures (PNG). Default is False''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
+  parser.add_argument('-b','--basin',  type=str, default='',
+                      help='''Read basin code from file. Default is empty, \
+                              which will generate basin code using genBasinMasks.''')
   parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
                       help='''Name of observational product in the oce-catalog  \
-    to compare against. Default is woa-2018-tx2_3v2-annual-all''')
+                              to compare against. Default is woa-2018-tx2_3v2-annual-all''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   add_jobqueue_args(parser)
   cmdLineArgs = parser.parse_args()
@@ -578,27 +581,18 @@ def main(stream=False):
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
 
   try:
-    area = np.ma.masked_where(grd.wet == 0,grd.area_t)
-  except:
-    area = np.ma.masked_where(grd.wet == 0,grd.areacello)
-
-  try:
     depth = grd.depth_ocean.values
   except:
     depth = grd.deptho.values
 
   # Get masking for different regions
-  # remove Nan's, otherwise genBasinMasks won't work
-  depth[np.isnan(depth)] = 0.0
-  basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
-  # GMM
-  #basins = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc').to_array()
+  basins = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True, basin_from_file=args.basin)
 
   #select a few basins, namely, Global, MedSea,BalticSea,HudsonBay Arctic,
   # Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
   #basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
   # use all basins available
-  basins = basin_code
+  #basins = basin_code
 
   # load obs
   catalog = intake.open_catalog(diag_config_yml['oce_cat'])
