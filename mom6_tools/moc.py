@@ -45,7 +45,9 @@ def main():
   args.casename = dcase.casename
   OUTDIR = dcase.hist_dir
 
-  args.savefigs = dcase.savefigs; args.pngdir = dcase.create_png_dir('MOC') + '/'
+  args.savefigs = dcase.savefigs;
+  if args.savefigs:
+    args.pngdir = dcase.create_png_dir('MOC') + '/'
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
@@ -140,8 +142,9 @@ def main():
   findExtrema(yyg, zg, psiPlot, min_lat=25., min_depth=250.)
   findExtrema(yyg, zg, psiPlot, min_depth=2000., mult=-1.)
   plt.gca().invert_yaxis()
-  objOut = args.pngdir+str(casename)+'_MOC_global.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_global.png'
+    plt.savefig(objOut)
   plt.close()
 
   if 'zl' in ds:
@@ -180,8 +183,9 @@ def main():
   plt.suptitle(casename)
   plt.xlim((-34.5,50))
   plt.gca().invert_yaxis()
-  objOut = args.pngdir+str(casename)+'_MOC_IndoPacific.png'
-  plt.savefig(objOut,format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_IndoPacific.png'
+    plt.savefig(objOut,format='png')
   plt.close()
   moc['ipmoc'].data = psiPlot
 
@@ -216,8 +220,9 @@ def main():
   findExtrema(yy, z, psiPlot)
   findExtrema(yy, z, psiPlot, min_lat=5.)
   plt.gca().invert_yaxis()
-  objOut = args.pngdir+str(casename)+'_MOC_Atlantic.png'
-  plt.savefig(objOut,format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_Atlantic.png'
+    plt.savefig(objOut,format='png')
   plt.close()
   moc['amoc'].data = psiPlot
 
@@ -232,8 +237,9 @@ def main():
   plt.grid()
   ax.set_xlabel('AMOC @ 26N [Sv]')
   ax.set_ylabel('Depth [m]')
-  objOut = args.pngdir+str(casename)+'_MOC_profile_26N.png'
-  plt.savefig(objOut,format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_profile_26N.png'
+    plt.savefig(objOut,format='png')
   plt.close(fig)
 
   # --- Vectorized time series computation ---
@@ -321,8 +327,9 @@ def main():
   plt.xlim(1948, 1958.5+len(moc.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=13, ncol=2)
-  objOut = args.pngdir+str(casename)+'_MOC_26N_time_series.png'
-  plt.savefig(objOut, format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_26N_time_series.png'
+    plt.savefig(objOut, format='png')
   plt.close(fig)
 
   # plot AMOC @ 45N
@@ -339,8 +346,9 @@ def main():
   plt.xlim(1948, 1958+len(moc.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
-  objOut = args.pngdir+str(casename)+'_MOC_45N_time_series.png'
-  plt.savefig(objOut, format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_45N_time_series.png'
+    plt.savefig(objOut, format='png')
   plt.close(fig)
 
   # Submesoscale-induced Global MOC
@@ -362,8 +370,9 @@ def main():
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(casename)
   plt.gca().invert_yaxis()
-  objOut = args.pngdir+str(casename)+'_FFH_MOC_global.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_FFH_MOC_global.png'
+    plt.savefig(objOut)
   plt.close()
   moc['moc_FFH'].data = psiPlot
 
@@ -386,8 +395,9 @@ def main():
   plt.suptitle(casename)
   plt.gca().invert_yaxis()
   findExtrema(yy, z, psiPlot, min_lat=-65., max_lat=-30, mult=-1.)
-  objOut = args.pngdir+str(casename)+'_GM_MOC_global.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_GM_MOC_global.png'
+    plt.savefig(objOut)
   plt.close()
   moc['moc_GM'].data = psiPlot
 
