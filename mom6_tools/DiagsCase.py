@@ -129,6 +129,11 @@ class DiagsCase(object,):
                            downstream code uses it as a `slice(start_date, end_date)`
                            bound, and None means an open-ended (unbounded) slice.
         end_date        : Avg['end_date'] (or None if not present). Optional; see start_date.
+        ts_start_date   : TS['start_date'] (or None if not present). Optional, This specifies
+                           the start date for time series plots, which could be different from
+                           the start_date used for time averaging (start_date). If not present,
+                           the entire record will be used (defaults to None: unbounded slice).
+        ts_end_date     : TS['end_date'] (or None if not present). Optional; see ts_start_date.
         savefigs        : Misc['savefigs'] (or False if not present). Optional.
         jobqueue_config : the 'Jobqueue' section. Required; raises ValueError if not present.
         label           : value of SNAME. Required; raises ValueError if not provided.
@@ -146,6 +151,9 @@ class DiagsCase(object,):
         avg = self.full_config.get('Avg', {})
         self.start_date = avg.get('start_date')
         self.end_date = avg.get('end_date')
+        ts = self.full_config.get('TS', {})
+        self.ts_start_date = ts.get('start_date')
+        self.ts_end_date = ts.get('end_date')
         self.savefigs = self.full_config.get('Misc', {}).get('savefigs', True)
         self.jobqueue_config = _require(self.full_config.get('Jobqueue'), 'Jobqueue')
         self.label = _require(self.get_value('SNAME'), 'Case.SNAME')

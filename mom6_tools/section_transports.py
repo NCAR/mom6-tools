@@ -20,8 +20,6 @@ def options():
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
 
-  parser.add_argument('-sd','--start_date',  type=str, default='0001-01-01',  help='''Start year to plot (default=0001-01-01)''')
-  parser.add_argument('-ed','--end_date',   type=str, default='0100-12-31', help='''Final year to plot (default=0100-12-31)''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=1, help='''Number of workers to use (default=1).''')
   parser.add_argument('-debug', help='''Add priting statements for debugging purposes''', action="store_true")
   add_jobqueue_args(parser)
@@ -61,7 +59,7 @@ class Transport():
     if label != None: self.label = label
     else: self.label = section
     self.ylim = ylim
-    if debug: print('Start date {}; End date {}'.format(args.start_date, args.end_date))
+    if debug: print('Start date {}; End date {}'.format(args.ts_start_date, args.ts_end_date))
     missing_var = True
     # loop over tiles
     for t in range(len(tiles)):
@@ -99,6 +97,12 @@ class Transport():
     if missing_var:
       raise ValueError('Variable does not exist. Please verify that you assigned the right variable for this section.')
 
+    print('Selecting data between {} and {}...'.format(args.ts_start_date, args.ts_end_date))
+    da = xr.DataArray(total, coords={'time': time}, dims=['time']).sel(
+           time=slice(args.ts_start_date, args.ts_end_date))
+    total = da.values
+    time = da['time'].values
+
     self.data = total
     self.time = time
     if args.casename != '':  self.casename = args.casename + ' ' + args.label
@@ -133,6 +137,8 @@ def main(stream=False):
   nw = args.number_of_workers
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  args.ts_start_date = dcase.ts_start_date
+  args.ts_end_date = dcase.ts_end_date
   ocn_diag_root = dcase.ocn_diag_root
   args.label = dcase.label
   args.pngdir = dcase.create_png_dir('Transports')
