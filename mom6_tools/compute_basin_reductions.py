@@ -12,9 +12,10 @@ import nbformat
 import argparse, warnings
 from datetime import datetime
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
-from mom6_tools.m6toolbox import cime_xmlquery,filter_vars_2D_tracers
+from mom6_tools.m6toolbox import filter_vars_2D_tracers
 from mom6_tools.m6toolbox import replace_cell_content
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -27,8 +28,6 @@ def parse_args():
     parser.add_argument('config_yml', type=str, help='Path to YAML configuration file.')
     parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty, it will process all 2D variables on tracer points).')
     parser.add_argument('-f', '--fname', type=str, default='native', help='Name of the history file stream (default is native)')
-    parser.add_argument('-sd', '--start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
-    parser.add_argument('-ed', '--end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
     parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
     return parser.parse_args()
 
@@ -76,15 +75,16 @@ def remove_m2_from_units(units):
     """
     return re.sub(r"\s*m-2\s*", " ", units).strip()
 
-def process_dataset(ds1, basin_code, area, output_dir, casename, dataset_label):
+def process_dataset(ds1, basin_code, area, output_dir, casename, dataset_label, ts_start_date=None, ts_end_date=None):
     """Compute area-weighted mean and integral time series for all 2D variables in the given dataset."""
 
-    start_date = str(ds1.time[0].values)
-    end_date = str(ds1.time[-1].values)
+    print(f'Selecting data between {ts_start_date} and {ts_end_date}...')
+    ds_sel = ds1.sel(time=slice(ts_start_date, ts_end_date))
+
+    start_date = str(ds_sel.time[0].values)
+    end_date = str(ds_sel.time[-1].values)
 
     print(f'Processing data from {start_date} to {end_date}')
-
-    ds_sel = ds1.sel(time=slice(start_date, end_date))
 
     print(f'Computing annual mean...')
     startTime = datetime.now()
@@ -156,20 +156,16 @@ def main():
     args = parse_args()
     variable = args.variable
     fname = args.fname
-    # Read in the yaml file
-    config = yaml.load(open(args.config_yml,'r'), Loader=yaml.Loader)
+
+    # Read in the yaml file and create the case instance
+    dcase = DiagsCase.read_diag_config(args.config_yml)
+    config = dcase.full_config
     stream = config['Fnames'][fname]
 
-    caseroot = config['Case']['CASEROOT']
-    ocn_diag_root = config['Case']['OCN_DIAG_ROOT']
-    args.casename = cime_xmlquery(caseroot, 'CASE')
-    DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-    if DOUT_S.lower() == "true":
-      OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-    else:
-      OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+    args.casename = dcase.casename
+    OUTDIR = dcase.hist_dir
+    ocn_diag_root = dcase.ocn_diag_root
 
-    print('DOUT_S:', DOUT_S)
     print('Model directory with history files is:', OUTDIR)
     print('Casename is:', args.casename)
     print('Variable is:', variable)
@@ -187,15 +183,6 @@ def main():
       area = xr.where(grd.wet == 1, grd.area_t, 0.)
     except:
       area = xr.where(grd.wet == 1, grd.areacello, 0.)
-
-    try:
-      os.makedirs(ocn_diag_root, exist_ok=True)
-    except:
-      current_path = os.getcwd()
-      proc_path = os.path.join(current_path, "proc")
-      warnings.warn(f"Directory {ocn_diag_root} could not be created. Using {proc_path} instead.", UserWarning)
-      ocn_diag_root = proc_path
-      os.makedirs(ocn_diag_root, exist_ok=True)
 
     ts_path = f"{ocn_diag_root}../notebooks/ts/"
     os.makedirs(ts_path, exist_ok=True)
@@ -245,9 +232,6 @@ def main():
     else:
       print(f'Processing {variable}')
 
-      start_date = args.start_date or config['Avg']['start_date']
-      end_date = args.end_date or config['Avg']['end_date']
-
       def preprocess(ds, variable):
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
@@ -264,7 +248,8 @@ def main():
                        )
 
       # Process variable in dataset
-      process_dataset(ds, basin_code, area, ocn_diag_root, args.casename, fname)
+      process_dataset(ds, basin_code, area, ocn_diag_root, args.casename, fname,
+                       ts_start_date=dcase.ts_start_date, ts_end_date=dcase.ts_end_date)
 
       print(f'Generating notebook for {variable}')
       long_name = ds[variable].long_name

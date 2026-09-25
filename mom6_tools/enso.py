@@ -31,10 +31,6 @@ def options():
     ''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
-                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
-                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
   parser.add_argument('-ys','--year_shift',  type=int, default='0',
@@ -62,8 +58,6 @@ def main(stream=False):
   print('Number of workers to be used:', nw)
 
   # set avg dates and other params
-  if not args.start_date : args.start_date = dcase.start_date
-  if not args.end_date : args.end_date = dcase.end_date
   args.native = dcase.get_fname('native')
   args.savefigs = dcase.savefigs
   args.label = dcase.label
@@ -93,6 +87,9 @@ def main(stream=False):
                              preprocess=preprocess).chunk({"time": 12})
 
   print('Time elasped: ', datetime.now() - startTime)
+
+  print(f'Selecting data between {dcase.ts_start_date} and {dcase.ts_end_date}...')
+  ds = ds.sel(time=slice(dcase.ts_start_date, dcase.ts_end_date))
 
   # Add the latitude, longitude, and areacello
   ds = ds.assign_coords({

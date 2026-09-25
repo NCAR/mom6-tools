@@ -550,6 +550,8 @@ def main(stream=False):
 
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  args.ts_start_date = dcase.ts_start_date
+  args.ts_end_date = dcase.ts_end_date
 
   print('Casename is:', dcase.casename)
   print('Number of workers: ', args.number_of_workers)
@@ -649,6 +651,9 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
     raise ValueError("The variable requested is not available in the history files of this simulation. \
                      Only thetao and so are available at this time.")
   ds = preprocess(ds1, var)
+
+  print(f'Selecting data between {args.ts_start_date} and {args.ts_end_date}...')
+  ds = ds.sel(time=slice(args.ts_start_date, args.ts_end_date))
 
   units = ds[var].units
 

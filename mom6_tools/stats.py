@@ -6,6 +6,7 @@ Functions used to calculate statistics.
 
 import xarray as xr
 import numpy as np
+import cftime
 import matplotlib.pyplot as plt
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.ClimoGenerator import ClimoGenerator
@@ -382,6 +383,8 @@ def main(stream=False):
 
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  args.ts_start_date = dcase.ts_start_date
+  args.ts_end_date = dcase.ts_end_date
   args.ocn_diag_root = dcase.ocn_diag_root
 
   caseroot = dcase.caseroot
@@ -498,14 +501,48 @@ def ocean_stats(args):
   for old, new in zip(header, new_header):
     df = df.rename(columns={old:new})
 
+  # load ocean.stats.nc
+  ds = xr.open_dataset(args.rundir+"/ocean.stats.nc", decode_times=False).rename({"Time" : "time"})
+
+  RUN_STARTDATE = cime_xmlquery(args.caseroot, 'RUN_STARTDATE')
+  time_units = "days since {}".format(RUN_STARTDATE)
+  calendar = "noleap"
+
+  # Convert ts_start_date/ts_end_date (calendar dates) into the same "days since
+  # RUN_STARTDATE" units used by df['Day'] and ds['time'], and apply them to each
+  # source independently *before* combining. This way, a mismatch between
+  # ocean.stats and ocean.stats.nc outside the requested window (e.g., across a
+  # restart, where the two logs can start/stop a few records apart) never matters.
+  def to_day_number(date_str):
+    if not date_str:
+      return None
+    return cftime.date2num(cftime.datetime.strptime(date_str, '%Y-%m-%d', calendar=calendar),
+                            time_units, calendar=calendar)
+
+  day_start = to_day_number(args.ts_start_date)
+  day_end = to_day_number(args.ts_end_date)
+
+  if day_start is not None or day_end is not None:
+    print(f'Selecting data between {args.ts_start_date} and {args.ts_end_date}...')
+    df = df[(df['Day'] >= (day_start if day_start is not None else -np.inf)) &
+            (df['Day'] <= (day_end if day_end is not None else np.inf))].reset_index(drop=True)
+    ds = ds.sel(time=slice(day_start, day_end))
+
+  # ocean.stats (text log) and ocean.stats.nc can still cover slightly different spans
+  # even within the requested window (e.g., across a restart the log may start later
+  # and/or lag a few unflushed records behind the .nc file), so align both sources on
+  # their actual Day/Time value rather than assuming they're already in lockstep.
+  common_days, idx_df, idx_ds = np.intersect1d(df['Day'].values, ds['time'].values, return_indices=True)
+  if len(common_days) != len(df) or len(common_days) != ds.sizes['time']:
+    print(f"WARNING: ocean.stats has {len(df)} records and ocean.stats.nc has {ds.sizes['time']}; "
+          f"aligning on {len(common_days)} overlapping Day/Time values.")
+    df = df.iloc[idx_df].reset_index(drop=True)
+    ds = ds.isel(time=idx_ds)
 
   # create dataarray and write to netCDF file
   data_vars = {}
   for var, unit in zip(new_header,units):
     data_vars.update({var:(('time'), df[var], {"units" : unit})})
-
-  # load ocean.stats.nc
-  ds = xr.open_dataset(args.rundir+"/ocean.stats.nc", decode_times=False).rename({"Time" : "time"})
 
   # variables to be added
   variables = [ 'En', 'Ntrunc','Mass', 'Mass_chg', 'Mass_anom', 'max_CFL_trans',
@@ -575,9 +612,14 @@ def extract_time_series(fname, variables, area, args, jobqueue_config=None):
   ds1 = xr.open_mfdataset(args.OUTDIR+'/'+fname, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
+
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
   ds = preprocess(ds1)
+
+  print(f'Selecting data between {args.ts_start_date} and {args.ts_end_date}...')
+  ds = ds.sel(time=slice(args.ts_start_date, args.ts_end_date))
+
   opottempmint = ds['opottempmint']
   somint = ds['somint']
   ds.drop_vars(['opottempmint','somint'])
@@ -646,10 +688,16 @@ def xystats(fname, variables, grd, basins, args, jobqueue_config=None):
   ds1 = xr.open_mfdataset(args.OUTDIR+'/'+fname, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
-  ds = preprocess(ds1)
+  ds_full = preprocess(ds1)
 
   # use datetime
-  #ds['time'] = ds.indexes['time'].to_datetimeindex()
+  #ds_full['time'] = ds_full.indexes['time'].to_datetimeindex()
+
+  print(f'Selecting data for time averages between {args.start_date} and {args.end_date}...')
+  ds_avg = ds_full.sel(time=slice(args.start_date, args.end_date))
+
+  print(f'Selecting data for time series between {args.ts_start_date} and {args.ts_end_date}...')
+  ds = ds_full.sel(time=slice(args.ts_start_date, args.ts_end_date))
 
   print('Time elasped: ', datetime.now() - startTime)
 
@@ -659,17 +707,20 @@ def xystats(fname, variables, grd, basins, args, jobqueue_config=None):
     savefig1='PNG/'+args.casename+'_'+str(var)+'_xymean.png'
     savefig2='PNG/'+args.casename+'_'+str(var)+'_stats.png'
 
-    # yearly mean
+    # time series of statistics
     ds_var = ds[var]
     stats = myStats_da(ds_var, dims=ds_var.dims[1::], weights=area, basins=basins)
     stats.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_'+str(var)+'_stats.nc')
     plot_stats_da(stats, var, ds_var.attrs['units'], save=savefig2)
-    ds_var_mean = ds_var.mean(dim='time')
+
+    # time mean
+    ds_avg_var = ds_avg[var]
+    ds_var_mean = ds_avg_var.mean(dim='time')
     ds_var_mean.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_'+str(var)+'_time_ave.nc')
     dummy = np.ma.masked_invalid(ds_var_mean.values)
     xyplot(dummy, grd.geolon.values, grd.geolat.values, area.values, save=savefig1,
            suptitle=ds_var.attrs['long_name'] +' ['+ ds_var.attrs['units']+']',
-           title='Averaged between ' +str(ds_var.time[0].values) + ' and '+ str(ds_var.time[-1].values))
+           title='Averaged between ' +str(ds_avg_var.time[0].values) + ' and '+ str(ds_avg_var.time[-1].values))
 
     plt.close()
     print('Time elasped: ', datetime.now() - startTime)

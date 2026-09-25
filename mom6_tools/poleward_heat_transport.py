@@ -107,14 +107,16 @@ def main(stream=False):
          'casename': args.casename
          }
 
+  # compute annual means first since this will also be used in the time series
   print('Computing annual means...')
   startTime = datetime.now()
-  ds = weighted_temporal_mean_vars(ds,attrs=attrs)
+  ds_ann = weighted_temporal_mean_vars(ds,attrs=attrs)
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  # Select data between the start and end dates for time mean plots
   startTime = datetime.now()
-  ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  ds_sel = ds_ann.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing time mean...')
@@ -122,25 +124,31 @@ def main(stream=False):
   ds_mean = ds_sel.mean('time').load()
   print('Time elasped: ', datetime.now() - startTime)
 
+  # Select data between the start and end dates for time series plots
+  startTime = datetime.now()
+  print('Selecting data between {} and {}...'.format(dcase.ts_start_date, dcase.ts_end_date))
+  ds_sel = ds_ann.sel(time=slice(dcase.ts_start_date, dcase.ts_end_date))
+  print('Time elasped: ', datetime.now() - startTime)
+
   print('Extracting time series (Global and Atlantic)...')
   startTime = datetime.now()
 
   # Heat Transport Time Series at the Equator (Global)
-  ds_global_eq_ts =  ds.sel(yq=0.0, method='nearest').sum('xh').drop_vars('yq')
+  ds_global_eq_ts =  ds_sel.sel(yq=0.0, method='nearest').sum('xh').drop_vars('yq')
   # Build a rename mapping
   rename_dict = {var: f"{var}_global_eq" for var in ds_global_eq_ts.data_vars}
   # Apply renaming
   ds_global_eq_ts = ds_global_eq_ts.rename(rename_dict)
 
   # Heat Transport Time Series at 60S (Global)
-  ds_global_60S_ts =  ds.sel(yq=-60.0, method='nearest').sum('xh').drop_vars('yq')
+  ds_global_60S_ts =  ds_sel.sel(yq=-60.0, method='nearest').sum('xh').drop_vars('yq')
   # Build a rename mapping
   rename_dict = {var: f"{var}_global_60S" for var in ds_global_60S_ts.data_vars}
   # Apply renaming
   ds_global_60S_ts = ds_global_60S_ts.rename(rename_dict)
 
   # Heat Transport Time Series at the Equator (Atlantic)
-  ds_atl_eq_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=0.0,
+  ds_atl_eq_ts =  (ds_sel*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=0.0,
                   method='nearest').sum('xh').drop_vars(['yq','region'])
   # Build a rename mapping
   rename_dict = {var: f"{var}_atl_eq" for var in ds_atl_eq_ts.data_vars}
@@ -148,7 +156,7 @@ def main(stream=False):
   ds_atl_eq_ts = ds_atl_eq_ts.rename(rename_dict)
 
   # Heat Transport Time Series at 26.5°N (Atlantic)
-  ds_atl_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=26.5,
+  ds_atl_ts =  (ds_sel*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=26.5,
                 method='nearest').sum('xh').drop_vars(['yq', 'region'])
   # Build a rename mapping
   rename_dict = {var: f"{var}_rapid" for var in ds_atl_ts.data_vars}
@@ -161,11 +169,11 @@ def main(stream=False):
   m_xr = xr.DataArray(
     m,
     dims=('yq', 'xh'),
-    coords={'yq': ds['yq'], 'xh': ds['xh']},
+    coords={'yq': ds_sel['yq'], 'xh': ds_sel['xh']},
   )
 
 
-  ds_atl_75N_ts =  (ds*m_xr).sel(yq=75.0, method='nearest').sum('xh').drop_vars(['yq'])
+  ds_atl_75N_ts =  (ds_sel*m_xr).sel(yq=75.0, method='nearest').sum('xh').drop_vars(['yq'])
   # Build a rename mapping
   rename_dict = {var: f"{var}_atl_75N" for var in ds_atl_75N_ts.data_vars}
   # Apply renaming
@@ -180,7 +188,9 @@ def main(stream=False):
   print('Saving time series...')
   attrs = {'description': 'Time series of poleward heat transport by components at Eq., 26.5 N and 75N (Atlantic) '
                           'and Eq. and 60S (Global).',
-                          'units': ds[varName].units, 'casename': args.casename}
+                          'units': ds[varName].units,
+                          'start_date': dcase.ts_start_date or '', 'end_date': dcase.ts_end_date or '',
+                          'casename': args.casename}
   add_global_attrs(ds_ts,attrs)
   ds_ts.to_netcdf(ocn_diag_root+'/'+args.casename+'_heat_transport_ts.nc')
 
