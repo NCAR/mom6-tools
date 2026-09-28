@@ -571,6 +571,14 @@ def genBasinMasks(x=None,y=None,depth=None,verbose=False, xda=True, basin_from_f
       raise ValueError("basin_from_file requires xda=True.")
     return xr.open_dataset(basin_from_file).to_array().squeeze(drop=True)
 
+  # Work with plain numpy arrays internally: the boolean-mask assignments below
+  # (e.g. depth[np.isnan(depth)] = 0.0, code[tmp>0] = N) raise
+  # "IndexError: 2-dimensional boolean indexing is not supported" if x/y/depth
+  # are passed in as xarray DataArrays instead of numpy arrays.
+  x = np.asarray(x)
+  y = np.asarray(y)
+  depth = np.asarray(depth)
+
   # remove Nan's, otherwise genBasinMasks won't work
   depth[np.isnan(depth)] = 0.0
 
