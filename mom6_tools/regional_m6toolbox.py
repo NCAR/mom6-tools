@@ -134,20 +134,18 @@ def save_gif(frame_paths, out_path, duration=350, loop=0, clean = False):
     return out_path
 
 
-def save_field_gif(field, out_path, subplot_kw, map_kw, figsize, land=None,
+def save_field_gif(field, frames_dir, out_path, subplot_kw, map_kw, figsize, land=None,
                    gridlines_kw=None, cmap="cmo.thermal", coastlines="10m",
                    title=None, dpi=90, duration=100, loop=0, clean=False):
     """One PNG per time record of `field`, stitched into an animated GIF.
 
-    `field` is a map-shaped DataArray with a `time` dim, already masked and
-    loaded.  `subplot_kw`, `map_kw`, `figsize`, `land` and `gridlines_kw` are the
-    notebook's SUBPLOT, MAP[...], PANEL, LAND and GRID.
-
-    The colour range is taken once over the whole field and the figure size is
-    fixed, so every frame comes out on the same scale and the same size.  Frames
-    are written beside `out_path`, and `clean` removes them once stitched.
+    This is a little clunkier than keeping everything in Jupyter or Python memory, but saving
+    out PNGs and then assembling into a GIF is much more efficient. Frames are written to
+    `frames_dir`, and `clean` removes them once stitched.
     """
     out_path = Path(out_path)
+    frames_dir = Path(frames_dir)
+    frames_dir.mkdir(parents=True, exist_ok=True)
     vmin, vmax = float(field.min()), float(field.max())
     label = field.name if title is None else title
 
@@ -161,7 +159,7 @@ def save_field_gif(field, out_path, subplot_kw, map_kw, figsize, land=None,
         if gridlines_kw is not None:
             ax.gridlines(**gridlines_kw)
         fig.suptitle(f"{label}   {str(field.time.values[i])[:10]}")
-        p = out_path.with_name(f"{out_path.stem}_frame_{i:03d}.png")
+        p = frames_dir / f"{out_path.stem}_frame_{i:03d}.png"
         fig.savefig(p, dpi=dpi)
         plt.close(fig)
         frames.append(p)
@@ -248,11 +246,6 @@ def to_t_points(seg):
 def on_boundary(obj, seg, topog):
     """Slice a t-point field (`topog` itself, or a history stream) along a segment.
 
-    Returns the row (or column) of t-cells that lies along the boundary,
-    relabelled with the segment's own `n`, `lon` and `lat` so that it can be
-    differenced against the segment directly.  (Those are the boundary-edge
-    positions; the cell centres sit half a cell inside.)
-
     `topog` is the ocean_topog dataset the OBC files were generated against,
     renamed onto the history-file dimension names; its `x`/`y` are what the
     boundary index is looked up in.
@@ -277,11 +270,7 @@ def on_boundary(obj, seg, topog):
 
 
 def mask_below_floor(seg, floor):
-    """Blank the levels of a segment that lie below the sea floor, and land points.
-
-    The OBC files carry no bathymetry: every level at every point holds a value,
-    so on a shallow shelf most of a 50-level GLORYS-derived file is extrapolated
-    fill -- small_alaska is 121 m deep but its boundary files run to 5728 m.
+    """Mask the levels of a segment that lie below the sea floor, and land points.
     """
     wet = floor["mask"] > 0
     out = seg[["temp", "salt", "u", "v"]].where(wet & (seg["depth"] < floor["depth"]))
