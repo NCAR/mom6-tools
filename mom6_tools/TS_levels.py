@@ -50,7 +50,6 @@ def driver(args):
 
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
-  diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.ocn_diag_root
   dcase.create_png_dir('TS_levels')
 
@@ -84,7 +83,7 @@ def driver(args):
   basin_code = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
 
   # load obs
-  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  catalog = intake.open_catalog(dcase.oce_cat)
   obs = catalog[args.obs].to_dask()
   obs = obs.rename({'z_l' : 'depth'});
   obs_temp = obs.thetao
