@@ -52,15 +52,12 @@ def driver(args):
   dcase.create_png_dir('Equatorial')
 
   args.casename = dcase.casename
-  OUTDIR = dcase.hist_dir
 
   # file streams
   args.monthly = dcase.get_fname('z')
   args.static = dcase.get_fname('static')
-  args.geom = dcase.get_fname('geom')
   args.label = dcase.label
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Monthly file is:', args.monthly)
   print('Static file is:', args.static)
@@ -71,7 +68,7 @@ def driver(args):
   if not args.end_date : args.end_date = dcase.end_date
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+  grd = dcase.get_grid(xrformat=True)
 
   # select Equatorial region
   grd_eq = grd.sel(yh=slice(-10,10))
@@ -107,7 +104,7 @@ def driver(args):
 #      variables.append('time_bnds')
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+args.monthly, parallel=parallel,
+  ds1 = xr.open_mfdataset(dcase.hist_dir+args.monthly, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   # use datetime

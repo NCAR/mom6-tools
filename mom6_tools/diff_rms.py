@@ -550,20 +550,13 @@ def main(stream=False):
   if not args.start_date : args.start_date = dcase.start_date
   if not args.end_date : args.end_date = dcase.end_date
 
-  args.casename = dcase.casename
-  args.static = dcase.get_fname('static')
-  args.geom = dcase.get_fname('geom')
-  args.ocn_diag_root = dcase.ocn_diag_root
-  OUTDIR = dcase.hist_dir
-
-  print('Output directory is:', OUTDIR)
   print('Casename is:', dcase.casename)
   print('Number of workers: ', args.number_of_workers)
 
   dcase.create_png_dir('Horizontal_mean_biases')
 
   # read grid
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+  grd = dcase.get_grid(xrformat=True)
 
   try:
     area = grd.area_t.where(grd.wet > 0)
@@ -585,7 +578,7 @@ def main(stream=False):
   basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
 
   # diff_rms
-  horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR,
+  horizontal_mean_diff_rms(grd, dcase, basins, args,
                            jobqueue_config=dcase.jobqueue_config)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
@@ -593,7 +586,7 @@ def main(stream=False):
   return
 
 
-def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR, jobqueue_config=None):
+def horizontal_mean_diff_rms(grd, dcase, basins, args, jobqueue_config=None):
   '''
    Compute horizontal mean difference and rms: model versus observations.
 
@@ -613,9 +606,6 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR, jobqueue_config=N
   args : object
     Object with command line options.
 
-  OUTDIR : str
-    Path to the output.
-
   Returns
   -------
     Plots horizontal mean difference and rms for different basins.
@@ -627,7 +617,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR, jobqueue_config=N
   except:
     area = grd.areacello.where(grd.wet > 0)
 
-  if args.debug: print('OUTDIR:', OUTDIR)
+  if args.debug: print('OUTDIR:', dcase.hist_dir)
 
   parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
                                           config=jobqueue_config)
@@ -640,7 +630,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR, jobqueue_config=N
   # read dataset
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel,
+  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 
@@ -729,13 +719,13 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR, jobqueue_config=N
            'obs': args.obs,
            'module': os.path.basename(__file__)}
   add_global_attrs(temp_bias,attrs)
-  temp_bias.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_temp_bias.nc')
+  temp_bias.to_netcdf(dcase.ocn_diag_root+'/'+str(dcase.casename)+'_temp_bias.nc')
   add_global_attrs(salt_bias,attrs)
-  salt_bias.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_salt_bias.nc')
+  salt_bias.to_netcdf(dcase.ocn_diag_root+'/'+str(dcase.casename)+'_salt_bias.nc')
   add_global_attrs(temp_rms,attrs)
-  temp_rms.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_temp_rms.nc')
+  temp_rms.to_netcdf(dcase.ocn_diag_root+'/'+str(dcase.casename)+'_temp_rms.nc')
   add_global_attrs(salt_rms,attrs)
-  salt_rms.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_salt_rms.nc')
+  salt_rms.to_netcdf(dcase.ocn_diag_root+'/'+str(dcase.casename)+'_salt_rms.nc')
 
   # temperature
   for reg in temp_bias.region:

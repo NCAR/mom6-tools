@@ -140,15 +140,13 @@ def main(stream=False):
   # load sections where transports are computed online
   sections = dcase.transports['sections']
   args.casename = dcase.casename
-  OUTDIR = dcase.hist_dir
 
   parallel, cluster, client = get_cluster(nw, args=args,
                                           config=dcase.jobqueue_config)
 
   args.parallel = parallel
-  args.infile = OUTDIR
+  args.infile = dcase.hist_dir
   if args.infile[-1] != '/': args.infile = args.infile+'/'
-  print('Output directory is:', args.infile)
   print('Casename is:', args.casename)
   print('Number of workers to be used (nw > 1 means parallel=True):', nw)
 

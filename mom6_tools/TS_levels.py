@@ -54,13 +54,9 @@ def driver(args):
   dcase.create_png_dir('TS_levels')
 
   args.casename = dcase.casename
-  OUTDIR = dcase.hist_dir
 
   args.monthly = dcase.get_fname('z')
-  args.static = dcase.get_fname('static')
-  args.geom = dcase.get_fname('geom')
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
   print('Reading file stream: ', args.monthly)
@@ -70,8 +66,8 @@ def driver(args):
   if not args.end_date : args.end_date = dcase.end_date
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
-  grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True);
+  grd = dcase.get_grid()
+  grd_xr = dcase.get_grid(xrformat=True);
 
   # create masks
   try:
@@ -107,7 +103,7 @@ def driver(args):
 #      variables.append('time_bnds')
     return ds[variables]
 
-  ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, \
+  ds = xr.open_mfdataset(dcase.hist_dir+'/'+args.monthly, \
          parallel=True, data_vars='minimal', \
          coords='minimal', compat='override', preprocess=preprocess)
 
