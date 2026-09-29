@@ -100,7 +100,6 @@ def main():
 
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
-  diag_config_yml = dcase.full_config
   dcase.create_png_dir('DWBC')
 
   casename = dcase.casename

@@ -550,7 +550,6 @@ def main(stream=False):
 
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
-  diag_config_yml = dcase.full_config
   args.ocn_diag_root = dcase.ocn_diag_root
 
   args.casename = dcase.casename
@@ -594,7 +593,7 @@ def main(stream=False):
   #basins = basin_code
 
   # load obs
-  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  catalog = intake.open_catalog(dcase.oce_cat)
   obs = catalog[args.obs].to_dask()[args.var]
 
   # diff_rms

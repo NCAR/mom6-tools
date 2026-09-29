@@ -39,7 +39,6 @@ def main():
 
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
-  diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.ocn_diag_root
 
   args.casename = dcase.casename
@@ -227,7 +226,7 @@ def main():
   moc['amoc'].data = psiPlot
 
   print('Plotting AMOC profile at 26N...')
-  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  catalog = intake.open_catalog(dcase.oce_cat)
   rapid_vertical = catalog["moc-rapid"].to_dask()
   fig, ax = plt.subplots(nrows=1, ncols=1)
   ax.plot(rapid_vertical.stream_function_mar.mean('time'), rapid_vertical.depth, 'k', label='RAPID')

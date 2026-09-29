@@ -133,13 +133,12 @@ def main(stream=False):
   nw = args.number_of_workers
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
-  diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.ocn_diag_root
   args.label = dcase.label
   args.pngdir = dcase.create_png_dir('Transports')
 
   # load sections where transports are computed online
-  sections = diag_config_yml['Transports']['sections']
+  sections = dcase.transports['sections']
   args.casename = dcase.casename
   OUTDIR = dcase.hist_dir
 

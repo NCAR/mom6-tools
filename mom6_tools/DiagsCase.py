@@ -131,8 +131,9 @@ class DiagsCase(object,):
         savefigs        : Misc['savefigs'] (or False if not present). Optional.
         jobqueue_config : the 'Jobqueue' section. Required; raises ValueError if not present.
         label           : value of SNAME. Required; raises ValueError if not provided.
-        ocn_diag_root   : output directory, created via create_output_dir() (OCN_DIAG_ROOT
-                           is therefore required).
+        ocn_diag_root   : path to diagnostic output. Required.
+        oce_cat         : path to the ocean catalog file for observational datasets.
+        transports      : sections for calculating volume/mass transports. Optional.
         """
 
         def _require(value, name):
@@ -148,6 +149,8 @@ class DiagsCase(object,):
         self.jobqueue_config = _require(self.full_config.get('Jobqueue'), 'Jobqueue')
         self.label = _require(self.get_value('SNAME'), 'Case.SNAME')
         self.ocn_diag_root = self.create_output_dir()
+        self.oce_cat = self.full_config.get('oce_cat')
+        self.transports = self.full_config.get('Transports', {})
 
     def get_fname(self, key):
         """Returns the history file name pattern for a given stream, i.e.
