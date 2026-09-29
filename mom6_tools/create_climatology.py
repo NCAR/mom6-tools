@@ -10,8 +10,9 @@ import subprocess
 import argparse, warnings
 from datetime import datetime
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
-from mom6_tools.m6toolbox import cime_xmlquery, filter_vars, replace_cell_content
+from mom6_tools.m6toolbox import filter_vars, replace_cell_content
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -20,7 +21,6 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Create monthly climatology and averages for datasets.')
     parser.add_argument('config_yml', type=str, help='Path to YAML configuration file.')
     parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty).')
-    parser.add_argument('-s', '--stream', type=str, default='.mom6.h.z.????-??.nc', help='History file stream (default is .mom6.h.z.????-??.nc)')
     parser.add_argument('-f', '--fname', type=str, default='z', help='Name of the history file stream (default is z)')
     parser.add_argument('-sd', '--start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
     parser.add_argument('-ed', '--end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
@@ -28,7 +28,7 @@ def parse_args():
     return parser.parse_args()
 
 # Function to submit PBS script for each variable
-def submit_pbs_script(var, stream, fname):
+def submit_pbs_script(var, fname):
     """Create and submit a PBS script for generating climatology."""
     pbs_script = textwrap.dedent(f"""\
     #!/bin/bash
@@ -43,7 +43,7 @@ def submit_pbs_script(var, stream, fname):
     module load conda
     conda activate mom6-tools
 
-    mom6-tools_create_climatology diag_config.yml -v {var} -s {stream} -f {fname}
+    mom6-tools_create_climatology diag_config.yml -v {var} -f {fname}
     """)
 
     # Create the directory if it does not exist
@@ -121,37 +121,18 @@ def main():
 
     args = parse_args()
     variable = args.variable
-    stream = args.stream
     fname = args.fname
-    # Read in the yaml file
-    config = yaml.load(open(args.config_yml,'r'), Loader=yaml.Loader)
 
-    caseroot = config['Case']['CASEROOT']
-    ocn_diag_root = config['Case']['OCN_DIAG_ROOT']
-    ocn_diag_root = os.path.join(ocn_diag_root, "climo/")
-    args.casename = cime_xmlquery(caseroot, 'CASE')
-    args.geom = args.casename+config['Fnames']['geom']
-    args.static = args.casename+config['Fnames']['static']
-    DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-    if DOUT_S.lower() == "true":
-      OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-    else:
-      OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+    # Read in the yaml file and create the case instance
+    dcase = DiagsCase.read_diag_config(args.config_yml)
+    stream = dcase.get_fname(fname)
 
-    print('DOUT_S:', DOUT_S)
-    print('Model directory with history files is:', OUTDIR)
+    args.casename = dcase.casename
+    ocn_diag_root = dcase.create_output_dir('climo') + '/'
+
     print('Casename is:', args.casename)
     print('Variable is:', variable)
     print('Stream is:', stream)
-
-    try:
-      os.makedirs(ocn_diag_root, exist_ok=True)
-    except:
-      current_path = os.getcwd()
-      proc_path = os.path.join(current_path, "proc")
-      warnings.warn(f"Directory {ocn_diag_root} could not be created. Using {proc_path} instead.", UserWarning)
-      ocn_diag_root = proc_path
-      os.makedirs(ocn_diag_root, exist_ok=True)
 
     climo_path = f"{ocn_diag_root}../../notebooks/climo_{fname}/"
     os.makedirs(climo_path, exist_ok=True)
@@ -160,7 +141,7 @@ def main():
       print("The variable is an empty string. Processing all variables in {}".format(stream))
 
       # Select all files that contain 'native' in their name
-      file = glob.glob(os.path.join(OUTDIR, args.casename+stream))[0]
+      file = glob.glob(os.path.join(dcase.hist_dir, stream))[0]
 
       if args.debug:
         print(f'file: {file}')
@@ -194,13 +175,13 @@ def main():
       # Loop over the variables in the dataset and submit a PBS job for each
       for var in ds_file.data_vars:
         # Submit a PBS script for the variable
-        submit_pbs_script(var, stream, fname)
+        submit_pbs_script(var, fname)
 
     else:
       print("The variable is not an empty string.")
 
-      start_date = args.start_date or config['Avg']['start_date']
-      end_date = args.end_date or config['Avg']['end_date']
+      start_date = args.start_date or dcase.start_date
+      end_date = args.end_date or dcase.end_date
 
       print(f'Processing data from {start_date} to {end_date}')
 
@@ -208,7 +189,7 @@ def main():
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
 
-      files = os.path.join(OUTDIR, args.casename+stream)
+      files = os.path.join(dcase.hist_dir, stream)
       ds = xr.open_mfdataset(files,
                        parallel=True,
                        combine="nested",
@@ -220,7 +201,7 @@ def main():
                        )
 
       # read grid info
-      grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+      grd_xr = dcase.get_grid(xrformat=True)
 
       # Process variable in dataset
       process_dataset(ds, grd_xr, start_date, end_date, ocn_diag_root, args.casename, fname)

@@ -13,6 +13,7 @@ from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.DiagsCase import DiagsCase
 
 class MyError(Exception):
   """
@@ -54,9 +55,6 @@ def parseCommandLine():
   parser.add_argument('-year_end', type=int, default=100,
       help='''End year to compute averages. Default is 100.''')
 
-  parser.add_argument('-to_netcdf', help='''Save data into a netCDF file.''',
-      action="store_true")
-
   parser.add_argument('-savefigs', help='''Save figures in a PNG format.''',
       action="store_true")
 
@@ -73,33 +71,22 @@ def parseCommandLine():
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
 def driver(args):
-  os.makedirs('PNG', exist_ok=True)
-  os.makedirs('ncfiles', exist_ok=True)
-
-  # Read in the yaml file
+  # Read in the yaml file and create the case instance
   diag_config_yml_path = "diag_config.yml"
-  diag_config_yml = yaml.load(open(diag_config_yml_path,'r'), Loader=yaml.Loader)
+  dcase = DiagsCase.read_diag_config(diag_config_yml_path)
+  dcase.create_png_dir()
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  casename = dcase.casename
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', casename)
 
-  args.static = casename+diag_config_yml['Fnames']['static']
-  args.geom =   casename+diag_config_yml['Fnames']['geom']
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  grd = dcase.get_grid()
 
   variables = args.variables.split(',')
   time_mean_latlon(args, grd, variables,
-                   jobqueue_config=diag_config_yml.get('Jobqueue'))
+                   jobqueue_config=dcase.jobqueue_config)
 
   return
 
@@ -124,6 +111,7 @@ def plot_area_ave_stats(ds, var, args, aspect=[16,9], resolution=576, debug=Fals
     plt.savefig('PNG/%s_stats.png'%(var))
   else:
     plt.show()
+  plt.close(f)
 
   return
 

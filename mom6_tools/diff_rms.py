@@ -544,33 +544,19 @@ def main(stream=False):
   # Get options
   args = options()
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path, xrformat=True)
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
-  # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'], xrformat=True)
-  args.casename = dcase.casename
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.ocn_diag_root = dcase.create_output_dir()
-  DOUT_S = dcase.get_value('DOUT_S')
-  if DOUT_S:
-    OUTDIR = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = dcase.get_value('RUNDIR')
-
-  print('Output directory is:', OUTDIR)
   print('Casename is:', dcase.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  os.makedirs('PNG/Horizontal_mean_biases', exist_ok=True)
+  dcase.create_png_dir('Horizontal_mean_biases')
 
   # read grid
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+  grd = dcase.get_grid(xrformat=True)
 
   try:
     area = grd.area_t.where(grd.wet > 0)
@@ -592,15 +578,15 @@ def main(stream=False):
   basins = basin_code.isel(region=[0,4,5,6,7,8,9,10,11,12,13])
 
   # diff_rms
-  horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR,
-                           jobqueue_config=diag_config_yml.get('Jobqueue'))
+  horizontal_mean_diff_rms(grd, dcase, basins, args,
+                           jobqueue_config=dcase.jobqueue_config)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
   return
 
 
-def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR, jobqueue_config=None):
+def horizontal_mean_diff_rms(grd, dcase, basins, args, jobqueue_config=None):
   '''
    Compute horizontal mean difference and rms: model versus observations.
 
@@ -620,9 +606,6 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR, jobqueue_config=N
   args : object
     Object with command line options.
 
-  OUTDIR : str
-    Path to the output.
-
   Returns
   -------
     Plots horizontal mean difference and rms for different basins.
@@ -634,7 +617,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR, jobqueue_config=N
   except:
     area = grd.areacello.where(grd.wet > 0)
 
-  if args.debug: print('OUTDIR:', OUTDIR)
+  if args.debug: print('OUTDIR:', dcase.hist_dir)
 
   parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
                                           config=jobqueue_config)
@@ -647,7 +630,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR, jobqueue_config=N
   # read dataset
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel,
+  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 
@@ -736,13 +719,13 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, OUTDIR, jobqueue_config=N
            'obs': args.obs,
            'module': os.path.basename(__file__)}
   add_global_attrs(temp_bias,attrs)
-  temp_bias.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_temp_bias.nc')
+  temp_bias.to_netcdf(dcase.ocn_diag_root+'/'+str(dcase.casename)+'_temp_bias.nc')
   add_global_attrs(salt_bias,attrs)
-  salt_bias.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_salt_bias.nc')
+  salt_bias.to_netcdf(dcase.ocn_diag_root+'/'+str(dcase.casename)+'_salt_bias.nc')
   add_global_attrs(temp_rms,attrs)
-  temp_rms.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_temp_rms.nc')
+  temp_rms.to_netcdf(dcase.ocn_diag_root+'/'+str(dcase.casename)+'_temp_rms.nc')
   add_global_attrs(salt_rms,attrs)
-  salt_rms.to_netcdf(args.ocn_diag_root+'/'+str(dcase.casename)+'_salt_rms.nc')
+  salt_rms.to_netcdf(dcase.ocn_diag_root+'/'+str(dcase.casename)+'_salt_rms.nc')
 
   # temperature
   for reg in temp_bias.region:

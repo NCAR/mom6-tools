@@ -36,41 +36,27 @@ def main(stream=False):
   # Get options
   args = options()
   nw = args.number_of_workers
-  
-  os.makedirs('PNG/HT', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  ocn_diag_root = dcase.ocn_diag_root
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  args.casename = dcase.casename
 
   variables = ['T_ady_2d', 'T_diffy_2d', 'T_hbd_diffy_2d']
-  args.savefigs = True; args.outdir = 'PNG/HT'
-  print('Output directory is:', OUTDIR)
+  args.savefigs = dcase.savefigs; args.pngdir = dcase.create_png_dir('HT')
   print('Casename is:', args.casename)
   #print('Variables to be processed:', args.variables)
   print('Variables to be processed:', variables)
   print('Number of workers to be used:', nw)
 
   # set avg dates and other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-  args.native = args.casename+diag_config_yml['Fnames']['native']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.savefigs = False
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
+  args.native = dcase.get_fname('native')
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  grd = dcase.get_grid()
   
   try:
     depth = grd.depth_ocean
@@ -83,7 +69,7 @@ def main(stream=False):
   basin_code_xr = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading dataset...')
   startTime = datetime.now()
@@ -102,7 +88,7 @@ def main(stream=False):
         ds = xr.merge([ds, da])
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, parallel=parallel,
+  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+args.native, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 
@@ -303,7 +289,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   if hbd is None: annotatePlot('Warning: LBD component of transport is missing.')
 
   if args.savefigs:
-    objOut = args.outdir+'/'+args.casename+'_HeatTransport_global.png'
+    objOut = args.pngdir+'/'+args.casename+'_HeatTransport_global.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()
@@ -330,7 +316,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   if diffusive is None: annotatePlot('Warning: Diffusive component of transport is missing.')
   if hbd is None: annotatePlot('Warning: LBD component of transport is missing.')
   if args.savefigs:
-    objOut = args.outdir+'/'+args.casename+'_HeatTransport_Atlantic.png'
+    objOut = args.pngdir+'/'+args.casename+'_HeatTransport_Atlantic.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()
@@ -357,7 +343,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   plt.suptitle(suptitle)
   plt.legend(loc=0,fontsize=10)
   if args.savefigs:
-    objOut = args.outdir+'/'+args.casename+'_HeatTransport_IndoPacific.png'
+    objOut = args.pngdir+'/'+args.casename+'_HeatTransport_IndoPacific.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()

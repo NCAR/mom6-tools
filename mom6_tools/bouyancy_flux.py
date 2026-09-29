@@ -55,30 +55,22 @@ def driver(args):
   rho_0 = args.mean_density
   c_p = args.heat_capacity
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-
-  # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
-  RUNDIR = dcase.get_value('RUNDIR')
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  ocn_diag_root = dcase.ocn_diag_root
   args.casename = dcase.casename
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  print('Run directory is:', RUNDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   # read grid info
-  grd = MOM6grid(RUNDIR+'/'+args.static, RUNDIR+'/'+args.geom)
+  grd = dcase.get_grid()
 
   parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading {} dataset...'.format(args.file_name))
   startTime = datetime.now()
@@ -88,7 +80,7 @@ def driver(args):
     variables = ['hfds','PRCmE', 'time_bnds']
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, parallel=parallel)
+  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+dcase.casename+fname, parallel=parallel)
 
   ds1 = preprocess1(ds1)
 
@@ -97,7 +89,7 @@ def driver(args):
     variables = ['tos', 'sos', 'time_bnds']
     return ds[variables]
 
-  ds2 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
+  ds2 = xr.open_mfdataset(dcase.hist_dir+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
 
   ds2 = preprocess2(ds2)
 
@@ -130,7 +122,7 @@ def driver(args):
   BFW = beta * state.sos * frc.PRCmE * g * 1.0e-3
 
   print('\n Plotting...')
-  os.makedirs('PNG/BFLUX', exist_ok=True)
+  dcase.create_png_dir('BFLUX')
 
   bhf_val = np.ma.masked_invalid(BHF.values*1.0e8)
   bfw_val = np.ma.masked_invalid(BFW.values*1.0e8)

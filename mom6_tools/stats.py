@@ -380,40 +380,28 @@ def main(stream=False):
   if not args.ocean_stats and not args.surface and not args.forcing and not args.time_series:
     raise ValueError("Please select -ocean_stats, -time_series, -surface and/or -forcing.")
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  args.ocn_diag_root = dcase.create_output_dir()
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  args.ocn_diag_root = dcase.ocn_diag_root
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  # Create the case instance
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')
-
+  caseroot = dcase.caseroot
+  args.casename = dcase.casename
 
   # set avg dates and other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.native = args.casename+diag_config_yml['Fnames']['native']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
+  args.native = dcase.get_fname('native')
   args.rundir = cime_xmlquery(caseroot, 'RUNDIR')
   args.caseroot = caseroot
-  args.OUTDIR = OUTDIR
+  args.OUTDIR = dcase.hist_dir
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', args.nw)
 
-  os.makedirs('PNG/Horizontal_mean_biases', exist_ok=True)
+  dcase.create_png_dir('Horizontal_mean_biases')
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+  grd = dcase.get_grid(xrformat=True)
   
   try:
     area = grd.area_t.where(grd.wet > 0)
@@ -441,18 +429,18 @@ def main(stream=False):
     #variables = ['SSH','tos','sos','mlotst','oml','speed', 'SSU', 'SSV']
     variables = ['SSH','tos','sos','mlotst','oml','speed']
     xystats(args.native, variables, grd, basins, args,
-            jobqueue_config=diag_config_yml.get('Jobqueue'))
+            jobqueue_config=dcase.jobqueue_config)
 
   if args.forcing:
     variables = ['friver','ficeberg','fsitherm','hfsnthermds','sfdsi', 'hflso',
              'seaice_melt_heat', 'wfo', 'hfds', 'Heat_PmE']
     xystats(args.native, variables, grd, basins, args,
-            jobqueue_config=diag_config_yml.get('Jobqueue'))
+            jobqueue_config=dcase.jobqueue_config)
 
   if args.time_series:
     variables = ['thetaoga','soga','opottempmint','somint']
     _ds = extract_time_series(args.native, variables, area, args,
-                              jobqueue_config=diag_config_yml.get('Jobqueue'))
+                              jobqueue_config=dcase.jobqueue_config)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 

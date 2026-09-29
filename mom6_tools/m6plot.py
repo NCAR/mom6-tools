@@ -370,7 +370,7 @@ def polarcomparison(field1, field2, grd, proj='SP', circle=True,
   if save is not None: plt.savefig(save,bbox_inches='tight')
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
-
+  plt.close(fig)
 
   return
 
@@ -506,10 +506,12 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   else:
     cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
 
+  own_fig = None
   if axis is None:
     setFigureSize(aspect, resolution, debug=debug)
     #plt.gcf().subplots_adjust(left=.08, right=.99, wspace=0, bottom=.09, top=.9, hspace=0)
     axis = plt.gca(projection=proj)
+    own_fig = plt.gcf()
 
   axis.set_extent(extent, ccrs.PlateCarree())
   axis.add_feature(cartopy.feature.LAND)
@@ -545,6 +547,7 @@ def polarplot(field, grd, proj='SP', contour=None, circle=True,
   if save is not None: plt.savefig(save)
   if show: plt.show(block=False)
   plt.tight_layout()
+  if own_fig is not None: plt.close(own_fig)
 
   return
 
@@ -613,10 +616,12 @@ def xyplot(field, x=None, y=None, area=None,
   else:
     cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend, logscale=logscale)
 
+  own_fig = None
   if axis is None:
     setFigureSize(aspect, resolution, debug=debug)
     #plt.gcf().subplots_adjust(left=.08, right=.99, wspace=0, bottom=.09, top=.9, hspace=0)
     axis = plt.gca()
+    own_fig = plt.gcf()
   cs = axis.pcolormesh(xCoord, yCoord, maskedField, cmap=cmap, norm=norm)
   if interactive: addStatusBar(xCoord, yCoord, maskedField)
   if add_cbar: cb = plt.colorbar(cs, ax=axis, fraction=.08, pad=0.02, extend=extend)
@@ -636,9 +641,10 @@ def xyplot(field, x=None, y=None, area=None,
   if len(title)>0: axis.set_title(title)
   if len(suptitle)>0: plt.suptitle(suptitle)
 
-  if save is not None: plt.savefig(save); plt.close()
+  if save is not None: plt.savefig(save)
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
+  if own_fig is not None: plt.close(own_fig)
   if add_cbar:
     return
   else:
@@ -739,8 +745,10 @@ def xycompare(field1, field2, x=None, y=None, area=None,
 
   if addplabel: preTitleA = 'A: '; preTitleB = 'B: '
   else: preTitleA = ''; preTitleB = ''
+  own_fig = None
   if axis is None:
     setFigureSize(aspect, resolution, npanels=npanels, debug=debug)
+    own_fig = plt.gcf()
 
   if npanels in [2,3]:
     if axis is not None:
@@ -843,6 +851,7 @@ def xycompare(field1, field2, x=None, y=None, area=None,
   if save is not None: plt.savefig(save,bbox_inches='tight')
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
+  if own_fig is not None: plt.close(own_fig)
 
   return
 
@@ -924,10 +933,12 @@ def yzplot(field, y=None, z=None,
   if colormap is None: colormap = chooseColorMap(sMin, sMax)
   cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend)
 
+  own_fig = None
   if axis is None:
     setFigureSize(aspect, resolution, debug=debug)
     #plt.gcf().subplots_adjust(left=.10, right=.99, wspace=0, bottom=.09, top=.9, hspace=0)
     axis = plt.gca()
+    own_fig = plt.gcf()
 
   cs = axis.pcolormesh(yCoord, zCoord, field2, cmap=cmap, norm=norm)
   if interactive: addStatusBar(yCoord, zCoord, field2)
@@ -953,6 +964,7 @@ def yzplot(field, y=None, z=None,
   if save is not None: plt.savefig(save)
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
+  if own_fig is not None: plt.close(own_fig)
 
 def yzcompare(field1, field2, y=None, z=None,
   ylabel=None, yunits=None, zlabel=None, zunits=None,
@@ -1045,9 +1057,11 @@ def yzcompare(field1, field2, y=None, z=None,
   if addplabel: preTitleA = 'A: '; preTitleB = 'B: '
   else: preTitleA = ''; preTitleB = ''
 
+  own_fig = None
   if axis is None:
     setFigureSize(aspect, resolution, npanels=npanels, debug=debug)
     #plt.gcf().subplots_adjust(left=.13, right=.94, wspace=0, bottom=.05, top=.94, hspace=0.15)
+    own_fig = plt.gcf()
 
   if npanels in [2, 3]:
     axis = plt.subplot(npanels,1,1)
@@ -1120,6 +1134,7 @@ def yzcompare(field1, field2, y=None, z=None,
   if save is not None: plt.savefig(save)
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
+  if own_fig is not None: plt.close(own_fig)
 
 def ztplot(field, t=None, z=None,
   tlabel=None, tunits=None, zlabel=None, zunits=None,
@@ -1183,10 +1198,12 @@ def ztplot(field, t=None, z=None,
   if colormap is None: colormap = chooseColorMap(sMin, sMax)
   cmap, norm, extend = chooseColorLevels(sMin, sMax, colormap, clim=clim, nbins=nbins, extend=extend, autocenter=autocenter)
 
+  own_fig = None
   if axis is None:
     setFigureSize(aspect, resolution, debug=debug)
     #plt.gcf().subplots_adjust(left=.10, right=.99, wspace=0, bottom=.09, top=.9, hspace=0)
     axis = plt.gca()
+    own_fig = plt.gcf()
 
   cs = axis.pcolormesh(tCoord, zCoord, field2, cmap=cmap, norm=norm)
   if interactive: addStatusBar(tCoord, zCoord, field2)
@@ -1219,6 +1236,7 @@ def ztplot(field, t=None, z=None,
   if save is not None: plt.savefig(save)
   if interactive: addInteractiveCallbacks()
   if show: plt.show(block=False)
+  if own_fig is not None: plt.close(own_fig)
   if add_cbar:
     return
   else:
