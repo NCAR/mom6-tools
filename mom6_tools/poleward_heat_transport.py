@@ -42,11 +42,9 @@ def main(stream=False):
   ocn_diag_root = dcase.ocn_diag_root
 
   args.casename = dcase.casename
-  OUTDIR = dcase.hist_dir
 
   variables = ['T_ady_2d', 'T_diffy_2d', 'T_hbd_diffy_2d']
   args.savefigs = dcase.savefigs; args.pngdir = dcase.create_png_dir('HT')
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   #print('Variables to be processed:', args.variables)
   print('Variables to be processed:', variables)
@@ -56,11 +54,9 @@ def main(stream=False):
   if not args.start_date : args.start_date = dcase.start_date
   if not args.end_date : args.end_date = dcase.end_date
   args.native = dcase.get_fname('native')
-  args.static = dcase.get_fname('static')
-  args.geom = dcase.get_fname('geom')
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  grd = dcase.get_grid()
   
   try:
     depth = grd.depth_ocean
@@ -92,7 +88,7 @@ def main(stream=False):
         ds = xr.merge([ds, da])
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, parallel=parallel,
+  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+args.native, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 

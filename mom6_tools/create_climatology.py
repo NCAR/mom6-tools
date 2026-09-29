@@ -128,12 +128,8 @@ def main():
     stream = dcase.get_fname(fname)
 
     args.casename = dcase.casename
-    OUTDIR = dcase.hist_dir
     ocn_diag_root = dcase.create_output_dir('climo') + '/'
-    args.geom = dcase.get_fname('geom')
-    args.static = dcase.get_fname('static')
 
-    print('Model directory with history files is:', OUTDIR)
     print('Casename is:', args.casename)
     print('Variable is:', variable)
     print('Stream is:', stream)
@@ -145,7 +141,7 @@ def main():
       print("The variable is an empty string. Processing all variables in {}".format(stream))
 
       # Select all files that contain 'native' in their name
-      file = glob.glob(os.path.join(OUTDIR, stream))[0]
+      file = glob.glob(os.path.join(dcase.hist_dir, stream))[0]
 
       if args.debug:
         print(f'file: {file}')
@@ -193,7 +189,7 @@ def main():
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
 
-      files = os.path.join(OUTDIR, stream)
+      files = os.path.join(dcase.hist_dir, stream)
       ds = xr.open_mfdataset(files,
                        parallel=True,
                        combine="nested",
@@ -205,7 +201,7 @@ def main():
                        )
 
       # read grid info
-      grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+      grd_xr = dcase.get_grid(xrformat=True)
 
       # Process variable in dataset
       process_dataset(ds, grd_xr, start_date, end_date, ocn_diag_root, args.casename, fname)

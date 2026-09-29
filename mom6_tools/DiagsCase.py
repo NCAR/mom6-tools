@@ -31,13 +31,15 @@ class DiagsCase(object,):
     hist_dir
         Directory containing MOM6 history (output) files, read from -- distinct
         from ocn_diag_root, which is written to
-    grid
-        MOM6grid instance
 
     Methods
     -------
     get_value(var)
         Returns the value of a variable defined in yaml config file.
+    get_fname(key)
+        Returns the history file name pattern for a given stream.
+    get_grid(xrformat)
+        Returns a MOM6grid instance built from this case's static and geom files.
     create_png_dir(subdir)
         Creates and returns the directory used for PNG figures (independent of OCN_DIAG_ROOT).
     stage_dset(fields)
@@ -69,7 +71,6 @@ class DiagsCase(object,):
         """
 
         self._config = case_config
-        self._grid = None
         self._casename = None
         self._hist_dir = None
         self.diag_files = None
@@ -167,6 +168,21 @@ class DiagsCase(object,):
             raise KeyError(f"'{key}' not found in the Fnames section of diag_config.yml")
         return self.casename + fnames[key]
 
+    def get_grid(self, xrformat=None):
+        """Returns a MOM6grid instance built from this case's static and geom files.
+
+        Parameters
+        ----------
+        xrformat : boolean, optional
+            If provided, overrides self.xrformat for this call (e.g. to get both
+            an object-with-numpy-arrays grid and an xarray-Dataset grid from the
+            same case).
+        """
+        static_file = os.path.join(self.hist_dir, self.get_fname('static'))
+        geom_file = os.path.join(self.hist_dir, self.get_fname('geom'))
+        return MOM6grid(static_file, geom_file,
+                         xrformat=self.xrformat if xrformat is None else xrformat)
+
     # William Xu: CIMEROOT is no longer used; commenting this section out.
     # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None
     #@property
@@ -213,6 +229,7 @@ class DiagsCase(object,):
                 self._hist_dir = cime_xmlquery(caseroot, 'DOUT_S_ROOT') + '/ocn/hist/'
             else:
                 self._hist_dir = cime_xmlquery(caseroot, 'RUNDIR')
+            print('Output directory is:', self._hist_dir)
         return self._hist_dir
 
     def get_value(self, var):
@@ -423,26 +440,6 @@ class DiagsCase(object,):
         assert len(all_matched_files)>0, f"Cannot find any history files including {fields}"
 
         return all_matched_files
-
-    # William Xu: I'm not seeing this being used anywhere, so I'm commenting it out instead of fixing it for now.
-    # The file names for *static.nc and *ocean_geometry.nc should be read from diag_config.yml, instead of hard-coded.
-    # def _generate_grid(self):
-    #     dout_s = dcase.get_value('DOUT_S')
-    #     if dout_s:
-    #       outdir = dcase.get_value('DOUT_S_ROOT')+'/ocn/hist/'
-    #     else:
-    #       outdir = dcase.get_value('RUNDIR')
-    #     static_file_path = os.path.join(outdir, f"{self.casename}.mom6.static.nc")
-    #     geom_file_path = os.path.join(outdir, f"{self.casename}.mom6.ocean_geometry.nc")
-    #     self._grid = MOM6grid(static_file_path, geom_file_path, self.xrformat)
-
-    # @property
-    # def grid(self):
-    #     """ MOM6grid instance """
-    #     if not self._grid:
-    #         self._generate_grid()
-    #     return self._grid
-
 
     def stage_dset(self, fields:list):
         """ Generates a dataset containing the given fields for the entire

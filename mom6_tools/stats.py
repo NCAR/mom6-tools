@@ -386,27 +386,22 @@ def main(stream=False):
 
   caseroot = dcase.caseroot
   args.casename = dcase.casename
-  OUTDIR = dcase.hist_dir
-
 
   # set avg dates and other params
   if not args.start_date : args.start_date = dcase.start_date
   if not args.end_date : args.end_date = dcase.end_date
-  args.static = dcase.get_fname('static')
   args.native = dcase.get_fname('native')
-  args.geom = dcase.get_fname('geom')
   args.rundir = cime_xmlquery(caseroot, 'RUNDIR')
   args.caseroot = caseroot
-  args.OUTDIR = OUTDIR
+  args.OUTDIR = dcase.hist_dir
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', args.nw)
 
   dcase.create_png_dir('Horizontal_mean_biases')
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+  grd = dcase.get_grid(xrformat=True)
   
   try:
     area = grd.area_t.where(grd.wet > 0)

@@ -46,12 +46,10 @@ def main():
   ocn_diag_root = dcase.ocn_diag_root
 
   args.casename = dcase.casename
-  OUTDIR = dcase.hist_dir
 
   args.savefigs = dcase.savefigs;
   if args.savefigs:
     args.pngdir = dcase.create_png_dir('MOC') + '/'
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
 
@@ -61,13 +59,11 @@ def main():
 
   # file names are provided via yaml
   args.sigma2 = dcase.get_fname('rho2')
-  args.static = dcase.get_fname('static')
-  args.geom = dcase.get_fname('geom')
   args.label = dcase.label
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
-  grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+  grd = dcase.get_grid()
+  grd_xr = dcase.get_grid(xrformat=True)
 
   try:
     depth = grd.depth_ocean
@@ -104,7 +100,7 @@ def main():
         ds[v] = xr.zeros_like(ds.vo)
     return ds[variables]
 
-  ds = xr.open_mfdataset(OUTDIR+'/'+args.sigma2, parallel=parallel, preprocess=preprocess)
+  ds = xr.open_mfdataset(dcase.hist_dir+'/'+args.sigma2, parallel=parallel, preprocess=preprocess)
 
   print('Time elasped: ', datetime.now() - startTime)
 

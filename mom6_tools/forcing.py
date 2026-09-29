@@ -44,12 +44,8 @@ def driver(args):
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   ocn_diag_root = dcase.ocn_diag_root
-  OUTDIR = dcase.hist_dir
 
   args.casename = dcase.casename
-  args.static = dcase.get_fname('static')
-  args.geom = dcase.get_fname('geom')
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
@@ -58,7 +54,7 @@ def driver(args):
   if not args.end_date : args.end_date = dcase.end_date
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  grd = dcase.get_grid()
 
   parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
                                           config=dcase.jobqueue_config)
@@ -67,7 +63,7 @@ def driver(args):
   startTime = datetime.now()
 
 
-  ds = xr.open_mfdataset(OUTDIR+'/'+dcase.casename+'.mom6.frc_*.nc', parallel=parallel)
+  ds = xr.open_mfdataset(dcase.hist_dir+'/'+dcase.casename+'.mom6.frc_*.nc', parallel=parallel)
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
 

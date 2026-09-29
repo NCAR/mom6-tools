@@ -53,9 +53,7 @@ def main(stream=False):
   ocn_diag_root = dcase.ocn_diag_root
 
   args.casename = dcase.casename
-  OUTDIR = dcase.hist_dir
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
 
@@ -63,14 +61,12 @@ def main(stream=False):
   if not args.start_date : args.start_date = dcase.start_date
   if not args.end_date : args.end_date = dcase.end_date
   args.monthly = dcase.get_fname('z')
-  args.static = dcase.get_fname('static')
-  args.geom = dcase.get_fname('geom')
   args.savefigs = dcase.savefigs
   args.label = dcase.label
   args.pngdir = dcase.create_png_dir('AAIW_PV') + '/'
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+  grd = dcase.get_grid(xrformat=True)
 
   try:
     depth = grd.depth_ocean
@@ -91,7 +87,7 @@ def main(stream=False):
   print('Reading dataset...')
   startTime = datetime.now()
 
-  ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel, \
+  ds = xr.open_mfdataset(dcase.hist_dir+'/'+args.monthly, parallel=parallel, \
                              combine="nested", concat_dim="time", \
                              preprocess=preprocess,use_cftime=True).chunk({"time": 12})
 
