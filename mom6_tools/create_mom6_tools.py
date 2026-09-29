@@ -5,15 +5,17 @@ Create directory and template yaml file for a new case to be processed using mom
 '''
 import os, yaml
 from mom6_tools.DiagsCase import DiagsCase
+from mom6_tools.m6toolbox import cime_xmlquery
 
 def options():
   try: import argparse
   except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
   parser = argparse.ArgumentParser(description='''Create a new case to be processed using mom6_tools.''')
   parser.add_argument('caseroot', type=str, help='''Path to the CASEROOT''')
-  parser.add_argument('--cimeroot', type=str, default='/glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04d_mom6/cime',
-                     help='''Path to the CIME root used in this experiment. Default is
-                     /glade/work/gmarques/cesm.sandboxes/cesm2_2_alpha04b_mom6/cime''')
+  parser.add_argument('shortname', type=str, help='''A short name describing the experiment''')
+  parser.add_argument('--ocn_diag_root', type=str, default=None,
+                     help='''Path to store diagnostics output. Default is
+                     <current directory>/<casename>/ncfiles/''')
   parser.add_argument('-sd','--start_date', type=str, default='0038-01-01',
                       help='''Start year to compute averages. Default 0038-01-01''')
   parser.add_argument('-ed','--end_date', type=str, default='0059-01-01',
@@ -30,12 +32,17 @@ def main():
   # construct a dict with essential info
   case_config = {'Avg' : {'start_date' : args.start_date,
                           'end_date' : args.end_date}}
+  casename = os.path.basename(os.path.normpath(args.caseroot))
+  ocn_diag_root = args.ocn_diag_root or os.path.join(os.getcwd(), casename, 'ncfiles')
   case_config['Case'] = {'CASEROOT': args.caseroot,
-                         'CIMEROOT': args.cimeroot}
+                         'SNAME': args.shortname,
+                         'OCN_DIAG_ROOT': ocn_diag_root}
 
   # Create the case instance
   dcase = DiagsCase(case_config['Case'])
-  RUNDIR = dcase.get_value('RUNDIR')
+  ocn_diag_root = dcase.ocn_diag_root
+  case_config['Case'].update({'OCN_DIAG_ROOT' : ocn_diag_root})
+  RUNDIR = cime_xmlquery(args.caseroot, 'RUNDIR')
   if args.debug:
     print('Run directory is:', RUNDIR)
     print('Casename is:', dcase.casename)

@@ -36,41 +36,27 @@ def main(stream=False):
   # Get options
   args = options()
   nw = args.number_of_workers
-  
-  os.makedirs('PNG/HT', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  ocn_diag_root = dcase.ocn_diag_root
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  args.casename = dcase.casename
 
   variables = ['T_ady_2d', 'T_diffy_2d', 'T_hbd_diffy_2d']
-  args.savefigs = True; args.outdir = 'PNG/HT'
-  print('Output directory is:', OUTDIR)
+  args.savefigs = dcase.savefigs; args.pngdir = dcase.create_png_dir('HT')
   print('Casename is:', args.casename)
   #print('Variables to be processed:', args.variables)
   print('Variables to be processed:', variables)
   print('Number of workers to be used:', nw)
 
   # set avg dates and other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-  args.native = args.casename+diag_config_yml['Fnames']['native']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.savefigs = False
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
+  args.native = dcase.get_fname('native')
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  grd = dcase.get_grid()
   
   try:
     depth = grd.depth_ocean
@@ -83,7 +69,7 @@ def main(stream=False):
   basin_code_xr = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading dataset...')
   startTime = datetime.now()
@@ -102,7 +88,7 @@ def main(stream=False):
         ds = xr.merge([ds, da])
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, parallel=parallel,
+  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+args.native, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 
@@ -121,14 +107,16 @@ def main(stream=False):
          'casename': args.casename
          }
 
+  # compute annual means first since this will also be used in the time series
   print('Computing annual means...')
   startTime = datetime.now()
-  ds = weighted_temporal_mean_vars(ds,attrs=attrs)
+  ds_ann = weighted_temporal_mean_vars(ds,attrs=attrs)
   print('Time elasped: ', datetime.now() - startTime)
 
-  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  # Select data between the start and end dates for time mean plots
   startTime = datetime.now()
-  ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
+  print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
+  ds_sel = ds_ann.sel(time=slice(args.start_date, args.end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Computing time mean...')
@@ -136,25 +124,31 @@ def main(stream=False):
   ds_mean = ds_sel.mean('time').load()
   print('Time elasped: ', datetime.now() - startTime)
 
+  # Select data between the start and end dates for time series plots
+  startTime = datetime.now()
+  print('Selecting data between {} and {}...'.format(dcase.ts_start_date, dcase.ts_end_date))
+  ds_sel = ds_ann.sel(time=slice(dcase.ts_start_date, dcase.ts_end_date))
+  print('Time elasped: ', datetime.now() - startTime)
+
   print('Extracting time series (Global and Atlantic)...')
   startTime = datetime.now()
 
   # Heat Transport Time Series at the Equator (Global)
-  ds_global_eq_ts =  ds.sel(yq=0.0, method='nearest').sum('xh').drop_vars('yq')
+  ds_global_eq_ts =  ds_sel.sel(yq=0.0, method='nearest').sum('xh').drop_vars('yq')
   # Build a rename mapping
   rename_dict = {var: f"{var}_global_eq" for var in ds_global_eq_ts.data_vars}
   # Apply renaming
   ds_global_eq_ts = ds_global_eq_ts.rename(rename_dict)
 
   # Heat Transport Time Series at 60S (Global)
-  ds_global_60S_ts =  ds.sel(yq=-60.0, method='nearest').sum('xh').drop_vars('yq')
+  ds_global_60S_ts =  ds_sel.sel(yq=-60.0, method='nearest').sum('xh').drop_vars('yq')
   # Build a rename mapping
   rename_dict = {var: f"{var}_global_60S" for var in ds_global_60S_ts.data_vars}
   # Apply renaming
   ds_global_60S_ts = ds_global_60S_ts.rename(rename_dict)
 
   # Heat Transport Time Series at the Equator (Atlantic)
-  ds_atl_eq_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=0.0,
+  ds_atl_eq_ts =  (ds_sel*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=0.0,
                   method='nearest').sum('xh').drop_vars(['yq','region'])
   # Build a rename mapping
   rename_dict = {var: f"{var}_atl_eq" for var in ds_atl_eq_ts.data_vars}
@@ -162,7 +156,7 @@ def main(stream=False):
   ds_atl_eq_ts = ds_atl_eq_ts.rename(rename_dict)
 
   # Heat Transport Time Series at 26.5°N (Atlantic)
-  ds_atl_ts =  (ds*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=26.5,
+  ds_atl_ts =  (ds_sel*basin_code_xr.sel(region='AtlanticOcean').rename({'yh':'yq'})).sel(yq=26.5,
                 method='nearest').sum('xh').drop_vars(['yq', 'region'])
   # Build a rename mapping
   rename_dict = {var: f"{var}_rapid" for var in ds_atl_ts.data_vars}
@@ -175,11 +169,11 @@ def main(stream=False):
   m_xr = xr.DataArray(
     m,
     dims=('yq', 'xh'),
-    coords={'yq': ds['yq'], 'xh': ds['xh']},
+    coords={'yq': ds_sel['yq'], 'xh': ds_sel['xh']},
   )
 
 
-  ds_atl_75N_ts =  (ds*m_xr).sel(yq=75.0, method='nearest').sum('xh').drop_vars(['yq'])
+  ds_atl_75N_ts =  (ds_sel*m_xr).sel(yq=75.0, method='nearest').sum('xh').drop_vars(['yq'])
   # Build a rename mapping
   rename_dict = {var: f"{var}_atl_75N" for var in ds_atl_75N_ts.data_vars}
   # Apply renaming
@@ -194,7 +188,9 @@ def main(stream=False):
   print('Saving time series...')
   attrs = {'description': 'Time series of poleward heat transport by components at Eq., 26.5 N and 75N (Atlantic) '
                           'and Eq. and 60S (Global).',
-                          'units': ds[varName].units, 'casename': args.casename}
+                          'units': ds[varName].units,
+                          'start_date': dcase.ts_start_date or '', 'end_date': dcase.ts_end_date or '',
+                          'casename': args.casename}
   add_global_attrs(ds_ts,attrs)
   ds_ts.to_netcdf(ocn_diag_root+'/'+args.casename+'_heat_transport_ts.nc')
 
@@ -303,7 +299,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   if hbd is None: annotatePlot('Warning: LBD component of transport is missing.')
 
   if args.savefigs:
-    objOut = args.outdir+'/'+args.casename+'_HeatTransport_global.png'
+    objOut = args.pngdir+'/'+args.casename+'_HeatTransport_global.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()
@@ -330,7 +326,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   if diffusive is None: annotatePlot('Warning: Diffusive component of transport is missing.')
   if hbd is None: annotatePlot('Warning: LBD component of transport is missing.')
   if args.savefigs:
-    objOut = args.outdir+'/'+args.casename+'_HeatTransport_Atlantic.png'
+    objOut = args.pngdir+'/'+args.casename+'_HeatTransport_Atlantic.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()
@@ -357,7 +353,7 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code, grd, 
   plt.suptitle(suptitle)
   plt.legend(loc=0,fontsize=10)
   if args.savefigs:
-    objOut = args.outdir+'/'+args.casename+'_HeatTransport_IndoPacific.png'
+    objOut = args.pngdir+'/'+args.casename+'_HeatTransport_IndoPacific.png'
     plt.savefig(objOut); plt.close()
   else:
     plt.show()

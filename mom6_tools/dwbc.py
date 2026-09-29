@@ -10,6 +10,7 @@ from datetime import datetime
 import gsw
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.DiagsCase import DiagsCase
 
 warnings.filterwarnings('ignore')
 
@@ -97,37 +98,27 @@ def main():
   args = options()
   nw = args.number_of_workers
 
-  os.makedirs('PNG/DWBC', exist_ok=True)
-  os.makedirs('ncfiles', exist_ok=True)
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  dcase.create_png_dir('DWBC')
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
+  casename = dcase.casename
+  label = dcase.label
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  casename = cime_xmlquery(caseroot, 'CASE')
-  label = diag_config_yml['Case']['SNAME']
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
-
-  z_stream    = casename + diag_config_yml['Fnames']['z']
-  static_file = OUTDIR + '/' + casename + diag_config_yml['Fnames']['static']
+  z_stream    = dcase.get_fname('z')
+  static_file = dcase.hist_dir + '/' + dcase.get_fname('static')
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   print('Casename   :', casename)
-  print('OUTDIR     :', OUTDIR)
   print('Date range :', args.start_date, '->', args.end_date)
   print('Stream     :', z_stream)
   print('Number of workers:', nw)
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   # --- Compute time-mean meridional velocity at 26.5N ---
   lat_transect = LAT_TRANSECT
@@ -142,7 +133,7 @@ def main():
   print('Opening z-level files...')
   startTime = datetime.now()
   ds = xr.open_mfdataset(
-      OUTDIR + '/' + z_stream,
+      dcase.hist_dir + '/' + z_stream,
       parallel=parallel,
       data_vars='minimal',
       coords='minimal',
@@ -189,7 +180,7 @@ def main():
       'start_date'  : args.start_date,
       'end_date'    : args.end_date,
   }
-  outfile = 'ncfiles/{}_vo_mean_{:.1f}N_transect.nc'.format(casename, lat_transect)
+  outfile = '{}/{}_vo_mean_{:.1f}N_transect.nc'.format(dcase.ocn_diag_root, casename, lat_transect)
   ds_out.to_netcdf(outfile)
   print('Saved:', outfile)
 

@@ -47,39 +47,26 @@ def main(stream=False):
   # Get options
   args = options()
   nw = args.number_of_workers
-  
-  os.makedirs('PNG/AAIW_PV', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  ocn_diag_root = dcase.ocn_diag_root
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  args.casename = dcase.casename
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
 
   # set avg dates and other params
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
-  args.monthly = args.casename+diag_config_yml['Fnames']['z']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.savefigs = True
-  args.label = diag_config_yml['Case']['SNAME']
-  args.outdir = 'PNG/AAIW_PV/'
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
+  args.monthly = dcase.get_fname('z')
+  args.savefigs = dcase.savefigs
+  args.label = dcase.label
+  args.pngdir = dcase.create_png_dir('AAIW_PV') + '/'
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+  grd = dcase.get_grid(xrformat=True)
 
   try:
     depth = grd.depth_ocean
@@ -90,7 +77,7 @@ def main(stream=False):
   coriolis = ml.derived.calc_coriolis(grd.geolat)
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   def preprocess(ds):
     ''' Return a dataset desired variables'''
@@ -100,7 +87,7 @@ def main(stream=False):
   print('Reading dataset...')
   startTime = datetime.now()
 
-  ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel, \
+  ds = xr.open_mfdataset(dcase.hist_dir+'/'+args.monthly, parallel=parallel, \
                              combine="nested", concat_dim="time", \
                              preprocess=preprocess,use_cftime=True).chunk({"time": 12})
 
@@ -325,8 +312,9 @@ def plot_aaiw_pv(y, zl, pv, volume, levels, colors, args):
 
   plt.colorbar(cb, ticks=[5, 20, 60, 80, 100, 200], label=r"cm$^{-2}$ s$^{-1}$")
   if args.savefigs:
-    fname = args.outdir + str(args.casename)+'_AAIW_PV.png'
+    fname = args.pngdir + str(args.casename)+'_AAIW_PV.png'
     plt.savefig(fname, bbox_inches='tight')
+  plt.close(fig)
 
 if __name__ == '__main__':
   main()

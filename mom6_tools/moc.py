@@ -36,39 +36,29 @@ def main():
   args = options()
 
   nw = args.number_of_workers
-  os.makedirs('PNG/MOC', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  ocn_diag_root = dcase.ocn_diag_root
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  args.casename = dcase.casename
 
-  args.savefigs = True; args.outdir = 'PNG/MOC/'
-  print('Output directory is:', OUTDIR)
+  args.savefigs = dcase.savefigs;
+  if args.savefigs:
+    args.pngdir = dcase.create_png_dir('MOC') + '/'
   print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   # file names are provided via yaml
-  args.monthly = args.casename+diag_config_yml['Fnames']['z']
-  args.sigma2 = args.casename+diag_config_yml['Fnames']['rho2']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.monthly = dcase.get_fname('z')
+  args.sigma2 = dcase.get_fname('rho2')
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  grd = dcase.get_grid()
 
   try:
     depth = grd.depth_ocean
@@ -80,7 +70,7 @@ def main():
   basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, verbose=False, xda=True)
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading {} dataset...'.format(args.monthly))
   startTime = datetime.now()
@@ -92,22 +82,24 @@ def main():
         ds[v] = xr.zeros_like(ds.vo)
     return ds[variables]
 
-  ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, parallel=parallel, preprocess=preprocess,
+  ds = xr.open_mfdataset(dcase.hist_dir+'/'+args.monthly, parallel=parallel, preprocess=preprocess,
                          data_vars='minimal', compat='override', coords='minimal',
                          chunks={'time': 12})
   print('Time elasped: ', datetime.now() - startTime)
 
-  # compute yearly means first since this will be used in the time series
   attrs = {
          'description': 'Annual mean meridional thickness flux by components ',
          'reduction_method': 'annual mean weighted by days in each month',
          'casename': args.casename
          }
-  print('Computing yearly means...')
+
+  # compute annual means first since this will also be used in the time series
+  print('Computing annual means...')
   startTime = datetime.now()
   ds_ann = m6toolbox.weighted_temporal_mean_vars(ds, attrs=attrs)
   print('Time elasped: ', datetime.now() - startTime)
 
+  # Select data between the start and end dates for time mean plots
   startTime = datetime.now()
   print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   ds_sel = ds_ann.sel(time=slice(args.start_date, args.end_date))
@@ -116,6 +108,12 @@ def main():
   print('Computing time mean...')
   startTime = datetime.now()
   ds_mean = ds_sel.mean('time').compute()
+  print('Time elasped: ', datetime.now() - startTime)
+
+  # Select data between the start and end dates for time series plots
+  startTime = datetime.now()
+  print('Selecting data between {} and {}...'.format(dcase.ts_start_date, dcase.ts_end_date))
+  ds_sel = ds_ann.sel(time=slice(dcase.ts_start_date, dcase.ts_end_date))
   print('Time elasped: ', datetime.now() - startTime)
 
   # create a ndarray subclass
@@ -147,8 +145,10 @@ def main():
   findExtrema(yyg, zg, psiPlot, min_lat=25., min_depth=250.)
   findExtrema(yyg, zg, psiPlot, min_depth=2000., mult=-1.)
   plt.gca().invert_yaxis()
-  objOut = args.outdir+str(casename)+'_MOC_global.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_global.png'
+    plt.savefig(objOut)
+  plt.close()
 
   if 'zl' in ds:
     zl = ds.zl.values
@@ -163,14 +163,16 @@ def main():
                                 'ipmoc' :     (('zl','yq'), np.zeros(psiPlot.shape)),
                                 'moc_FFH' :   (('zl','yq'), np.zeros(psiPlot.shape)),
                                 'moc_GM' :    (('zl','yq'), np.zeros(psiPlot.shape)),
-                                'amoc_45' :   (('time'), np.zeros(ds_ann.time.shape)),
-                                'moc_GM_ACC': (('time'), np.zeros(ds_ann.time.shape)),
-                                'moc_70S' :   (('time'), np.zeros(ds_ann.time.shape)),
-                                'moc_35S' :   (('time'), np.zeros(ds_ann.time.shape)),
-                                'amoc_26' :   (('time'), np.zeros(ds_ann.time.shape)) },
-                            coords={'zl': zl, 'yq': ds.yq, 'time': ds_ann.time})
+                                'amoc_45' :   (('time'), np.zeros(ds_sel.time.shape)),
+                                'moc_GM_ACC': (('time'), np.zeros(ds_sel.time.shape)),
+                                'moc_70S' :   (('time'), np.zeros(ds_sel.time.shape)),
+                                'moc_35S' :   (('time'), np.zeros(ds_sel.time.shape)),
+                                'amoc_26' :   (('time'), np.zeros(ds_sel.time.shape)) },
+                            coords={'zl': zl, 'yq': ds.yq, 'time': ds_sel.time})
   attrs = {'description': 'MOC time-mean sections and time-series', 'units': 'Sv',
-           'start_date': avg['start_date'], 'end_date': avg['end_date'], 'casename': args.casename}
+           'start_date': args.start_date, 'end_date': args.end_date,
+           'ts_start_date': dcase.ts_start_date or '', 'ts_end_date': dcase.ts_end_date or '',
+           'casename': args.casename}
   m6toolbox.add_global_attrs(moc, attrs)
 
   m6plot.setFigureSize([16,9],576,debug=False)
@@ -186,8 +188,10 @@ def main():
   plt.suptitle(casename)
   plt.xlim((-34.5,50))
   plt.gca().invert_yaxis()
-  objOut = args.outdir+str(casename)+'_MOC_IndoPacific.png'
-  plt.savefig(objOut,format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_IndoPacific.png'
+    plt.savefig(objOut,format='png')
+  plt.close()
   moc['ipmoc'].data = psiPlot
 
   # Atlantic MOC
@@ -221,12 +225,14 @@ def main():
   findExtrema(yy, z, psiPlot)
   findExtrema(yy, z, psiPlot, min_lat=5.)
   plt.gca().invert_yaxis()
-  objOut = args.outdir+str(casename)+'_MOC_Atlantic.png'
-  plt.savefig(objOut,format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_Atlantic.png'
+    plt.savefig(objOut,format='png')
+  plt.close()
   moc['amoc'].data = psiPlot
 
   print('Plotting AMOC profile at 26N...')
-  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  catalog = intake.open_catalog(dcase.oce_cat)
   rapid_vertical = catalog["moc-rapid"].to_dask()
   fig, ax = plt.subplots(nrows=1, ncols=1)
   ax.plot(rapid_vertical.stream_function_mar.mean('time'), rapid_vertical.depth, 'k', label='RAPID')
@@ -236,8 +242,10 @@ def main():
   plt.grid()
   ax.set_xlabel('AMOC @ 26N [Sv]')
   ax.set_ylabel('Depth [m]')
-  objOut = args.outdir+str(casename)+'_MOC_profile_26N.png'
-  plt.savefig(objOut,format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_profile_26N.png'
+    plt.savefig(objOut,format='png')
+  plt.close(fig)
 
   # --- Vectorized time series computation ---
   # Precompute Atlantic vmsk (m is the Atlantic mask from above)
@@ -246,33 +254,47 @@ def main():
   print('Computing time series (vectorized)...')
   startTime = datetime.now()
 
-  # Load all annual data at once — one dask graph evaluation vs T separate ones
-  vmo_all  = np.ma.filled(np.ma.masked_invalid(ds_ann['vmo'].values),  0.)  # (T,K,J,I)
-  vhGM_all = np.ma.filled(np.ma.masked_invalid(ds_ann['vhGM'].values), 0.)  # (T,K,J,I)
-
-  # Compute streamfunctions for all time steps at once
-  psi_atl_all = MOCpsi(vmo_all, vmsk=vmsk_atl) * conversion_factor   # (T,K+1,J)
-  psi_atl_all = 0.5 * (psi_atl_all[:, :-1, :] + psi_atl_all[:, 1:, :])  # (T,K,J)
-
-  psiGM_all = MOCpsi(vhGM_all) * conversion_factor                    # (T,K+1,J)
-  psiGM_all = 0.5 * (psiGM_all[:, :-1, :] + psiGM_all[:, 1:, :])    # (T,K,J)
-
-  psi_global_all = MOCpsi(vmo_all) * conversion_factor                # (T,K+1,J)
-  psi_global_all = 0.5 * (psi_global_all[:, :-1, :] + psi_global_all[:, 1:, :])  # (T,K,J)
-
-  # Vectorized extrema extraction
-  amoc_26    = findExtrema_batch(yy,  z,  psi_atl_all, min_lat=min_lat_rapid, max_lat=max_lat_rapid, min_depth=250.)
-  amoc_45    = findExtrema_batch(yy,  z,  psi_atl_all, min_lat=44.,           max_lat=46.,           min_depth=250.)
-  moc_GM_ACC = findExtrema_batch(yyg, zg, psiGM_all,   min_lat=-65.,          max_lat=-30.,          mult=-1.)
-
   # Global MOC at fixed lat/depth points — precompute indices to avoid xr.DataArray overhead per step
   lat_1d = yyg[0, :]   # surface-level latitude for each j  (J,)
   j_70S  = np.argmin(np.abs(lat_1d - (-70.)))
   j_35S  = np.argmin(np.abs(lat_1d - (-35.)))
   k_1000 = np.argmin(np.abs(zl - 1000.))
   k_4000 = np.argmin(np.abs(zl - 4000.))
-  moc_70S = psi_global_all[:, k_1000, j_70S]
-  moc_35S = psi_global_all[:, k_4000, j_35S]
+
+  # Process the time series in bounded batches of years rather than pulling
+  # the whole (T,K,J,I) record for vmo and vhGM into memory at once, which
+  # for long/high-res runs is large enough to OOM the workers during the
+  # final gather of ds_ann[...].values.
+  time_batch = 24
+  nT = ds_sel.sizes['time']
+  amoc_26_parts, amoc_45_parts, moc_GM_ACC_parts = [], [], []
+  moc_70S_parts, moc_35S_parts = [], []
+
+  for t0 in range(0, nT, time_batch):
+    tsel = slice(t0, min(t0 + time_batch, nT))
+    vmo_chunk  = np.ma.filled(np.ma.masked_invalid(ds_sel['vmo'].isel(time=tsel).values),  0.)
+    vhGM_chunk = np.ma.filled(np.ma.masked_invalid(ds_sel['vhGM'].isel(time=tsel).values), 0.)
+
+    psi_atl_chunk = MOCpsi(vmo_chunk, vmsk=vmsk_atl) * conversion_factor
+    psi_atl_chunk = 0.5 * (psi_atl_chunk[:, :-1, :] + psi_atl_chunk[:, 1:, :])
+
+    psiGM_chunk = MOCpsi(vhGM_chunk) * conversion_factor
+    psiGM_chunk = 0.5 * (psiGM_chunk[:, :-1, :] + psiGM_chunk[:, 1:, :])
+
+    psi_global_chunk = MOCpsi(vmo_chunk) * conversion_factor
+    psi_global_chunk = 0.5 * (psi_global_chunk[:, :-1, :] + psi_global_chunk[:, 1:, :])
+
+    amoc_26_parts.append(findExtrema_batch(yy, z, psi_atl_chunk, min_lat=min_lat_rapid, max_lat=max_lat_rapid, min_depth=250.))
+    amoc_45_parts.append(findExtrema_batch(yy, z, psi_atl_chunk, min_lat=44., max_lat=46., min_depth=250.))
+    moc_GM_ACC_parts.append(findExtrema_batch(yyg, zg, psiGM_chunk, min_lat=-65., max_lat=-30., mult=-1.))
+    moc_70S_parts.append(psi_global_chunk[:, k_1000, j_70S])
+    moc_35S_parts.append(psi_global_chunk[:, k_4000, j_35S])
+
+  amoc_26    = np.concatenate(amoc_26_parts)
+  amoc_45    = np.concatenate(amoc_45_parts)
+  moc_GM_ACC = np.concatenate(moc_GM_ACC_parts)
+  moc_70S    = np.concatenate(moc_70S_parts)
+  moc_35S    = np.concatenate(moc_35S_parts)
 
   print('Time elasped: ', datetime.now() - startTime)
 
@@ -310,8 +332,10 @@ def main():
   plt.xlim(1948, 1958.5+len(moc.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=13, ncol=2)
-  objOut = args.outdir+str(casename)+'_MOC_26N_time_series.png'
-  plt.savefig(objOut, format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_26N_time_series.png'
+    plt.savefig(objOut, format='png')
+  plt.close(fig)
 
   # plot AMOC @ 45N
   fig = plt.figure(figsize=(12, 6))
@@ -327,8 +351,10 @@ def main():
   plt.xlim(1948, 1958+len(moc.time))
   plt.xlabel('Time [years]', fontsize=16); plt.ylabel('Sv', fontsize=16)
   plt.legend(fontsize=14)
-  objOut = args.outdir+str(casename)+'_MOC_45N_time_series.png'
-  plt.savefig(objOut, format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_45N_time_series.png'
+    plt.savefig(objOut, format='png')
+  plt.close(fig)
 
   # Submesoscale-induced Global MOC
   varName = 'vhml'
@@ -349,8 +375,10 @@ def main():
   plt.xlabel(r'Latitude [$\degree$N]')
   plt.suptitle(casename)
   plt.gca().invert_yaxis()
-  objOut = args.outdir+str(casename)+'_FFH_MOC_global.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_FFH_MOC_global.png'
+    plt.savefig(objOut)
+  plt.close()
   moc['moc_FFH'].data = psiPlot
 
   # GM-induced Global MOC
@@ -372,8 +400,10 @@ def main():
   plt.suptitle(casename)
   plt.gca().invert_yaxis()
   findExtrema(yy, z, psiPlot, min_lat=-65., max_lat=-30, mult=-1.)
-  objOut = args.outdir+str(casename)+'_GM_MOC_global.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_GM_MOC_global.png'
+    plt.savefig(objOut)
+  plt.close()
   moc['moc_GM'].data = psiPlot
 
   print('Saving netCDF files...')
