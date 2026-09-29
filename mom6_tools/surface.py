@@ -47,7 +47,6 @@ def driver(args):
 
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
-  diag_config_yml = dcase.full_config
   args.ocn_diag_root = dcase.ocn_diag_root
 
   args.casename = dcase.casename
@@ -107,7 +106,7 @@ def driver(args):
 
   # load obs-based mld from oce-catalog
   try:
-    catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+    catalog = intake.open_catalog(dcase.oce_cat)
     mld_obs = catalog[args.mld_obs].to_dask()
   except Exception as e:
     print("WARNING: No obs available, check config file.")

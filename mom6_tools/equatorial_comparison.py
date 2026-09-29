@@ -48,7 +48,6 @@ def driver(args):
 
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
-  diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.ocn_diag_root
   dcase.create_png_dir('Equatorial')
 
@@ -78,7 +77,7 @@ def driver(args):
   grd_eq = grd.sel(yh=slice(-10,10))
 
   # load obs
-  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  catalog = intake.open_catalog(dcase.oce_cat)
   obs = catalog[args.obs].to_dask()
   obs['xh'] = grd['xh']
   obs['yh'] = grd['yh']

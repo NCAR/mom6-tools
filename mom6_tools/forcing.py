@@ -43,7 +43,6 @@ def driver(args):
 
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
-  diag_config_yml = dcase.full_config
   ocn_diag_root = dcase.ocn_diag_root
   OUTDIR = dcase.hist_dir
 

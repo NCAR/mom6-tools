@@ -382,7 +382,6 @@ def main(stream=False):
 
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
-  diag_config_yml = dcase.full_config
   args.ocn_diag_root = dcase.ocn_diag_root
 
   caseroot = dcase.caseroot

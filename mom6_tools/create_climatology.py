@@ -125,8 +125,7 @@ def main():
 
     # Read in the yaml file and create the case instance
     dcase = DiagsCase.read_diag_config(args.config_yml)
-    config = dcase.full_config
-    stream = config['Fnames'][fname]
+    stream = dcase.get_fname(fname)
 
     args.casename = dcase.casename
     OUTDIR = dcase.hist_dir
@@ -146,7 +145,7 @@ def main():
       print("The variable is an empty string. Processing all variables in {}".format(stream))
 
       # Select all files that contain 'native' in their name
-      file = glob.glob(os.path.join(OUTDIR, args.casename+stream))[0]
+      file = glob.glob(os.path.join(OUTDIR, stream))[0]
 
       if args.debug:
         print(f'file: {file}')
@@ -194,7 +193,7 @@ def main():
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
 
-      files = os.path.join(OUTDIR, args.casename+stream)
+      files = os.path.join(OUTDIR, stream)
       ds = xr.open_mfdataset(files,
                        parallel=True,
                        combine="nested",
