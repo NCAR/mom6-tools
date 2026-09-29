@@ -69,8 +69,7 @@ def driver(args):
     casename = dcase.casename
     OUTDIR = dcase.hist_dir
 
-    native_suffix = diag_config_yml['Fnames']['native']
-    file_pattern = OUTDIR + '/' + casename + native_suffix
+    file_pattern = OUTDIR + '/' + dcase.get_fname('native')
     if not args.start_date: args.start_date = dcase.start_date
     if not args.end_date: args.end_date = dcase.end_date
     args.label = dcase.label

@@ -56,9 +56,9 @@ def driver(args):
   OUTDIR = dcase.hist_dir
 
   # file streams
-  args.monthly = args.casename+diag_config_yml['Fnames']['z']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.monthly = dcase.get_fname('z')
+  args.static = dcase.get_fname('static')
+  args.geom = dcase.get_fname('geom')
   args.label = dcase.label
 
   print('Output directory is:', OUTDIR)
