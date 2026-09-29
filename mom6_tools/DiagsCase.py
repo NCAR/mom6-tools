@@ -149,6 +149,21 @@ class DiagsCase(object,):
         self.label = _require(self.get_value('SNAME'), 'Case.SNAME')
         self.ocn_diag_root = self.create_output_dir()
 
+    def get_fname(self, key):
+        """Returns the history file name pattern for a given stream, i.e.
+        `casename` + `full_config['Fnames'][key]`.
+
+        Parameters
+        ----------
+        key : str
+            Key into the yaml file's 'Fnames' section (e.g. 'native', 'static',
+            'geom', 'z', 'rho2').
+        """
+        fnames = self.full_config.get('Fnames', {})
+        if key not in fnames:
+            raise KeyError(f"'{key}' not found in the Fnames section of diag_config.yml")
+        return self.casename + fnames[key]
+
     # William Xu: CIMEROOT is no longer used; commenting this section out.
     # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None
     #@property

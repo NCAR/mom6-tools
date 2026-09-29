@@ -10,8 +10,9 @@ import subprocess
 import argparse, warnings
 from datetime import datetime
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
-from mom6_tools.m6toolbox import cime_xmlquery, filter_vars, replace_cell_content
+from mom6_tools.m6toolbox import filter_vars, replace_cell_content
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.DiagsCase import DiagsCase
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -121,36 +122,22 @@ def main():
     args = parse_args()
     variable = args.variable
     fname = args.fname
-    # Read in the yaml file
-    config = yaml.load(open(args.config_yml,'r'), Loader=yaml.Loader)
+
+    # Read in the yaml file and create the case instance
+    dcase = DiagsCase.read_diag_config(args.config_yml)
+    config = dcase.full_config
     stream = config['Fnames'][fname]
 
-    caseroot = config['Case']['CASEROOT']
-    ocn_diag_root = config['Case']['OCN_DIAG_ROOT']
-    ocn_diag_root = os.path.join(ocn_diag_root, "climo/")
-    args.casename = cime_xmlquery(caseroot, 'CASE')
-    args.geom = args.casename+config['Fnames']['geom']
-    args.static = args.casename+config['Fnames']['static']
-    DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-    if DOUT_S.lower() == "true":
-      OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-    else:
-      OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+    args.casename = dcase.casename
+    OUTDIR = dcase.hist_dir
+    ocn_diag_root = dcase.create_output_dir('climo') + '/'
+    args.geom = dcase.get_fname('geom')
+    args.static = dcase.get_fname('static')
 
-    print('DOUT_S:', DOUT_S)
     print('Model directory with history files is:', OUTDIR)
     print('Casename is:', args.casename)
     print('Variable is:', variable)
     print('Stream is:', stream)
-
-    try:
-      os.makedirs(ocn_diag_root, exist_ok=True)
-    except:
-      current_path = os.getcwd()
-      proc_path = os.path.join(current_path, "proc")
-      warnings.warn(f"Directory {ocn_diag_root} could not be created. Using {proc_path} instead.", UserWarning)
-      ocn_diag_root = proc_path
-      os.makedirs(ocn_diag_root, exist_ok=True)
 
     climo_path = f"{ocn_diag_root}../../notebooks/climo_{fname}/"
     os.makedirs(climo_path, exist_ok=True)
@@ -198,8 +185,8 @@ def main():
     else:
       print("The variable is not an empty string.")
 
-      start_date = args.start_date or config['Avg']['start_date']
-      end_date = args.end_date or config['Avg']['end_date']
+      start_date = args.start_date or dcase.start_date
+      end_date = args.end_date or dcase.end_date
 
       print(f'Processing data from {start_date} to {end_date}')
 

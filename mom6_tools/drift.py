@@ -560,9 +560,9 @@ def main(stream=False):
   print('Casename is:', args.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  args.z = args.casename+diag_config_yml['Fnames']['z']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.z = dcase.get_fname('z')
+  args.static = dcase.get_fname('static')
+  args.geom = dcase.get_fname('geom')
   args.savefigs = dcase.savefigs
 
   dcase.create_png_dir('Drift')

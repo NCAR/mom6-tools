@@ -83,8 +83,8 @@ def driver(args):
   print('Output directory is:', OUTDIR)
   print('Casename is:', casename)
 
-  args.static = casename+diag_config_yml['Fnames']['static']
-  args.geom =   casename+diag_config_yml['Fnames']['geom']
+  args.static = dcase.get_fname('static')
+  args.geom =   dcase.get_fname('geom')
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)

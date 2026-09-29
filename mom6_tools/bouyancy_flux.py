@@ -61,8 +61,8 @@ def driver(args):
   ocn_diag_root = dcase.ocn_diag_root
   RUNDIR = dcase.hist_dir
   args.casename = dcase.casename
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.static = dcase.get_fname('static')
+  args.geom = dcase.get_fname('geom')
   print('Run directory is:', RUNDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)

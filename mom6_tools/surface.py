@@ -60,10 +60,10 @@ def driver(args):
   # set avg dates + other params
   if not args.start_date : args.start_date = dcase.start_date
   if not args.end_date : args.end_date = dcase.end_date
-  args.sfc = args.casename + diag_config_yml['Fnames']['sfc']
-  args.native = args.casename + diag_config_yml['Fnames']['native']
-  args.static = args.casename + diag_config_yml['Fnames']['static']
-  args.geom = args.casename + diag_config_yml['Fnames']['geom']
+  args.sfc = dcase.get_fname('sfc')
+  args.native = dcase.get_fname('native')
+  args.static = dcase.get_fname('static')
+  args.geom = dcase.get_fname('geom')
   args.label = dcase.label
   args.savefigs = dcase.savefigs
 
