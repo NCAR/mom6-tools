@@ -14,7 +14,6 @@ from datetime import datetime
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import filter_vars_2D_tracers
 from mom6_tools.m6toolbox import replace_cell_content
-from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
 
 # Suppress warnings
@@ -159,25 +158,20 @@ def main():
 
     # Read in the yaml file and create the case instance
     dcase = DiagsCase.read_diag_config(args.config_yml)
-    config = dcase.full_config
-    stream = config['Fnames'][fname]
+    stream = dcase.get_fname(fname)
 
     args.casename = dcase.casename
-    OUTDIR = dcase.hist_dir
     ocn_diag_root = dcase.ocn_diag_root
 
-    print('Model directory with history files is:', OUTDIR)
     print('Casename is:', args.casename)
     print('Variable is:', variable)
     print('Stream is:', stream)
 
     # GMM, update this
     basin_code = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc')['basin_masks']
-    args.geom = args.casename+config['Fnames']['geom']
-    args.static = args.casename+config['Fnames']['static']
 
     # read grid info
-    grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+    grd = dcase.get_grid(xrformat=True)
 
     try:
       area = xr.where(grd.wet == 1, grd.area_t, 0.)
@@ -192,7 +186,7 @@ def main():
       print("The variable is an empty string. Processing all variables in {}".format(stream))
 
       # Select all files that contain 'native' in their name
-      file = glob.glob(os.path.join(OUTDIR, args.casename+stream))[0]
+      file = glob.glob(os.path.join(dcase.hist_dir, stream))[0]
 
       if args.debug:
         print(f'file: {file}')
@@ -236,7 +230,7 @@ def main():
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
 
-      files = os.path.join(OUTDIR, args.casename+stream)
+      files = os.path.join(dcase.hist_dir, stream)
       ds = xr.open_mfdataset(files,
                        parallel=False,
                        combine="nested",
