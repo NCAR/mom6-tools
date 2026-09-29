@@ -57,9 +57,9 @@ def driver(args):
   args.casename = dcase.casename
   OUTDIR = dcase.hist_dir
 
-  args.monthly = args.casename+diag_config_yml['Fnames']['z']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.monthly = dcase.get_fname('z')
+  args.static = dcase.get_fname('static')
+  args.geom = dcase.get_fname('geom')
 
   print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)

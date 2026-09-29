@@ -57,10 +57,10 @@ def main():
   if not args.end_date : args.end_date = dcase.end_date
 
   # file names are provided via yaml
-  args.monthly = args.casename+diag_config_yml['Fnames']['z']
-  args.sigma2 = args.casename+diag_config_yml['Fnames']['rho2']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.monthly = dcase.get_fname('z')
+  args.sigma2 = dcase.get_fname('rho2')
+  args.static = dcase.get_fname('static')
+  args.geom = dcase.get_fname('geom')
 
   # read grid info
   grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)

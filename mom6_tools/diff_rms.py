@@ -552,8 +552,8 @@ def main(stream=False):
   if not args.end_date : args.end_date = dcase.end_date
 
   args.casename = dcase.casename
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.static = dcase.get_fname('static')
+  args.geom = dcase.get_fname('geom')
   args.ocn_diag_root = dcase.ocn_diag_root
   OUTDIR = dcase.hist_dir
 

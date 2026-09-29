@@ -107,8 +107,8 @@ def main():
   label = dcase.label
   OUTDIR = dcase.hist_dir
 
-  z_stream    = casename + diag_config_yml['Fnames']['z']
-  static_file = OUTDIR + '/' + casename + diag_config_yml['Fnames']['static']
+  z_stream    = dcase.get_fname('z')
+  static_file = OUTDIR + '/' + dcase.get_fname('static')
 
   # set avg dates
   if not args.start_date : args.start_date = dcase.start_date
