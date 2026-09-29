@@ -77,16 +77,12 @@ def driver(args):
   dcase.create_png_dir()
 
   casename = dcase.casename
-  OUTDIR = dcase.hist_dir
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', casename)
 
-  args.static = dcase.get_fname('static')
-  args.geom =   dcase.get_fname('geom')
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  grd = dcase.get_grid()
 
   variables = args.variables.split(',')
   time_mean_latlon(args, grd, variables,

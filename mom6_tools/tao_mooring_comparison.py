@@ -51,13 +51,10 @@ def driver(args):
     ocn_diag_root = dcase.ocn_diag_root
 
     args.casename = dcase.casename
-    OUTDIR = dcase.hist_dir
 
     # file streams
     args.monthly = dcase.get_fname('z')
     args.static = dcase.get_fname('static')
-    args.geom = dcase.get_fname('geom')
-    print('Output directory is:', OUTDIR)
     print('Casename is:', args.casename)
     print('Monthly file is:', args.monthly)
     print('Static file is:', args.static)
@@ -69,7 +66,7 @@ def driver(args):
 
 
     # read grid info
-    grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+    grd = dcase.get_grid(xrformat=True)
 
     # Get index for equator on model grid
     jeq = np.abs(grd['geolat'][:,0]).argmin().values
@@ -89,7 +86,7 @@ def driver(args):
         return ds[variables]
 
     # The full case archive
-    ds = xr.open_mfdataset(os.path.join(OUTDIR,args.monthly),
+    ds = xr.open_mfdataset(os.path.join(dcase.hist_dir,args.monthly),
                         data_vars='minimal',coords='minimal',compat='override',
                         parallel=parallel,
                         preprocess=preprocess)

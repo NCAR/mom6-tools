@@ -66,9 +66,8 @@ def driver(args):
     dcase = DiagsCase.read_diag_config(args.input_path)
     jobqueue_config = dcase.jobqueue_config
     casename = dcase.casename
-    OUTDIR = dcase.hist_dir
 
-    file_pattern = OUTDIR + '/' + dcase.get_fname('native')
+    file_pattern = dcase.hist_dir + '/' + dcase.get_fname('native')
     if not args.start_date: args.start_date = dcase.start_date
     if not args.end_date: args.end_date = dcase.end_date
     args.label = dcase.label

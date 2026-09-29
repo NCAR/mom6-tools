@@ -104,17 +104,15 @@ def main():
 
   casename = dcase.casename
   label = dcase.label
-  OUTDIR = dcase.hist_dir
 
   z_stream    = dcase.get_fname('z')
-  static_file = OUTDIR + '/' + dcase.get_fname('static')
+  static_file = dcase.hist_dir + '/' + dcase.get_fname('static')
 
   # set avg dates
   if not args.start_date : args.start_date = dcase.start_date
   if not args.end_date : args.end_date = dcase.end_date
 
   print('Casename   :', casename)
-  print('OUTDIR     :', OUTDIR)
   print('Date range :', args.start_date, '->', args.end_date)
   print('Stream     :', z_stream)
   print('Number of workers:', nw)
@@ -135,7 +133,7 @@ def main():
   print('Opening z-level files...')
   startTime = datetime.now()
   ds = xr.open_mfdataset(
-      OUTDIR + '/' + z_stream,
+      dcase.hist_dir + '/' + z_stream,
       parallel=parallel,
       data_vars='minimal',
       coords='minimal',

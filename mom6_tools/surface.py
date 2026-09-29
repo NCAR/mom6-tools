@@ -50,9 +50,7 @@ def driver(args):
   args.ocn_diag_root = dcase.ocn_diag_root
 
   args.casename = dcase.casename
-  OUTDIR = dcase.hist_dir
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
@@ -61,13 +59,11 @@ def driver(args):
   if not args.end_date : args.end_date = dcase.end_date
   args.sfc = dcase.get_fname('sfc')
   args.native = dcase.get_fname('native')
-  args.static = dcase.get_fname('static')
-  args.geom = dcase.get_fname('geom')
   args.label = dcase.label
   args.savefigs = dcase.savefigs
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
+  grd = dcase.get_grid()
 
   parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
                                           config=dcase.jobqueue_config)
@@ -88,11 +84,11 @@ def driver(args):
     return ds[variables]
 
   # load monthly means
-  ds1 = xr.open_mfdataset(OUTDIR+'/'+args.native, parallel=parallel,
+  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+args.native, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   # load daily means
-  ds_daily = xr.open_mfdataset(OUTDIR+'/'+args.sfc, parallel=parallel,
+  ds_daily = xr.open_mfdataset(dcase.hist_dir+'/'+args.sfc, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   #ds = preprocess(ds1)
