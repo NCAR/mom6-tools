@@ -137,6 +137,7 @@ def driver(args):
   thetao = ds_ann.thetao.mean('time')
   so = ds_ann.so.mean('time')
   uo = ds_ann.uo.mean('time')
+  thetao, so, uo = dask.compute(thetao, so, uo)
   print('Time elasped: ', datetime.now() - startTime)
 
   # find point closest to eq. and select data
