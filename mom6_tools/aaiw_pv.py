@@ -327,6 +327,7 @@ def plot_aaiw_pv(y, zl, pv, volume, levels, colors, args):
   if args.savefigs:
     fname = args.outdir + str(args.casename)+'_AAIW_PV.png'
     plt.savefig(fname, bbox_inches='tight')
+  plt.close(fig)
 
 if __name__ == '__main__':
   main()

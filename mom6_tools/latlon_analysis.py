@@ -124,6 +124,7 @@ def plot_area_ave_stats(ds, var, args, aspect=[16,9], resolution=576, debug=Fals
     plt.savefig('PNG/%s_stats.png'%(var))
   else:
     plt.show()
+  plt.close(f)
 
   return
 
