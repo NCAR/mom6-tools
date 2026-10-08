@@ -25,6 +25,9 @@ def options():
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
+  parser.add_argument('-b','--basin',  type=str, default='',
+                      help='''Read basin code from file. Default is empty, \
+                              which will generate basin code using genBasinMasks.''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
                       action="store_true")
   add_jobqueue_args(parser)
@@ -74,10 +77,10 @@ def main():
     depth = grd.depth_ocean
   except:
     depth = grd.deptho
-  # remove Nan's, otherwise genBasinMasks won't work
-  depth[np.isnan(depth)] = 0.0
-  basin_code = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth)
-  basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, verbose=False, xda=True)
+  basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, basin_from_file=args.basin)
+
+  # Atlantic, Arctic, Med, Black and Hudson Bay combined
+  atl_regions = ['AtlanticOcean', 'Arctic', 'MedSea', 'BlackSea', 'HudsonBay']
 
   parallel, cluster, client = get_cluster(nw, args=args,
                                           config=diag_config_yml.get('Jobqueue'))
@@ -176,7 +179,7 @@ def main():
 
   m6plot.setFigureSize([16,9],576,debug=False)
   cmap = plt.get_cmap('dunnePM')
-  atl = 0*basin_code; atl[(basin_code==2) | (basin_code==4) | (basin_code==6) | (basin_code==7) | (basin_code==8)]=1
+  atl = (basin_code_xr.sel(region=atl_regions).sum('region') > 0).astype(int).values
   m = basin_code_xr.sel(region='Global').values - atl
   ci=m6plot.pmCI(0.,22.,2.)
   z = (m*Zmod).min(axis=-1); psiPlot = MOCpsi(VHmod, vmsk=m*np.roll(m,-1,axis=-2))*conversion_factor
@@ -195,8 +198,8 @@ def main():
   # Atlantic MOC
   m6plot.setFigureSize([16,9],576,debug=False)
   cmap = plt.get_cmap('dunnePM')
-  # 2 - Atlatic; 4 - Arctic; 6 - Med; 7 - Baltic; 8 - Hudson Bay;
-  m = 0*basin_code; m[(basin_code==2) | (basin_code==4) | (basin_code==6) | (basin_code==7) | (basin_code==8)]=1
+  # Atlantic, Arctic, Med, Black and Hudson Bay combined
+  m = (basin_code_xr.sel(region=atl_regions).sum('region') > 0).astype(int).values
   ci=m6plot.pmCI(0.,22.,2.)
   z = (m*Zmod).min(axis=-1)
   psiPlot = MOCpsi(VHmod, vmsk=m*np.roll(m,-1,axis=-2))*conversion_factor

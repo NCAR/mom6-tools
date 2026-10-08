@@ -533,7 +533,7 @@ def southOf(x, y, xy0, xy1):
   Y[Y>=0] = 1; Y[Y<=0] = 0
   return Y
 
-def genBasinMasks(x,y,depth,verbose=False, xda=False):
+def genBasinMasks(x=None,y=None,depth=None,verbose=False, xda=True, basin_from_file=None):
   """
   Returns masking for different regions.
 
@@ -552,11 +552,36 @@ def genBasinMasks(x,y,depth,verbose=False, xda=False):
     If True, print some stuff. Default is false.
 
   xda : boolean, optional
-    If True, returns an xarray Dataset. Default is false.
+    If True, returns a region-labeled xarray DataArray. If False, returns a plain
+    2D array of numeric basin codes. Note: codes 12-17 are overlapping sub-regions
+    and can only be represented when xda=True. They are absent from the plain array.
+    Default is true.
+
+  basin_from_file : str, optional
+    Path to a netCDF file with pre-computed basin masks (e.g. saved from a previous
+    genBasinMasks(..., xda=True) call). When given, x/y/depth are ignored and the
+    masks are loaded from this file instead of being computed. Requires xda=True.
+    Default is None.
 
   Returns
   -------
   """
+  if basin_from_file:
+    if not xda:
+      raise ValueError("basin_from_file requires xda=True.")
+    return xr.open_dataset(basin_from_file).to_array().squeeze(drop=True)
+
+  # Work with plain numpy arrays internally: the boolean-mask assignments below
+  # (e.g. depth[np.isnan(depth)] = 0.0, code[tmp>0] = N) raise
+  # "IndexError: 2-dimensional boolean indexing is not supported" if x/y/depth
+  # are passed in as xarray DataArrays instead of numpy arrays.
+  x = np.asarray(x)
+  y = np.asarray(y)
+  depth = np.asarray(depth)
+
+  # remove Nan's, otherwise genBasinMasks won't work
+  depth[np.isnan(depth)] = 0.0
+
   rmask_od = OrderedDict()
   rmask_od['Global'] = xr.where(depth > 0, 1.0, 0.0)
 
@@ -753,20 +778,31 @@ def genBasinMasks(x,y,depth,verbose=False, xda=False):
   #code1[tmp > 0] = 15
   #rmask_od['Maritime'] = xr.where(code1 == 15, 1.0, 0.0)
 
+  # Assuming boundary of Arctic Ocean is to the south of 80N
+  if verbose: print('Processing Arctic Ocean North of 80N ...')
+  tmp = (code == 4) & (y >= 80.)
+  code1[tmp] = 16
+  rmask_od['Arctic80N'] = xr.where(code1 == 16, 1.0, 0.0)
+
+  # Assuming boundary of Southern Ocean is to the north of 60S
+  if verbose: print('Processing Southern Ocean South of 60S ...')
+  tmp = (code == 1) & (y <= -60.)
+  code1[tmp] = 17
+  rmask_od['SouthernOcean60S'] = xr.where(code1 == 17, 1.0, 0.0)
+
   if verbose:
     print("""
   Basin codes:
   -----------------------------------------------------------
-  (0) Global              (7) Black Sea
-  (1) Southern Ocean      (8) Hudson Bay
-  (2) Atlantic Ocean      (9) Baltic Sea
-  (3) Pacific Ocean       (10) Red Sea
+  (0) Global              (7) Black Sea       (14) E Greenland
+  (1) Southern Ocean      (8) Hudson Bay      (15) Gulf of Mexico
+  (2) Atlantic Ocean      (9) Baltic Sea      (16) Arctic Ocean North of 80N
+  (3) Pacific Ocean       (10) Red Sea        (17) Southern Ocean South of 60S
   (4) Arctic Ocean        (11) Persian Gulf
   (5) Indian Ocean        (12) Lab Sea
   (6) Mediterranean Sea   (13) Baffin Bay
-                          (14) E Greenland
 
-  Important: basin codes overlap. Code 12 to 14 are only loaded if xda=True.
+  Important: basin codes overlap. Code 12 to 17 are only loaded if xda=True.
 
     """)
 
