@@ -158,9 +158,18 @@ def main(stream=False):
   pv = pv.weighted(grd.areacello.fillna(0)).mean("xh")
   pv = pv.transpose("z_l", "yh")
 
+  # T and S: same region and zonal mean as pv
+  ts = {}
+  for var in ['thetao', 'so']:
+    da = geoslice(ds_mean[var], x=(-180,-70),y=(-65,0),
+                  xcoord="longitude", ycoord="latitude")
+    da = da.weighted(grd.areacello.fillna(0)).mean("xh")
+    ts[var] = da.transpose("z_l", "yh").load()
+  thetao, so = ts['thetao'], ts['so']
+
   # plot
   args.label = args.label + ', average between ' + args.start_date + ' and ' + args.end_date
-  plot_aaiw_pv(yindex, pv.z_l, pv, volume, levels, colors, args)
+  plot_aaiw_pv(yindex, pv.z_l, pv, thetao, so, volume, levels, colors, args)
 
   description = 'buoyancy contribution to potential vorticity over the Pacific Sector of the Southern Ocean'
   attrs = {'description': description,
@@ -171,6 +180,13 @@ def main(stream=False):
   pv = pv.rename('pv')
   print('Saving netCDF files...')
   pv.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_AAIW_PV.nc')
+
+  ds_ts = xr.Dataset({'thetao': thetao, 'so': so})
+  attrs = {'description': 'zonal mean potential temperature and salinity over the Pacific Sector of the Southern Ocean',
+           'start_date': args.start_date,
+           'end_date': args.end_date}
+  add_global_attrs(ds_ts,attrs)
+  ds_ts.to_netcdf(ocn_diag_root+'/'+str(args.casename)+'_AAIW_TS.nc')
 
   release_workers(parallel, cluster, client)
 
@@ -285,7 +301,7 @@ def plot_aaiw_pv_obs(dsobs, levels, colors):
 
   return
 
-def plot_aaiw_pv(y, zl, pv, volume, levels, colors, args):
+def plot_aaiw_pv(y, zl, pv, thetao, so, volume, levels, colors, args):
 
   print(f"Volume of water with PV > 60 cm-2 s-1: {float(volume/1.0e15)} x 1.0e^15")
 
@@ -326,6 +342,39 @@ def plot_aaiw_pv(y, zl, pv, volume, levels, colors, args):
   plt.colorbar(cb, ticks=[5, 20, 60, 80, 100, 200], label=r"cm$^{-2}$ s$^{-1}$")
   if args.savefigs:
     fname = args.outdir + str(args.casename)+'_AAIW_PV.png'
+    plt.savefig(fname, bbox_inches='tight')
+  plt.close(fig)
+
+  # T & S
+  thetao = thetao.sel(z_l=slice(0, 1800.))
+  so = so.sel(z_l=slice(0, 1800.))
+
+  fig, ax = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+
+  # Plot potential temperature
+  cf1 = ax[0].contourf(y, thetao.z_l, thetao, levels=20, cmap='RdYlBu_r', extend='both')
+  c1 = ax[0].contour(y, thetao.z_l, thetao, levels=10, colors='k', linewidths=0.5)
+  ax[0].clabel(c1, inline=True, fontsize=8)
+  ax[0].set_ylabel('Depth (m)')
+  ax[0].set_xlabel('Latitude')
+  ax[0].set_title('Potential Temperature (°C)')
+  plt.colorbar(cf1, ax=ax[0], label='Thetao (°C)', orientation='horizontal')
+
+  # Plot salinity
+  cf2 = ax[1].contourf(y, so.z_l, so, levels=20, cmap='viridis', extend='both')
+  c2 = ax[1].contour(y, so.z_l, so, levels=10, colors='k', linewidths=0.5)
+  ax[1].clabel(c2, inline=True, fontsize=8)
+  ax[1].set_xlabel('Latitude')
+  ax[1].set_title('Salinity (PSU)')
+  plt.colorbar(cf2, ax=ax[1], label='Salinity (PSU)', orientation='horizontal')
+
+  # sharey=True, so inverting once flips both panels
+  ax[0].invert_yaxis()
+  plt.suptitle(args.label, fontsize=10)
+  plt.tight_layout()
+
+  if args.savefigs:
+    fname = args.outdir + str(args.casename)+'_AAIW_TS.png'
     plt.savefig(fname, bbox_inches='tight')
   plt.close(fig)
 
