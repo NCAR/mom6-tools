@@ -74,7 +74,7 @@ def driver(args):
   # Read in the yaml file and create the case instance
   diag_config_yml_path = "diag_config.yml"
   dcase = DiagsCase.read_diag_config(diag_config_yml_path)
-  dcase.create_png_dir()
+  args.pngdir = dcase.create_png_dir()
 
   casename = dcase.casename
 
@@ -108,7 +108,7 @@ def plot_area_ave_stats(ds, var, args, aspect=[16,9], resolution=576, debug=Fals
   ax[4].set_ylabel('Rms')
   ax[4].set_xlabel('Year')
   if args.savefigs:
-    plt.savefig('PNG/%s_stats.png'%(var))
+    plt.savefig(os.path.join(args.pngdir, '%s_stats.png'%(var)))
   else:
     plt.show()
   plt.close(f)
@@ -142,7 +142,7 @@ def time_mean_latlon(args, grd, variables=[], jobqueue_config=None):
   for var in variables:
     dim = len(ds1[var].shape)
     if dim == 2:
-      filename = str('PNG/%s.png' % (var))
+      filename = os.path.join(args.pngdir, '%s.png' % (var))
       if os.path.isfile(filename):
         print (' \n' + '==> ' + '{} has been saved, moving to the next one ...\n' + ''.format(var))
       else:

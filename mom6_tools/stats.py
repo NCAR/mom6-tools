@@ -400,7 +400,7 @@ def main(stream=False):
   print('Casename is:', args.casename)
   print('Number of workers: ', args.nw)
 
-  dcase.create_png_dir('Horizontal_mean_biases')
+  args.pngdir = dcase.create_png_dir('Stats')
 
   # read grid info
   grd = dcase.get_grid(xrformat=True)
@@ -703,8 +703,8 @@ def xystats(fname, variables, grd, basins, args, jobqueue_config=None):
   for var in variables:
     startTime = datetime.now()
     print('\n Processing {}...'.format(var))
-    savefig1='PNG/'+args.casename+'_'+str(var)+'_xymean.png'
-    savefig2='PNG/'+args.casename+'_'+str(var)+'_stats.png'
+    savefig1=os.path.join(args.pngdir, args.casename+'_'+str(var)+'_xymean.png')
+    savefig2=os.path.join(args.pngdir, args.casename+'_'+str(var)+'_stats.png')
 
     # time series of statistics
     ds_var = ds[var]

@@ -558,7 +558,7 @@ def main(stream=False):
 
   args.z = dcase.get_fname('z')
 
-  dcase.create_png_dir('Drift')
+  args.pngdir = dcase.create_png_dir('Drift')
 
   # read grid info
   grd = dcase.get_grid(xrformat=True)
@@ -732,7 +732,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
         else:
           splitscale =  [0., -1000., -drift_reg.z_l.max()]
 
-        savefig_diff='PNG/Drift/'+str(dcase.casename)+'_'+str(reg.values)+'_{}_drift.png'.format(var)
+        savefig_diff=os.path.join(args.pngdir, str(dcase.casename)+'_'+str(reg.values)+'_{}_drift.png'.format(var))
         vname = ', {} [{}], diff (model - obs)'.format(var,units)
         ztplot(drift_reg.values, drift_reg.time.values, drift_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
                suptitle=dcase.casename, contour=True, title= str(reg.values) + vname,
@@ -754,7 +754,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
         else:
           splitscale =  [0., -1000., -rms_reg.z_l.max()]
 
-        savefig_rms='PNG/Drift/'+str(dcase.casename)+'_'+str(reg.values)+'_{}_rms.png'.format(var)
+        savefig_rms=os.path.join(args.pngdir, str(dcase.casename)+'_'+str(reg.values)+'_{}_rms.png'.format(var))
         vname = ', {} [{}], rms (model - obs)'.format(var,units)
 
         ztplot(rms_reg.values, rms_reg.time.values, rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,

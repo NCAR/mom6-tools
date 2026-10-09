@@ -49,7 +49,7 @@ def driver(args):
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   ocn_diag_root = dcase.ocn_diag_root
-  dcase.create_png_dir('Equatorial')
+  args.pngdir = dcase.create_png_dir('Equatorial')
 
   args.casename = dcase.casename
 
@@ -148,7 +148,7 @@ def driver(args):
   matplotlib.rcParams.update({'font.size': 16})
 
   print('Model vs Obs comparisions...')
-  figname = 'PNG/Equatorial/'+str(args.casename)+'_'
+  figname = os.path.join(args.pngdir, str(args.casename)+'_')
   yzcompare(temp_eq , thetao_obs_eq, x, -Z,
             title1 = 'model temperature', ylabel='Longitude', yunits='',
             title2 = 'observed temperature', #({})'.format(obs_label), #contour=True,

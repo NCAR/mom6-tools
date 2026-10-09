@@ -119,7 +119,7 @@ def driver(args):
   BFW = beta * state.sos * frc.PRCmE * g * 1.0e-3
 
   print('\n Plotting...')
-  dcase.create_png_dir('BFLUX')
+  pngdir = dcase.create_png_dir('BFLUX')
 
   bhf_val = np.ma.masked_invalid(BHF.values*1.0e8)
   bfw_val = np.ma.masked_invalid(BFW.values*1.0e8)
@@ -134,7 +134,7 @@ def driver(args):
   xyplot(b_val, grd.geolon, grd.geolat, area=grd.area_t,
          axis=ax[2], title='Total bouyancy flux  [10$^{-8}$ m$^2$ s^{-3}]') #clim=(-0.2,0.2))
 
-  plt.savefig('PNG/BFLUX/'+str(args.casename)+'_bouyancy_flux.png')
+  plt.savefig(os.path.join(pngdir, str(args.casename)+'_bouyancy_flux.png'))
   plt.close()
 
   fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -144,7 +144,7 @@ def driver(args):
   ax.legend(); ax.grid()
   ax.set_title('Bouyancy Flux [10$^{-8}$ m$^2$ s$^{-3}$]')
   plt.suptitle(str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
-  plt.savefig('PNG/BFLUX/'+str(args.casename)+'_bouyancy_flux_profile.png')
+  plt.savefig(os.path.join(pngdir, str(args.casename)+'_bouyancy_flux_profile.png'))
   plt.close()
 
   # create dataarays

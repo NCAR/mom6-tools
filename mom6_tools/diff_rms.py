@@ -553,7 +553,7 @@ def main(stream=False):
   print('Casename is:', dcase.casename)
   print('Number of workers: ', args.number_of_workers)
 
-  dcase.create_png_dir('Horizontal_mean_biases')
+  args.pngdir = dcase.create_png_dir('Horizontal_mean_biases')
 
   # read grid
   grd = dcase.get_grid(xrformat=True)
@@ -738,8 +738,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, jobqueue_config=None):
     else:
       splitscale =  [0., -1000., -temp_diff_reg.z_l.max()]
 
-    savefig_diff='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_diff.png'
-    savefig_rms='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_temp_rms.png'
+    savefig_diff=os.path.join(args.pngdir, str(dcase.casename)+'_'+str(reg.values)+'_temp_diff.png')
+    savefig_rms=os.path.join(args.pngdir, str(dcase.casename)+'_'+str(reg.values)+'_temp_rms.png')
 
     ztplot(temp_diff_reg.values, temp_diff_reg.time.values, temp_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Potential Temperature [C], diff (model - obs)',
@@ -763,8 +763,8 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, jobqueue_config=None):
     else:
       splitscale =  [0., -1000., -salt_diff_reg.z_l.max()]
 
-    savefig_diff='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_diff.png'
-    savefig_rms='PNG/Horizontal_mean_biases/'+str(dcase.casename)+'_'+str(reg.values)+'_salt_rms.png'
+    savefig_diff=os.path.join(args.pngdir, str(dcase.casename)+'_'+str(reg.values)+'_salt_diff.png')
+    savefig_rms=os.path.join(args.pngdir, str(dcase.casename)+'_'+str(reg.values)+'_salt_rms.png')
 
     ztplot(salt_diff_reg.values, salt_diff_reg.time.values, salt_diff_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
            suptitle=dcase._casename, contour=True, title= str(reg.values) + ', Salinity [psu], diff (model - obs)',

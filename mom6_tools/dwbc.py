@@ -100,7 +100,7 @@ def main():
 
   # Read in the yaml file and create the case instance
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
-  dcase.create_png_dir('DWBC')
+  pngdir = dcase.create_png_dir('DWBC')
 
   casename = dcase.casename
   label = dcase.label
@@ -235,7 +235,7 @@ def main():
       color='beige', fontsize=14,
       bbox=dict(boxstyle='round', facecolor='k'), zorder=12)
 
-  savefig = 'PNG/DWBC/{}_vo_mean_{:.1f}N_transect.png'.format(casename, lat_transect)
+  savefig = os.path.join(pngdir, '{}_vo_mean_{:.1f}N_transect.png'.format(casename, lat_transect))
   fig.savefig(savefig, bbox_inches='tight', pad_inches=0.05, dpi=150)
   print('Figure saved:', savefig)
   plt.close(fig)
@@ -309,7 +309,7 @@ def main():
 
   fig.suptitle('Mean meridional velocity at {:.1f}N'.format(lat_transect), fontsize=16)
 
-  savefig4 = 'PNG/DWBC/{}_vo_mean_{:.1f}N_4panel.png'.format(casename, lat_transect)
+  savefig4 = os.path.join(pngdir, '{}_vo_mean_{:.1f}N_4panel.png'.format(casename, lat_transect))
   fig.savefig(savefig4, bbox_inches='tight', pad_inches=0.05, dpi=150)
   print('Figure saved:', savefig4)
   plt.close(fig)

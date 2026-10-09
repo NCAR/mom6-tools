@@ -109,8 +109,8 @@ def driver(args):
     mld_obs = None
 
   if args.savefigs:
-    dcase.create_png_dir('MLD')
-    dcase.create_png_dir('BLD')
+    args.mld_pngdir = dcase.create_png_dir('MLD')
+    args.bld_pngdir = dcase.create_png_dir('BLD')
     dcase.create_png_dir('SPEED')
 
   # MLD
@@ -277,7 +277,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     plt.suptitle('{}, from {} to {}'.format(args.label, args.start_date,
                 args.end_date), fontsize=16, fontweight='bold')
     plt.subplots_adjust(top=0.93, bottom=0.26)
-    fname = 'PNG/MLD/'+str(args.casename)+'_MLD_monthly_clima.png'
+    fname = os.path.join(args.mld_pngdir, str(args.casename)+'_MLD_monthly_clima.png')
     plt.savefig(fname)
     plt.close(fig)
     plt.close(plot.fig)
@@ -307,7 +307,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     plt.suptitle('{}, from {} to {}'.format(args.label, args.start_date,
                 args.end_date), fontsize=16, fontweight='bold')
     plt.subplots_adjust(top=0.93, bottom=0.26)
-    fname = 'PNG/MLD/'+str(args.casename)+'_MLD_monthly_clima_bias.png'
+    fname = os.path.join(args.mld_pngdir, str(args.casename)+'_MLD_monthly_clima_bias.png')
     plt.savefig(fname)
     plt.close(fig)
     plt.close(plot.fig)
@@ -320,7 +320,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     obs_JFM = np.ma.masked_where(grd.wet == 0, obs_JFM)
   month = 'JFM'
   if args.savefigs and mld_obs is not None:
-    fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
+    fname = os.path.join(args.mld_pngdir, str(args.casename)+'_MLD_'+str(month)+'.png')
     xycompare(model_JFM , obs_JFM, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
             title2 = 'obs (deBoyer), '+str(month),
@@ -336,7 +336,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
     obs_JAS = np.ma.masked_where(grd.wet == 0, obs_JAS)
   month = 'JAS'
   if args.savefigs and mld_obs is not None:
-    fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
+    fname = os.path.join(args.mld_pngdir, str(args.casename)+'_MLD_'+str(month)+'.png')
     xycompare(model_JAS , obs_JAS, grd.geolon, grd.geolat, area=area,
             title1 = 'model, '+str(month),
             title2 = 'obs (deBoyer), '+str(month),
@@ -365,7 +365,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
   add_global_attrs(model_winter_da,attrs)
   model_winter_da.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_MLD_'+month+'.nc')
   if args.savefigs and mld_obs is not None:
-    fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
+    fname = os.path.join(args.mld_pngdir, str(args.casename)+'_MLD_'+str(month)+'.png')
     xycompare(model_winter , obs_winter, grd.geolon, grd.geolat, area=area,
             title1 = 'model, JFM (NH), JAS (SH)',
             title2 = 'obs (deBoyer), JFM (NH), JAS (SH)',
@@ -374,7 +374,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
             save = fname)
 
   if args.savefigs and mld_obs is not None:
-    fname = 'PNG/MLD/'+str(args.casename)+'_MLD_model_'+str(month)+'.png'
+    fname = os.path.join(args.mld_pngdir, str(args.casename)+'_MLD_model_'+str(month)+'.png')
     xyplot(model_winter, grd.geolon, grd.geolat, area=area,
          save=fname,
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
@@ -396,7 +396,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
   add_global_attrs(model_summer_da,attrs)
   model_summer_da.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_MLD_'+month+'.nc')
   if args.savefigs and mld_obs is not None:
-    fname = 'PNG/MLD/'+str(args.casename)+'_MLD_'+str(month)+'.png'
+    fname = os.path.join(args.mld_pngdir, str(args.casename)+'_MLD_'+str(month)+'.png')
     xycompare(model_summer , obs_summer, grd.geolon, grd.geolat, area=area,
             title1 = 'model, JFM (SH), JAS (NH)',
             title2 = 'obs (deBoyer), JFM (SH), JAS (NH)',
@@ -405,7 +405,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
             save = fname)
 
   if args.savefigs and mld_obs is not None:
-    fname = 'PNG/MLD/'+str(args.casename)+'_MLD_model_'+str(month)+'.png'
+    fname = os.path.join(args.mld_pngdir, str(args.casename)+'_MLD_model_'+str(month)+'.png')
     xyplot(model_summer, grd.geolon, grd.geolat, area=area,
          save=fname,
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,150),
@@ -468,7 +468,7 @@ def get_BLD(ds, var, grd, args):
     plt.suptitle('{}, from {} to {}'.format(args.label, args.start_date,
                 args.end_date), fontsize=16, fontweight='bold')
     plt.subplots_adjust(top=0.93, bottom=0.26)
-    fname = 'PNG/BLD/'+str(args.casename)+'_BLD_monthly_clima.png'
+    fname = os.path.join(args.bld_pngdir, str(args.casename)+'_BLD_monthly_clima.png')
     plt.savefig(fname)
     plt.close(fig)
     plt.close(plot.fig)
@@ -479,7 +479,7 @@ def get_BLD(ds, var, grd, args):
   for t in months:
     month = date(1900, t+1, 1).strftime('%B')
     if args.savefigs:
-      fname = 'PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png'
+      fname = os.path.join(args.bld_pngdir, str(args.casename)+'_BLD_model_'+str(month)+'.png')
     model = np.ma.masked_invalid(bld_model[t,:].values)
     xyplot(model, grd.geolon, grd.geolat, area=area,
            save=fname,
@@ -514,7 +514,7 @@ def get_BLD(ds, var, grd, args):
   model_winter_da.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_BLD_'+month+'.nc')
 
   if args.savefigs:
-    fname = 'PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png'
+    fname = os.path.join(args.bld_pngdir, str(args.casename)+'_BLD_model_'+str(month)+'.png')
   xyplot(model_winter, grd.geolon, grd.geolat, area=area,
          save=fname,
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,1500),
@@ -534,9 +534,9 @@ def get_BLD(ds, var, grd, args):
   model_summer_da.to_netcdf(args.ocn_diag_root+'/'+str(args.casename)+'_BLD_'+month+'.nc')
 
   if args.savefigs:
-    fname = 'PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png'
+    fname = os.path.join(args.bld_pngdir, str(args.casename)+'_BLD_model_'+str(month)+'.png')
   xyplot(model_summer, grd.geolon, grd.geolat, area=area,
-         save='PNG/BLD/'+str(args.casename)+'_BLD_model_'+str(month)+'.png',
+         save=fname,
          suptitle=ds[var].attrs['long_name'] +' ['+ ds[var].attrs['units']+']', clim=(0,150),
          title=str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date) + \
               ' JFM (SH), JAS (NH)')

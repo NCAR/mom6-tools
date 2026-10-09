@@ -51,7 +51,7 @@ def driver(args):
   # Read in the yaml file
   dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
   ocn_diag_root = dcase.ocn_diag_root
-  dcase.create_png_dir('TS_levels')
+  args.pngdir = dcase.create_png_dir('TS_levels')
 
   args.casename = dcase.casename
 
@@ -167,7 +167,7 @@ def driver(args):
     interfaces[k] = interfaces[k-1] + ( 2 * (depth[k-1] - interfaces[k-1]))
 
   reg = np.arange(len(temp_stats.basin.values)+ 1)
-  figname = 'PNG/TS_levels/'+str(args.casename)+'_'
+  figname = os.path.join(args.pngdir, str(args.casename)+'_')
 
   temp_label = r'Potential temperature [$^o$C]'
   salt_label = 'Salinity [psu]'
@@ -269,7 +269,7 @@ def driver(args):
   km = len(obs_temp['depth'])
   for k in range(km):
     if ds['z_l'][k].values < 1200.0:
-      figname = 'PNG/TS_levels/'+str(args.casename)+'_'+str(ds['z_l'][k].values)+'_'
+      figname = os.path.join(args.pngdir, str(args.casename)+'_'+str(ds['z_l'][k].values)+'_')
       temp_obs = np.ma.masked_invalid(obs_temp[k,:].values)
       xycompare(temp[k,:] , temp_obs, grd.geolon, grd.geolat, area=area,
               title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',

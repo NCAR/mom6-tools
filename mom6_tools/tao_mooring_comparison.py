@@ -42,12 +42,9 @@ def parseCommandLine():
 
 def driver(args):
     nw = args.number_of_workers
-    path_plt_out = 'PNG/TAOMooring/'
-    
-    os.makedirs(path_plt_out, exist_ok=True)
-
     # Read in the yaml file
     dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+    path_plt_out = dcase.create_png_dir('TAOMooring')
     ocn_diag_root = dcase.ocn_diag_root
 
     args.casename = dcase.casename
