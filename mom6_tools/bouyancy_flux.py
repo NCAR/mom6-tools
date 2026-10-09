@@ -31,8 +31,6 @@ def parseCommandLine():
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-ed','--end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-fname','--file_name', type=str, default='.mom6.hm_*.nc',
-                      help='''File(s) where vmo should be read. Default .mom6.hm_*.nc''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-g','--gravity',  type=float, default=9.8,
@@ -50,37 +48,28 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  fname = args.file_name
   g = args.gravity
   rho_0 = args.mean_density
   c_p = args.heat_capacity
 
-  # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-
-  # Create the case instance
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
-  RUNDIR = dcase.get_value('RUNDIR')
+  # Read in the yaml file and create the case instance
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  ocn_diag_root = dcase.ocn_diag_root
   args.casename = dcase.casename
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  print('Run directory is:', RUNDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   # read grid info
-  grd = MOM6grid(RUNDIR+'/'+args.static, RUNDIR+'/'+args.geom)
+  grd = dcase.get_grid()
 
   parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
-  print('Reading {} dataset...'.format(args.file_name))
+  print('Reading {} dataset...'.format(dcase.get_fname('native')))
   startTime = datetime.now()
 
   def preprocess1(ds):
@@ -88,7 +77,7 @@ def driver(args):
     variables = ['hfds','PRCmE', 'time_bnds']
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+fname, parallel=parallel)
+  ds1 = xr.open_mfdataset(dcase.get_fname('native'), parallel=parallel)
 
   ds1 = preprocess1(ds1)
 
@@ -97,7 +86,7 @@ def driver(args):
     variables = ['tos', 'sos', 'time_bnds']
     return ds[variables]
 
-  ds2 = xr.open_mfdataset(RUNDIR+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
+  ds2 = xr.open_mfdataset(dcase.get_fname('native'), parallel=parallel)
 
   ds2 = preprocess2(ds2)
 
@@ -130,7 +119,7 @@ def driver(args):
   BFW = beta * state.sos * frc.PRCmE * g * 1.0e-3
 
   print('\n Plotting...')
-  os.makedirs('PNG/BFLUX', exist_ok=True)
+  pngdir = dcase.create_png_dir('BFLUX')
 
   bhf_val = np.ma.masked_invalid(BHF.values*1.0e8)
   bfw_val = np.ma.masked_invalid(BFW.values*1.0e8)
@@ -145,7 +134,7 @@ def driver(args):
   xyplot(b_val, grd.geolon, grd.geolat, area=grd.area_t,
          axis=ax[2], title='Total bouyancy flux  [10$^{-8}$ m$^2$ s^{-3}]') #clim=(-0.2,0.2))
 
-  plt.savefig('PNG/BFLUX/'+str(args.casename)+'_bouyancy_flux.png')
+  plt.savefig(os.path.join(pngdir, str(args.casename)+'_bouyancy_flux.png'))
   plt.close()
 
   fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -155,7 +144,7 @@ def driver(args):
   ax.legend(); ax.grid()
   ax.set_title('Bouyancy Flux [10$^{-8}$ m$^2$ s$^{-3}$]')
   plt.suptitle(str(args.casename) + ' ' +str(args.start_date) + ' to '+ str(args.end_date))
-  plt.savefig('PNG/BFLUX/'+str(args.casename)+'_bouyancy_flux_profile.png')
+  plt.savefig(os.path.join(pngdir, str(args.casename)+'_bouyancy_flux_profile.png'))
   plt.close()
 
   # create dataarays

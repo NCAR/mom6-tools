@@ -40,41 +40,30 @@ def main():
   args = options()
 
   nw = args.number_of_workers
-  
-  os.makedirs('PNG/MOC', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  ocn_diag_root = dcase.ocn_diag_root
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  args.casename = dcase.casename
 
-  args.savefigs = True; args.outdir = 'PNG/MOC/'
-  print('Output directory is:', OUTDIR)
+  args.savefigs = dcase.savefigs;
+  if args.savefigs:
+    args.pngdir = dcase.create_png_dir('MOC') + '/'
   print('Casename is:', args.casename)
   print('Number of workers to be used:', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   # file names are provided via yaml
-  args.sigma2 = args.casename+diag_config_yml['Fnames']['rho2']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.label = diag_config_yml['Case']['SNAME']
+  args.sigma2 = dcase.get_fname('rho2')
+  args.label = dcase.label
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
-  grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+  grd = dcase.get_grid()
+  grd_xr = dcase.get_grid(xrformat=True)
 
   try:
     depth = grd.depth_ocean
@@ -99,7 +88,7 @@ def main():
   grid = Grid(grd_xr, coords=coords, padding={'X': 'periodic'}, autoparse_metadata=False)
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading {} dataset...'.format(args.sigma2))
   startTime = datetime.now()
@@ -111,7 +100,7 @@ def main():
         ds[v] = xr.zeros_like(ds.vo)
     return ds[variables]
 
-  ds = xr.open_mfdataset(OUTDIR+'/'+args.sigma2, parallel=parallel, preprocess=preprocess)
+  ds = xr.open_mfdataset(args.sigma2, parallel=parallel, preprocess=preprocess)
 
   print('Time elasped: ', datetime.now() - startTime)
 
@@ -198,8 +187,9 @@ def main():
   cbar = plt.colorbar(p,pad=0.01,spacing='uniform', extend='both',
                       shrink=0.95,orientation='vertical')
   cbar.set_ticks(clevels)
-  objOut = args.outdir+str(casename)+'_MOC_sigma2_global.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_sigma2_global.png'
+    plt.savefig(objOut)
   plt.close(fig)
 
   # zrho
@@ -228,8 +218,9 @@ def main():
   axis.set_xlabel("Latitude",fontsize=8)
   axis.set_facecolor('gray')
   axis.set_title("Case {}, global meridional-zrho overturning".format(args.label),fontsize=10)
-  objOut = args.outdir+str(casename)+'_MOC_zrho_global.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_zrho_global.png'
+    plt.savefig(objOut)
   plt.close(fig)
 
   # create dataset to store results
@@ -242,8 +233,8 @@ def main():
                             coords={'rho2_l': ycoord, 'yq':xcoord,
                                     'moc_depth':psi['depth']})
 
-  attrs = {'description': 'MOC sigma2 time-mean sections', 'units': 'Sv', 'start_date': avg['start_date'],
-       'end_date': avg['end_date'], 'casename': args.casename}
+  attrs = {'description': 'MOC sigma2 time-mean sections', 'units': 'Sv', 'start_date': dcase.start_date,
+       'end_date': dcase.end_date, 'casename': args.casename}
   m6toolbox.add_global_attrs(moc,attrs)
 
   # Submesoscale-induced Global MOC
@@ -270,8 +261,9 @@ def main():
   cbar = plt.colorbar(p,pad=0.01,spacing='uniform', extend='both',
                       shrink=0.95,orientation='vertical')
   cbar.set_ticks(clevels)
-  objOut = args.outdir+str(casename)+'_MOC_sigma2_global_vhml.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_sigma2_global_vhml.png'
+    plt.savefig(objOut)
   plt.close(fig)
   moc['moc_FFH'].data = psi_vhml.data
   # zrho
@@ -300,11 +292,11 @@ def main():
   axis.set_xlabel("Latitude",fontsize=8)
   axis.set_facecolor('gray')
   axis.set_title("Case {}, global meridional-zrho overturning (Sv) due to vhml".format(args.label),fontsize=10)
-  objOut = args.outdir+str(casename)+'_MOC_zrho_global_vhml.png'
-  plt.savefig(objOut)
-
-  objOut = args.outdir+str(casename)+'_FFH_MOC_global.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_zrho_global_vhml.png'
+    plt.savefig(objOut)
+    objOut = args.pngdir+str(casename)+'_FFH_MOC_global.png'
+    plt.savefig(objOut)
   plt.close(fig)
   moc['moc_FFH'].data = psi.data
 
@@ -330,8 +322,9 @@ def main():
   cbar = plt.colorbar(p,pad=0.01,spacing='uniform', extend='both',
                       shrink=0.95,orientation='vertical')
   cbar.set_ticks(clevels)
-  objOut = args.outdir+str(casename)+'_MOC_sigma2_global_vhGM.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_sigma2_global_vhGM.png'
+    plt.savefig(objOut)
   plt.close(fig)
   moc['moc_GM'].data = psi_vhGM.data
   # zrho
@@ -360,8 +353,9 @@ def main():
   axis.set_xlabel("Latitude",fontsize=8)
   axis.set_facecolor('gray')
   axis.set_title("Case {}, global meridional-zrho overturning (Sv) due to vhGM".format(args.label),fontsize=10)
-  objOut = args.outdir+str(casename)+'_MOC_zrho_global_vhGM.png'
-  plt.savefig(objOut)
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_zrho_global_vhGM.png'
+    plt.savefig(objOut)
   plt.close(fig)
 
   # Indo-Pacific
@@ -406,8 +400,9 @@ def main():
   cbar = plt.colorbar(p,pad=0.01,spacing='uniform', extend='both',
                       shrink=0.95,orientation='vertical')
   cbar.set_ticks(clevels)
-  objOut = args.outdir+str(casename)+'_MOC_sigma2_IndoPacific.png'
-  plt.savefig(objOut,format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_sigma2_IndoPacific.png'
+    plt.savefig(objOut,format='png')
   plt.close(fig)
 
   #zrho
@@ -434,8 +429,9 @@ def main():
   axis.set_xlabel("Latitude",fontsize=8)
   axis.set_facecolor('gray')
   axis.set_title("Case {}, Indo-Pacific meridional-zrho overturning".format(args.label),fontsize=10)
-  objOut = args.outdir+str(casename)+'_MOC_zrho_IndoPacific.png'
-  plt.savefig(objOut,format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_zrho_IndoPacific.png'
+    plt.savefig(objOut,format='png')
   plt.close(fig)
   moc['ipmoc'].data = psi.data
   moc = moc.assign_coords({"ipmoc_depth": (["rho2_l","yq"], psi['depth'].data)})
@@ -483,8 +479,9 @@ def main():
   cbar = plt.colorbar(p,pad=0.01,spacing='uniform', extend='both',
                       shrink=0.95,orientation='vertical')
   cbar.set_ticks(clevels)
-  objOut = args.outdir+str(casename)+'_MOC_sigma2_Atlantic.png'
-  plt.savefig(objOut,format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_sigma2_Atlantic.png'
+    plt.savefig(objOut,format='png')
   plt.close(fig)
 
   # zrho
@@ -513,8 +510,9 @@ def main():
   axis.set_xlabel("Latitude",fontsize=8)
   axis.set_facecolor('gray')
   axis.set_title("Case {}, Atlantic meridional-zrho overturning".format(args.label),fontsize=10)
-  objOut = args.outdir+str(casename)+'_MOC_zrho_Atlantic.png'
-  plt.savefig(objOut,format='png')
+  if args.savefigs:
+    objOut = args.pngdir+str(casename)+'_MOC_zrho_Atlantic.png'
+    plt.savefig(objOut,format='png')
   plt.close(fig)
   moc['amoc'].data = psi.data
   moc = moc.assign_coords({"amoc_depth": (["rho2_l","yq"], psi['depth'].data)})

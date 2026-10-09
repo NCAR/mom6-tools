@@ -47,39 +47,27 @@ def parseCommandLine():
 def driver(args):
   debug = args.debug
   nw = args.number_of_workers
-  
-  os.makedirs('PNG/TS_levels', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  ocn_diag_root = dcase.ocn_diag_root
+  args.pngdir = dcase.create_png_dir('TS_levels')
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  args.casename = dcase.casename
 
-  args.monthly = args.casename+diag_config_yml['Fnames']['z']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
+  args.monthly = dcase.get_fname('z')
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Number of workers: ', nw)
   print('Reading file stream: ', args.monthly)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom)
-  grd_xr = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True);
+  grd = dcase.get_grid()
+  grd_xr = dcase.get_grid(xrformat=True);
 
   # create masks
   try:
@@ -91,14 +79,14 @@ def driver(args):
   basin_code = genBasinMasks(grd.geolon, grd.geolat, depth, xda=True)
 
   # load obs
-  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  catalog = intake.open_catalog(dcase.oce_cat)
   obs = catalog[args.obs].to_dask()
   obs = obs.rename({'z_l' : 'depth'});
   obs_temp = obs.thetao
   obs_salt = obs.so
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading dataset...')
   startTime = datetime.now()
@@ -115,7 +103,7 @@ def driver(args):
 #      variables.append('time_bnds')
     return ds[variables]
 
-  ds = xr.open_mfdataset(OUTDIR+'/'+args.monthly, \
+  ds = xr.open_mfdataset(args.monthly, \
          parallel=True, data_vars='minimal', \
          coords='minimal', compat='override', preprocess=preprocess)
 
@@ -179,7 +167,7 @@ def driver(args):
     interfaces[k] = interfaces[k-1] + ( 2 * (depth[k-1] - interfaces[k-1]))
 
   reg = np.arange(len(temp_stats.basin.values)+ 1)
-  figname = 'PNG/TS_levels/'+str(args.casename)+'_'
+  figname = os.path.join(args.pngdir, str(args.casename)+'_')
 
   temp_label = r'Potential temperature [$^o$C]'
   salt_label = 'Salinity [psu]'
@@ -281,7 +269,7 @@ def driver(args):
   km = len(obs_temp['depth'])
   for k in range(km):
     if ds['z_l'][k].values < 1200.0:
-      figname = 'PNG/TS_levels/'+str(args.casename)+'_'+str(ds['z_l'][k].values)+'_'
+      figname = os.path.join(args.pngdir, str(args.casename)+'_'+str(ds['z_l'][k].values)+'_')
       temp_obs = np.ma.masked_invalid(obs_temp[k,:].values)
       xycompare(temp[k,:] , temp_obs, grd.geolon, grd.geolat, area=area,
               title1 = 'model temperature, depth ='+str(ds['z_l'][k].values)+ 'm',

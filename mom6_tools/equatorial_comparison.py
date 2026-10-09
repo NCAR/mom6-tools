@@ -45,47 +45,36 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  
-  os.makedirs('PNG/Equatorial', exist_ok=True)
 
   # Read in the yaml file
-  diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-  dcase = DiagsCase(diag_config_yml['Case'])
-  ocn_diag_root = dcase.create_output_dir()
+  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  ocn_diag_root = dcase.ocn_diag_root
+  args.pngdir = dcase.create_png_dir('Equatorial')
 
-  caseroot = diag_config_yml['Case']['CASEROOT']
-  args.casename = cime_xmlquery(caseroot, 'CASE')
-  DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-  if DOUT_S:
-    OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-  else:
-    OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+  args.casename = dcase.casename
 
   # file streams
-  args.monthly = args.casename+diag_config_yml['Fnames']['z']
-  args.static = args.casename+diag_config_yml['Fnames']['static']
-  args.geom = args.casename+diag_config_yml['Fnames']['geom']
-  args.label = diag_config_yml['Case']['SNAME']
+  args.monthly = dcase.get_fname('z')
+  args.static = dcase.get_fname('static')
+  args.label = dcase.label
 
-  print('Output directory is:', OUTDIR)
   print('Casename is:', args.casename)
   print('Monthly file is:', args.monthly)
   print('Static file is:', args.static)
   print('Number of workers: ', nw)
 
   # set avg dates
-  avg = diag_config_yml['Avg']
-  if not args.start_date : args.start_date = avg['start_date']
-  if not args.end_date : args.end_date = avg['end_date']
+  if not args.start_date : args.start_date = dcase.start_date
+  if not args.end_date : args.end_date = dcase.end_date
 
   # read grid info
-  grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+  grd = dcase.get_grid(xrformat=True)
 
   # select Equatorial region
   grd_eq = grd.sel(yh=slice(-10,10))
 
   # load obs
-  catalog = intake.open_catalog(diag_config_yml['oce_cat'])
+  catalog = intake.open_catalog(dcase.oce_cat)
   obs = catalog[args.obs].to_dask()
   obs['xh'] = grd['xh']
   obs['yh'] = grd['yh']
@@ -97,7 +86,7 @@ def driver(args):
   johnson =catalog['eq-uvts-johnson'].to_dask()
 
   parallel, cluster, client = get_cluster(nw, args=args,
-                                          config=diag_config_yml.get('Jobqueue'))
+                                          config=dcase.jobqueue_config)
 
   print('Reading monthly dataset...')
   startTime = datetime.now()
@@ -115,7 +104,7 @@ def driver(args):
 #      variables.append('time_bnds')
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(OUTDIR+args.monthly, parallel=parallel,
+  ds1 = xr.open_mfdataset(args.monthly, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   # use datetime
@@ -159,7 +148,7 @@ def driver(args):
   matplotlib.rcParams.update({'font.size': 16})
 
   print('Model vs Obs comparisions...')
-  figname = 'PNG/Equatorial/'+str(args.casename)+'_'
+  figname = os.path.join(args.pngdir, str(args.casename)+'_')
   yzcompare(temp_eq , thetao_obs_eq, x, -Z,
             title1 = 'model temperature', ylabel='Longitude', yunits='',
             title2 = 'observed temperature', #({})'.format(obs_label), #contour=True,

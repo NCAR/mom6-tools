@@ -49,12 +49,6 @@ def parseCommandLine():
   parser.add_argument('-ed','--end_date', type=str, default='',
                       help='''End date to select data. Default is to use all available data
                       (or value set in yaml config).''')
-  parser.add_argument('-o','--output_dir', type=str, default='ncfiles',
-                      help='''Directory for output NetCDF files (default: ncfiles).''')
-  parser.add_argument('-p','--plot_dir', type=str, default='PNG/WIND',
-                      help='''Directory for output plots (default: PNG/WIND).''')
-  parser.add_argument('-label','--label', type=str, default='',
-                      help='''Label for the case (used in plot titles).''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   add_jobqueue_args(parser)
@@ -64,35 +58,23 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  os.makedirs(args.output_dir, exist_ok=True)
-  os.makedirs(args.plot_dir, exist_ok=True)
 
   # Determine if input is a yaml config or a file glob pattern
   jobqueue_config = None
   if args.input_path.endswith('.yml') or args.input_path.endswith('.yaml'):
     # yaml-based workflow
-    diag_config_yml = yaml.load(open(args.input_path,'r'), Loader=yaml.Loader)
-    jobqueue_config = diag_config_yml.get('Jobqueue')
-    caseroot = diag_config_yml['Case']['CASEROOT']
-    casename = cime_xmlquery(caseroot, 'CASE')
-    DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-    if DOUT_S.lower() == "true":
-      OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-    else:
-      OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+    dcase = DiagsCase.read_diag_config(args.input_path)
+    jobqueue_config = dcase.jobqueue_config
+    casename = dcase.casename
 
-    native_suffix = diag_config_yml['Fnames']['native']
-    file_pattern = OUTDIR + '/' + casename + native_suffix
-    avg = diag_config_yml['Avg']
-    if not args.start_date: args.start_date = avg['start_date']
-    if not args.end_date: args.end_date = avg['end_date']
-    if not args.label: args.label = diag_config_yml['Case'].get('SNAME', casename)
+    file_pattern = dcase.get_fname('native')
+    if not args.start_date: args.start_date = dcase.start_date
+    if not args.end_date: args.end_date = dcase.end_date
+    args.label = dcase.label
 
-    # Use OCN_DIAG_ROOT from yaml for output directories
-    ocn_diag_root = diag_config_yml['Case'].get('OCN_DIAG_ROOT', '')
-    if ocn_diag_root:
-      args.output_dir = ocn_diag_root
-      args.plot_dir = os.path.join(ocn_diag_root, 'PNG', 'WIND')
+    # Use OCN_DIAG_ROOT / PNG conventions from DiagsCase for output directories
+    args.output_dir = dcase.ocn_diag_root
+    args.plot_dir = dcase.create_png_dir('WIND')
   else:
     # standalone mode: input_path is a glob pattern
     file_pattern = args.input_path
@@ -100,7 +82,11 @@ def driver(args):
     if not files:
       raise FileNotFoundError(f'No files matched: {file_pattern}')
     casename = os.path.basename(files[0]).split('.mom6.')[0]
-    if not args.label: args.label = casename
+    args.label = casename
+    args.output_dir = 'ncfiles'
+    args.plot_dir = 'PNG/WIND'
+    os.makedirs(args.output_dir, exist_ok=True)
+    os.makedirs(args.plot_dir, exist_ok=True)
 
   print(f'Case: {casename}')
   print(f'File pattern: {file_pattern}')

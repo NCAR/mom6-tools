@@ -42,41 +42,28 @@ def parseCommandLine():
 
 def driver(args):
     nw = args.number_of_workers
-    path_plt_out = 'PNG/TAOMooring/'
-    
-    os.makedirs(path_plt_out, exist_ok=True)
-
     # Read in the yaml file
-    diag_config_yml = yaml.load(open(args.diag_config_yml_path,'r'), Loader=yaml.Loader)
-    dcase = DiagsCase(diag_config_yml['Case'])
-    ocn_diag_root = dcase.create_output_dir()
+    dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+    path_plt_out = dcase.create_png_dir('TAOMooring')
+    ocn_diag_root = dcase.ocn_diag_root
 
-    caseroot = diag_config_yml['Case']['CASEROOT']
-    args.casename = cime_xmlquery(caseroot, 'CASE')
-    DOUT_S = cime_xmlquery(caseroot, 'DOUT_S')
-    if DOUT_S:
-      OUTDIR = cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-    else:
-      OUTDIR = cime_xmlquery(caseroot, 'RUNDIR')
+    args.casename = dcase.casename
 
     # file streams
-    args.monthly = args.casename+diag_config_yml['Fnames']['z']
-    args.static = args.casename+diag_config_yml['Fnames']['static']
-    args.geom = args.casename+diag_config_yml['Fnames']['geom']
-    print('Output directory is:', OUTDIR)
+    args.monthly = dcase.get_fname('z')
+    args.static = dcase.get_fname('static')
     print('Casename is:', args.casename)
     print('Monthly file is:', args.monthly)
     print('Static file is:', args.static)
     print('Number of workers: ', nw)
 
     # set avg dates
-    avg = diag_config_yml['Avg']
-    if not args.start_date : args.start_date = avg['start_date']
-    if not args.end_date : args.end_date = avg['end_date']
+    if not args.start_date : args.start_date = dcase.start_date
+    if not args.end_date : args.end_date = dcase.end_date
 
 
     # read grid info
-    grd = MOM6grid(OUTDIR+'/'+args.static, OUTDIR+'/'+args.geom, xrformat=True)
+    grd = dcase.get_grid(xrformat=True)
 
     # Get index for equator on model grid
     jeq = np.abs(grd['geolat'][:,0]).argmin().values
@@ -86,7 +73,7 @@ def driver(args):
     path_obs = '/glade/campaign/cgd/oce/datasets/obs/TAO_adcp_mon'
 
     parallel, cluster, client = get_cluster(nw, args=args,
-                                            config=diag_config_yml.get('Jobqueue'))
+                                            config=dcase.jobqueue_config)
 
     print('Reading monthly dataset ...')
     startTime = datetime.now()
@@ -96,7 +83,7 @@ def driver(args):
         return ds[variables]
 
     # The full case archive
-    ds = xr.open_mfdataset(os.path.join(OUTDIR,args.monthly),
+    ds = xr.open_mfdataset(args.monthly,
                         data_vars='minimal',coords='minimal',compat='override',
                         parallel=parallel,
                         preprocess=preprocess)
