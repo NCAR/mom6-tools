@@ -630,7 +630,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, jobqueue_config=None):
   # read dataset
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+dcase.casename+'.mom6.h_*.nc', parallel=parallel,
+  ds1 = xr.open_mfdataset(dcase.get_fname('native'), parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 

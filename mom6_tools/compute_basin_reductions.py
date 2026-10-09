@@ -178,7 +178,7 @@ def main():
     except:
       area = xr.where(grd.wet == 1, grd.areacello, 0.)
 
-    ts_path = f"{ocn_diag_root}../notebooks/ts/"
+    ts_path = os.path.normpath(os.path.join(ocn_diag_root, '..', 'notebooks', 'ts'))
     os.makedirs(ts_path, exist_ok=True)
     print(f"created {ts_path}")
 
@@ -186,7 +186,7 @@ def main():
       print("The variable is an empty string. Processing all variables in {}".format(stream))
 
       # Select all files that contain 'native' in their name
-      file = glob.glob(os.path.join(dcase.hist_dir, stream))[0]
+      file = glob.glob(stream)[0]
 
       if args.debug:
         print(f'file: {file}')
@@ -197,7 +197,7 @@ def main():
         print(ds_file)
 
       # Write to a markdown file
-      md_path = f"{ts_path}ts.md"
+      md_path = os.path.join(ts_path, 'ts.md')
       # Open the markdown file to write
       with open(md_path, 'w') as f:
         # Write the header
@@ -216,7 +216,7 @@ def main():
             # Write the variable, long_name, and units to the file
             f.write(f"- **{var}** ({long_name}, {units})\n")
 
-      print(f"Markdown file has been created at {ts_path}ts.md")
+      print(f"Markdown file has been created at {md_path}")
 
       # Loop over the variables in the dataset and submit a PBS job for each
       for var in ds_file.data_vars:
@@ -230,7 +230,7 @@ def main():
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
 
-      files = os.path.join(dcase.hist_dir, stream)
+      files = stream
       ds = xr.open_mfdataset(files,
                        parallel=False,
                        combine="nested",
@@ -259,7 +259,7 @@ def main():
       #cmd = f"papermill {file_in} {file_out} -p variable {variable}"
       cmd = f"papermill {template_path} {file_out} -p variable {variable} -p long_name '{long_name}'"
       print(cmd)
-      file_out = f"{ts_path}{variable}.ipynb"
+      file_out = os.path.join(ts_path, f'{variable}.ipynb')
       subprocess.run(cmd, shell=True, check=True)
       replace_cell_content(file_out, variable, file_out)
       os.chdir(cwd)

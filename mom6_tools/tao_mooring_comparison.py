@@ -86,7 +86,7 @@ def driver(args):
         return ds[variables]
 
     # The full case archive
-    ds = xr.open_mfdataset(os.path.join(dcase.hist_dir,args.monthly),
+    ds = xr.open_mfdataset(args.monthly,
                         data_vars='minimal',coords='minimal',compat='override',
                         parallel=parallel,
                         preprocess=preprocess)

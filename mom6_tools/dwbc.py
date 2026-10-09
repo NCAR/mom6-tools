@@ -106,7 +106,7 @@ def main():
   label = dcase.label
 
   z_stream    = dcase.get_fname('z')
-  static_file = dcase.hist_dir + '/' + dcase.get_fname('static')
+  static_file = dcase.get_fname('static')
 
   # set avg dates
   if not args.start_date : args.start_date = dcase.start_date
@@ -133,7 +133,7 @@ def main():
   print('Opening z-level files...')
   startTime = datetime.now()
   ds = xr.open_mfdataset(
-      dcase.hist_dir + '/' + z_stream,
+      z_stream,
       parallel=parallel,
       data_vars='minimal',
       coords='minimal',

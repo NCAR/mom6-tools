@@ -31,8 +31,6 @@ def parseCommandLine():
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-ed','--end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-fname','--file_name', type=str, default='.mom6.hm_*.nc',
-                      help='''File(s) where vmo should be read. Default .mom6.hm_*.nc''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-g','--gravity',  type=float, default=9.8,
@@ -50,7 +48,6 @@ def parseCommandLine():
 
 def driver(args):
   nw = args.number_of_workers
-  fname = args.file_name
   g = args.gravity
   rho_0 = args.mean_density
   c_p = args.heat_capacity
@@ -72,7 +69,7 @@ def driver(args):
   parallel, cluster, client = get_cluster(args.number_of_workers, args=args,
                                           config=dcase.jobqueue_config)
 
-  print('Reading {} dataset...'.format(args.file_name))
+  print('Reading {} dataset...'.format(dcase.get_fname('native')))
   startTime = datetime.now()
 
   def preprocess1(ds):
@@ -80,7 +77,7 @@ def driver(args):
     variables = ['hfds','PRCmE', 'time_bnds']
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+dcase.casename+fname, parallel=parallel)
+  ds1 = xr.open_mfdataset(dcase.get_fname('native'), parallel=parallel)
 
   ds1 = preprocess1(ds1)
 
@@ -89,7 +86,7 @@ def driver(args):
     variables = ['tos', 'sos', 'time_bnds']
     return ds[variables]
 
-  ds2 = xr.open_mfdataset(dcase.hist_dir+'/'+dcase.casename+'.mom6.hm_*.nc', parallel=parallel)
+  ds2 = xr.open_mfdataset(dcase.get_fname('native'), parallel=parallel)
 
   ds2 = preprocess2(ds2)
 

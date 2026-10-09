@@ -63,7 +63,7 @@ def driver(args):
   startTime = datetime.now()
 
 
-  ds = xr.open_mfdataset(dcase.hist_dir+'/'+dcase.casename+'.mom6.frc_*.nc', parallel=parallel)
+  ds = xr.open_mfdataset(dcase.get_fname('native'), parallel=parallel)
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
 

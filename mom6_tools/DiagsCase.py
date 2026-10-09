@@ -37,7 +37,7 @@ class DiagsCase(object,):
     get_value(var)
         Returns the value of a variable defined in yaml config file.
     get_fname(key)
-        Returns the history file name pattern for a given stream.
+        Returns the full path (glob pattern) of the history files for a given stream.
     get_grid(xrformat)
         Returns a MOM6grid instance built from this case's static and geom files.
     create_png_dir(subdir)
@@ -58,10 +58,6 @@ class DiagsCase(object,):
                     CASEROOT: ... # required; path to the case root directory
                     OCN_DIAG_ROOT: ... #required; path to diagnostics output files
                     SNAME: ... # required; short name of the case
-                    DOUT_S_ROOT: ... # optional; default is cime_xmlquery(caseroot, 'DOUT_S_ROOT')
-                    RUNDIR: ... # optional; default is cime_xmlquery(caseroot, 'RUNDIR')
-                    OUTDIR: ... # optional; default is cime_xmlquery(caseroot, 'DOUT_S_ROOT')+'/ocn/hist/'
-                                                    or cime_xmlquery(caseroot, 'RUNDIR')
                     HIST_FILE_PREFIX: ... # optional; prefix of history output files
 
             xrformat : boolean, optional
@@ -162,8 +158,8 @@ class DiagsCase(object,):
         self.transports = self.full_config.get('Transports', {})
 
     def get_fname(self, key):
-        """Returns the history file name pattern for a given stream, i.e.
-        `casename` + `full_config['Fnames'][key]`.
+        """Returns the full path (glob pattern) of the history files for a given
+        stream, i.e. `hist_dir`/`casename` + `full_config['Fnames'][key]`.
 
         Parameters
         ----------
@@ -174,7 +170,7 @@ class DiagsCase(object,):
         fnames = self.full_config.get('Fnames', {})
         if key not in fnames:
             raise KeyError(f"'{key}' not found in the Fnames section of diag_config.yml")
-        return self.casename + fnames[key]
+        return os.path.join(self.hist_dir, self.casename + fnames[key])
 
     def get_grid(self, xrformat=None):
         """Returns a MOM6grid instance built from this case's static and geom files.
@@ -186,8 +182,8 @@ class DiagsCase(object,):
             an object-with-numpy-arrays grid and an xarray-Dataset grid from the
             same case).
         """
-        static_file = os.path.join(self.hist_dir, self.get_fname('static'))
-        geom_file = os.path.join(self.hist_dir, self.get_fname('geom'))
+        static_file = self.get_fname('static')
+        geom_file = self.get_fname('geom')
         return MOM6grid(static_file, geom_file,
                          xrformat=self.xrformat if xrformat is None else xrformat)
 

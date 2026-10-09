@@ -104,7 +104,7 @@ def driver(args):
 #      variables.append('time_bnds')
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(dcase.hist_dir+args.monthly, parallel=parallel,
+  ds1 = xr.open_mfdataset(args.monthly, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   # use datetime

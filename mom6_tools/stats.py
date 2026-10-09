@@ -396,7 +396,6 @@ def main(stream=False):
   args.native = dcase.get_fname('native')
   args.rundir = cime_xmlquery(caseroot, 'RUNDIR')
   args.caseroot = caseroot
-  args.OUTDIR = dcase.hist_dir
 
   print('Casename is:', args.casename)
   print('Number of workers: ', args.nw)
@@ -587,7 +586,7 @@ def extract_time_series(fname, variables, area, args, jobqueue_config=None):
   ----------
 
   fname : str
-    Name of the file to be processed.
+    Full path (glob pattern) of the history files to be processed.
 
   variables : str
     List of variables to be processed.
@@ -609,7 +608,7 @@ def extract_time_series(fname, variables, area, args, jobqueue_config=None):
   # read forcing files
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(args.OUTDIR+'/'+fname, parallel=parallel,
+  ds1 = xr.open_mfdataset(fname, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 
@@ -651,7 +650,7 @@ def xystats(fname, variables, grd, basins, args, jobqueue_config=None):
   ----------
 
   fname : str
-    Name of the file to be processed.
+    Full path (glob pattern) of the history files to be processed.
 
   variables : str
     List of variables to be processed.
@@ -685,7 +684,7 @@ def xystats(fname, variables, grd, basins, args, jobqueue_config=None):
   # read forcing files
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(args.OUTDIR+'/'+fname, parallel=parallel,
+  ds1 = xr.open_mfdataset(fname, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   ds_full = preprocess(ds1)

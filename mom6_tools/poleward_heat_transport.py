@@ -88,7 +88,7 @@ def main(stream=False):
         ds = xr.merge([ds, da])
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+args.native, parallel=parallel,
+  ds1 = xr.open_mfdataset(args.native, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 
@@ -211,7 +211,7 @@ def main(stream=False):
     advective = tmp.view(C)
     advective.units = ds[varName].units
   else:
-    raise Exception('Could not find "T_ady_2d" in file "%s"'%(args.infile+args.monthly))
+    raise Exception('Could not find "T_ady_2d" in file "%s"'%(args.native))
 
   varName = 'T_diffy_2d'
   if varName in ds.variables:

@@ -67,7 +67,7 @@ def driver(args):
     jobqueue_config = dcase.jobqueue_config
     casename = dcase.casename
 
-    file_pattern = dcase.hist_dir + '/' + dcase.get_fname('native')
+    file_pattern = dcase.get_fname('native')
     if not args.start_date: args.start_date = dcase.start_date
     if not args.end_date: args.end_date = dcase.end_date
     args.label = dcase.label

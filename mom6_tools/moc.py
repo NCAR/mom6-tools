@@ -82,7 +82,7 @@ def main():
         ds[v] = xr.zeros_like(ds.vo)
     return ds[variables]
 
-  ds = xr.open_mfdataset(dcase.hist_dir+'/'+args.monthly, parallel=parallel, preprocess=preprocess,
+  ds = xr.open_mfdataset(args.monthly, parallel=parallel, preprocess=preprocess,
                          data_vars='minimal', compat='override', coords='minimal',
                          chunks={'time': 12})
   print('Time elasped: ', datetime.now() - startTime)

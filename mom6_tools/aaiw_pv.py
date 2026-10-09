@@ -87,7 +87,7 @@ def main(stream=False):
   print('Reading dataset...')
   startTime = datetime.now()
 
-  ds = xr.open_mfdataset(dcase.hist_dir+'/'+args.monthly, parallel=parallel, \
+  ds = xr.open_mfdataset(args.monthly, parallel=parallel, \
                              combine="nested", concat_dim="time", \
                              preprocess=preprocess,use_cftime=True).chunk({"time": 12})
 

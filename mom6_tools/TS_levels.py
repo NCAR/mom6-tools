@@ -103,7 +103,7 @@ def driver(args):
 #      variables.append('time_bnds')
     return ds[variables]
 
-  ds = xr.open_mfdataset(dcase.hist_dir+'/'+args.monthly, \
+  ds = xr.open_mfdataset(args.monthly, \
          parallel=True, data_vars='minimal', \
          coords='minimal', compat='override', preprocess=preprocess)
 

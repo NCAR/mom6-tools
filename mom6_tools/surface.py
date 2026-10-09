@@ -84,11 +84,11 @@ def driver(args):
     return ds[variables]
 
   # load monthly means
-  ds1 = xr.open_mfdataset(dcase.hist_dir+'/'+args.native, parallel=parallel,
+  ds1 = xr.open_mfdataset(args.native, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   # load daily means
-  ds_daily = xr.open_mfdataset(dcase.hist_dir+'/'+args.sfc, parallel=parallel,
+  ds_daily = xr.open_mfdataset(args.sfc, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   #ds = preprocess(ds1)
