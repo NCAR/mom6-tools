@@ -157,7 +157,7 @@ def main():
     fname = args.fname
 
     # Read in the yaml file and create the case instance
-    dcase = DiagsCase.read_diag_config(args.config_yml)
+    dcase = DiagsCase(args.config_yml)
     stream = dcase.get_fname(fname)
 
     args.casename = dcase.casename

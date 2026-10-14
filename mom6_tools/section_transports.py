@@ -136,7 +136,7 @@ def main(stream=False):
 
   nw = args.number_of_workers
   # Read in the yaml file
-  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  dcase = DiagsCase(args.diag_config_yml_path)
   args.ts_start_date = dcase.ts_start_date
   args.ts_end_date = dcase.ts_end_date
   ocn_diag_root = dcase.ocn_diag_root

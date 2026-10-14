@@ -549,7 +549,7 @@ def main(stream=False):
   args = options()
 
   # Read in the yaml file and create the case instance
-  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  dcase = DiagsCase(args.diag_config_yml_path)
   args.ts_start_date = dcase.ts_start_date
   args.ts_end_date = dcase.ts_end_date
 

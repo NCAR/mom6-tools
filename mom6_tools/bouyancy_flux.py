@@ -53,7 +53,7 @@ def driver(args):
   c_p = args.heat_capacity
 
   # Read in the yaml file and create the case instance
-  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  dcase = DiagsCase(args.diag_config_yml_path)
   ocn_diag_root = dcase.ocn_diag_root
   args.casename = dcase.casename
   print('Casename is:', args.casename)

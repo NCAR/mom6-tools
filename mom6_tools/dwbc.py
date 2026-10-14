@@ -99,7 +99,7 @@ def main():
   nw = args.number_of_workers
 
   # Read in the yaml file and create the case instance
-  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  dcase = DiagsCase(args.diag_config_yml_path)
   pngdir = dcase.create_png_dir('DWBC')
 
   casename = dcase.casename

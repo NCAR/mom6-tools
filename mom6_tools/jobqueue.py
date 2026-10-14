@@ -212,8 +212,8 @@ def get_cluster(nw, cluster_class=None, args={}, config={}, **kwargs):
     get_cluster(nw, cluster_class='SLURMCluster', queue='regular').
   - From a script: get_cluster(nw, args=args,
     config=dcase.jobqueue_config), where args came from a parser
-    that called add_jobqueue_args() and dcase is a DiagsCase built via
-    read_diag_config(). The YAML block is only ever read from
+    that called add_jobqueue_args() and dcase is a DiagsCase built from
+    diag_config.yml. The YAML block is only ever read from
     config -- it is never picked up off args -- and a cluster_class: key
     in it counts as naming the class.
 

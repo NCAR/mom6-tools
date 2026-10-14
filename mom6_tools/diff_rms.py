@@ -545,7 +545,7 @@ def main(stream=False):
   args = options()
 
   # Read in the yaml file and create the case instance
-  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path, xrformat=True)
+  dcase = DiagsCase(args.diag_config_yml_path, xrformat=True)
   # set avg dates
   if not args.start_date : args.start_date = dcase.start_date
   if not args.end_date : args.end_date = dcase.end_date

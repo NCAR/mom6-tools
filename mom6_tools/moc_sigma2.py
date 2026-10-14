@@ -42,7 +42,7 @@ def main():
   nw = args.number_of_workers
 
   # Read in the yaml file
-  dcase = DiagsCase.read_diag_config(args.diag_config_yml_path)
+  dcase = DiagsCase(args.diag_config_yml_path)
   ocn_diag_root = dcase.ocn_diag_root
 
   args.casename = dcase.casename

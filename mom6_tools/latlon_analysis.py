@@ -73,7 +73,7 @@ def parseCommandLine():
 def driver(args):
   # Read in the yaml file and create the case instance
   diag_config_yml_path = "diag_config.yml"
-  dcase = DiagsCase.read_diag_config(diag_config_yml_path)
+  dcase = DiagsCase(diag_config_yml_path)
   args.pngdir = dcase.create_png_dir()
 
   casename = dcase.casename

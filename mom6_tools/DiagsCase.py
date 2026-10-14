@@ -2,8 +2,7 @@ import yaml
 import os
 import re
 import logging as log
-import cftime as cft
-from collections import OrderedDict, namedtuple
+from collections import namedtuple
 import xarray as xr
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import cime_xmlquery
@@ -25,7 +24,7 @@ class DiagsCase(object,):
     Attributes
     -------
     casename
-        Case name
+        CIME case name (cime_xmlquery(CASEROOT, 'CASE'))
     ocn_diag_root
         Directory used for diagnostic outputs (created at construction time)
     hist_dir
@@ -46,116 +45,84 @@ class DiagsCase(object,):
         Returns an xarray dataset that contain the specified fields.
     """
 
-    def __init__(self, case_config:OrderedDict, xrformat=False):
+    def __init__(self, yaml_path, xrformat=False):
         """ Parameters
             ----------
-            case_config : OrderedDict
-                A dictionary containing case information. This is usually read from a yaml
-                file but may also be generated manually. The format of the yaml file to
-                generate this dictionary:
+            yaml_path : str
+                Full path to the diag_config.yml file. Its layout:
 
                 Case:
                     CASEROOT: ... # required; path to the case root directory
-                    OCN_DIAG_ROOT: ... #required; path to diagnostics output files
+                    OCN_DIAG_ROOT: ... # required; path to diagnostics output files
                     SNAME: ... # required; short name of the case
                     HIST_FILE_PREFIX: ... # optional; prefix of history output files
+                Jobqueue: ...  # required; dask cluster settings, see mom6_tools.jobqueue
+                Avg:           # optional; time-averaging window (None: unbounded)
+                    start_date: ...
+                    end_date: ...
+                TS:            # optional; time series window (None: entire record)
+                    start_date: ...
+                    end_date: ...
+                Fnames: ...    # history file suffixes per stream, see get_fname
+                Misc:          # optional
+                    savefigs: ... # defaults to True
+                Transports: ...   # optional; sections for volume/mass transports
+                oce_cat: ...      # optional; ocean catalog file for observational datasets
 
             xrformat : boolean, optional
             If True, returns an xarray Dataset with the grid. Otherwise (default), returns an
             object with numpy arrays.
 
+            Raises
+            ------
+            ValueError
+                If a required Case key or the Jobqueue section is missing or empty.
         """
 
-        self._config = case_config
-        self._casename = None
-        self._hist_dir = None
+        with open(yaml_path, 'r') as f:
+            self.full_config = yaml.load(f, Loader=yaml.Loader)
+        self._config = self.full_config['Case']
+
+        # Check if required keys are available and non-empty in diag_config.yml
+        required_keys = ("CASEROOT", "OCN_DIAG_ROOT", "SNAME")
+        missing_keys = [key for key in required_keys if not self.get_value(key)]
+        if missing_keys:
+            raise ValueError(
+                f"Required key(s) missing or empty: {', '.join(missing_keys)}"
+            )
+
+        self.jobqueue_config = self.full_config.get('Jobqueue')
+        if not self.jobqueue_config:
+            # This should fall back to some default configuration instead
+            raise ValueError("'Jobqueue' section missing or empty in diag_config.yml")
+
+        self.caseroot = self.get_value('CASEROOT')
+        self.casename = cime_xmlquery(self.caseroot, 'CASE')
+
+        # Location of MOM6 output files
+        dout_s = cime_xmlquery(self.caseroot, 'DOUT_S')
+        if dout_s.strip().lower() == 'true':
+            self.hist_dir = cime_xmlquery(self.caseroot, 'DOUT_S_ROOT') + '/ocn/hist/'
+        else:
+            self.hist_dir = cime_xmlquery(self.caseroot, 'RUNDIR')
+        print('History directory is:', self.hist_dir)
+
         self.diag_files = None
         self.diag_fields = None
         self.xrformat = xrformat
 
-        # check if required keywords are in diag_config.yml
-        required_keys = ("CASEROOT", "OCN_DIAG_ROOT", "SNAME")
-        missing_keys = [key for key in required_keys if key not in self._config]
-        if missing_keys:
-            raise AssertionError(
-                f"Missing required case configuration key(s): {', '.join(missing_keys)}"
-            )
-
-    @classmethod
-    def read_diag_config(cls, yaml_path, xrformat=False):
-        """ Reads a diag_config.yml file and returns a DiagsCase instance.
-
-        Parameters
-        ----------
-        yaml_path : str
-            Full path to the diag_config.yml file.
-        xrformat : boolean, optional
-            Passed through to the DiagsCase constructor.
-
-        Returns
-        -------
-        DiagsCase
-            Instance built from the 'Case' section of the yaml file. The full parsed
-            yaml dictionary (including sections other than 'Case', e.g. 'Avg',
-            'Fnames', 'Transports') is stored on the returned instance as
-            `full_config`. See set_diag_params for the convenience attributes
-            derived from `full_config` (caseroot, start_date, end_date, savefigs,
-            jobqueue_config, label, ocn_diag_root).
-        """
-
-        with open(yaml_path, 'r') as f:
-            full_config = yaml.load(f, Loader=yaml.Loader)
-
-        dcase = cls(full_config['Case'], xrformat=xrformat)
-        dcase.full_config = full_config
-        dcase.set_diag_params()
-        return dcase
-
-    def set_diag_params(self):
-        """ Sets convenience attributes derived from `self.full_config`, so that
-        scripts share a single, consistent way of pulling common parameters out
-        of diag_config.yml instead of indexing into the yaml dictionary themselves.
-        Called automatically by read_diag_config; may be called again if
-        `full_config` is modified after construction.
-
-        Sets
-        ----
-        caseroot        : value of CASEROOT. Required; raises ValueError if not provided.
-        start_date      : Avg['start_date'] (or None if not present). Optional, since
-                           downstream code uses it as a `slice(start_date, end_date)`
-                           bound, and None means an open-ended (unbounded) slice.
-        end_date        : Avg['end_date'] (or None if not present). Optional; see start_date.
-        ts_start_date   : TS['start_date'] (or None if not present). Optional, This specifies
-                           the start date for time series plots, which could be different from
-                           the start_date used for time averaging (start_date). If not present,
-                           the entire record will be used (defaults to None: unbounded slice).
-        ts_end_date     : TS['end_date'] (or None if not present). Optional; see ts_start_date.
-        savefigs        : Misc['savefigs'] (or False if not present). Optional.
-        jobqueue_config : the 'Jobqueue' section. Required; raises ValueError if not present.
-        label           : value of SNAME. Required; raises ValueError if not provided.
-        ocn_diag_root   : path to diagnostic output. Required.
-        oce_cat         : path to the ocean catalog file for observational datasets.
-        transports      : sections for calculating volume/mass transports. Optional.
-        """
-
-        def _require(value, name):
-            if not value:
-                raise ValueError(f"'{name}' must be provided in diag_config.yml")
-            return value
-
-        self.caseroot = _require(self.get_value('CASEROOT'), 'Case.CASEROOT')
-        avg = self.full_config.get('Avg', {})
+        # `or {}` also covers sections present in the yaml but left blank (loaded as None)
+        avg = self.full_config.get('Avg') or {}
         self.start_date = avg.get('start_date')
         self.end_date = avg.get('end_date')
-        ts = self.full_config.get('TS', {})
+        ts = self.full_config.get('TS') or {}
         self.ts_start_date = ts.get('start_date')
         self.ts_end_date = ts.get('end_date')
-        self.savefigs = self.full_config.get('Misc', {}).get('savefigs', True)
-        self.jobqueue_config = _require(self.full_config.get('Jobqueue'), 'Jobqueue')
-        self.label = _require(self.get_value('SNAME'), 'Case.SNAME')
+        self.savefigs = (self.full_config.get('Misc') or {}).get('savefigs', True)
+        self.label = self.get_value('SNAME')
         self.ocn_diag_root = self.create_output_dir()
         self.oce_cat = self.full_config.get('oce_cat')
-        self.transports = self.full_config.get('Transports', {})
+        self.transports = self.full_config.get('Transports') or {}
 
     def get_fname(self, key):
         """Returns the full path (glob pattern) of the history files for a given
@@ -167,7 +134,7 @@ class DiagsCase(object,):
             Key into the yaml file's 'Fnames' section (e.g. 'native', 'static',
             'geom', 'z', 'rho2').
         """
-        fnames = self.full_config.get('Fnames', {})
+        fnames = self.full_config.get('Fnames') or {}
         if key not in fnames:
             raise KeyError(f"'{key}' not found in the Fnames section of diag_config.yml")
         return os.path.join(self.hist_dir, self.casename + fnames[key])
@@ -186,55 +153,6 @@ class DiagsCase(object,):
         geom_file = self.get_fname('geom')
         return MOM6grid(static_file, geom_file,
                          xrformat=self.xrformat if xrformat is None else xrformat)
-
-    # William Xu: CIMEROOT is no longer used; commenting this section out.
-    # if cimeroot and caseroot provided, returns cime case instance. Otherwise returns None
-    #@property
-    #def cime_case(self):
-    #    """ Returns a CIME case object. Must provide the CIME source root
-    #        in case_config dict when instantiating this class. Any CIME xml variable,
-    #        e.g., OCN_GRID, may be retrieved from the returned object using get_value
-    #        method."""
-    #    if not self._cime_case:
-    #        caseroot = self.get_value('CASEROOT')
-    #        cimeroot = self.get_value('CIMEROOT')
-    #        if caseroot and cimeroot:
-    #            sys.path.append(cimeroot)
-    #            #sys.path.append(os.path.join(cimeroot, "CIME"))
-    #            sys.path.append(os.path.join(cimeroot, "scripts", "lib"))
-    #            from CIME.case.case import Case
-    #            try:
-    #              self._cime_case = Case(caseroot, non_local=True)
-    #            except:
-    #              self._cime_case = Case(caseroot)
-    #
-    #    return self._cime_case
-
-    @property
-    def casename(self):
-        """ Returns the CIME case name (cime_xmlquery(caseroot, 'CASE')). """
-        if not self._casename:
-            self._casename = cime_xmlquery(self.get_value('CASEROOT'), 'CASE')
-        return self._casename
-
-    @property
-    def hist_dir(self):
-        """ Returns the directory containing MOM6 history (output) files, i.e.
-        where raw model output is read from -- not to be confused with
-        `ocn_diag_root`, where this package's own diagnostic output is written.
-
-        Derived via cime_xmlquery: DOUT_S_ROOT + '/ocn/hist/' if the case's
-        short-term archiver is on (DOUT_S is 'TRUE'), otherwise RUNDIR.
-        """
-        if not self._hist_dir:
-            caseroot = self.get_value('CASEROOT')
-            dout_s = cime_xmlquery(caseroot, 'DOUT_S')
-            if dout_s.strip().lower() == 'true':
-                self._hist_dir = cime_xmlquery(caseroot, 'DOUT_S_ROOT') + '/ocn/hist/'
-            else:
-                self._hist_dir = cime_xmlquery(caseroot, 'RUNDIR')
-            print('Output directory is:', self._hist_dir)
-        return self._hist_dir
 
     def get_value(self, var):
         """ Returns the value of a variable in yaml config file.
@@ -270,9 +188,6 @@ class DiagsCase(object,):
         """
 
         output_dir = self.get_value('OCN_DIAG_ROOT')
-        if not output_dir:
-            raise KeyError("OCN_DIAG_ROOT is not defined in the case configuration.")
-
         if subdir:
             output_dir = os.path.join(output_dir, subdir)
 

@@ -63,7 +63,7 @@ def driver(args):
   jobqueue_config = None
   if args.input_path.endswith('.yml') or args.input_path.endswith('.yaml'):
     # yaml-based workflow
-    dcase = DiagsCase.read_diag_config(args.input_path)
+    dcase = DiagsCase(args.input_path)
     jobqueue_config = dcase.jobqueue_config
     casename = dcase.casename
 
