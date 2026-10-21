@@ -33,6 +33,7 @@ while LocalCluster is in effect are ignored with a warning naming them, as
 are keys in the Jobqueue: block that are not in JOBQUEUE_CONFIG_KEYS.
 """
 
+import os
 import warnings
 import argparse
 
@@ -175,6 +176,9 @@ def resolve_jobqueue_kwargs(cluster_class, args={}, config={}):
       kwargs[key] = cli_value  
     else:  
       kwargs[key] = config.get(key) 
+    # Expand env vars such as $USER and $PBS_ACCOUNT
+    if isinstance(kwargs[key], str):
+      kwargs[key] = os.path.expandvars(kwargs[key])
   return kwargs
 
 

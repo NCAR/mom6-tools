@@ -6,6 +6,7 @@ from collections import namedtuple
 import xarray as xr
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import cime_xmlquery
+import dask
 
 
 DiagFileEntry = namedtuple('DiagFileEntry',
@@ -93,8 +94,10 @@ class DiagsCase(object,):
 
         self.jobqueue_config = self.full_config.get('Jobqueue')
         if not self.jobqueue_config:
-            # This should fall back to some default configuration instead
-            raise ValueError("'Jobqueue' section missing or empty in diag_config.yml")
+            self.jobqueue_config = dask.config.get("jobqueue").get("pbs")
+            if not self.jobqueue_config:
+                # This should fall back to some default configuration instead
+                raise ValueError("'Jobqueue' section missing or empty in diag_config.yml. \n Consult https://jobqueue.dask.org/en/latest/clusters-configuration.html#configuration-files for information on how to set up a user-level jobqueue.yaml file.")
 
         self.caseroot = self.get_value('CASEROOT')
         self.casename = cime_xmlquery(self.caseroot, 'CASE')
