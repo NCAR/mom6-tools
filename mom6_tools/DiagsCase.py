@@ -94,7 +94,7 @@ class DiagsCase(object,):
 
         self.jobqueue_config = self.full_config.get('Jobqueue')
         if not self.jobqueue_config:
-            self.jobqueue_config = dask.config.get("jobqueue").get("pbs")
+            self.jobqueue_config = dask.config.get("jobqueue", {}).get("pbs")
             if not self.jobqueue_config:
                 # This should fall back to some default configuration instead
                 raise ValueError("'Jobqueue' section missing or empty in diag_config.yml. \n Consult https://jobqueue.dask.org/en/latest/clusters-configuration.html#configuration-files for information on how to set up a user-level jobqueue.yaml file.")
