@@ -704,6 +704,9 @@ def xycompare(field1, field2, x=None, y=None, area=None,
 
   if (field1.shape)!=(field2.shape): raise Exception('field1 and field2 must be the same shape')
 
+  # Mask NaNs/Infs so they don't propagate into the statistics
+  field1 = numpy.ma.masked_invalid(field1); field2 = numpy.ma.masked_invalid(field2)
+
   # Create coordinates if not provided
   xlabel, xunits, ylabel, yunits = createXYlabels(x, y, xlabel, xunits, ylabel, yunits)
   if debug: print('x,y label/units=',xlabel,xunits,ylabel,yunits)
