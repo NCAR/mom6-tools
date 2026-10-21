@@ -16,6 +16,21 @@ Fnames:
   static: '.mom6.h.static.nc'
   geom:   '.mom6.h.ocean_geometry.nc'
 
+# dask_jobqueue cluster settings.
+# Paths below are used verbatim -- edit <username> to your own username.
+# See https://jobqueue.dask.org/en/latest/configuration.html and mom6_tools.jobqueue
+Jobqueue:
+  cluster_class: 'PBSCluster'
+  cores: 1
+  memory: '4GB'
+  processes: 1
+  interface: 'ext' # interface: 'ib0' # for Derecho
+  queue: 'casper' # queue: 'regular'
+  walltime: '02:00:00'
+  resource_spec: 'select=1:ncpus=1:mem=4GB'
+  log_directory: '/glade/derecho/scratch/<username>/dask/logs'
+  local_directory: '/glade/derecho/scratch/<username>/dask/local-dir'
+
 # Miscellaneous Settings
 Misc:
   savefigs: False
