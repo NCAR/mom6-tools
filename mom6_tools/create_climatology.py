@@ -129,6 +129,10 @@ def main():
     dcase = DiagsCase(args.config_yml)
     stream = dcase.get_fname(fname)
 
+    if not args.basin : args.basin = dcase.basin_file
+    # Resolve before os.chdir(climo_path) below; the notebook treats '' (not None) as unset
+    args.basin = os.path.abspath(args.basin) if args.basin else ''
+
     args.casename = dcase.casename
     ocn_diag_root = dcase.create_output_dir('climo')
 

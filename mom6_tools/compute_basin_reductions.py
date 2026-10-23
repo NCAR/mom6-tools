@@ -183,6 +183,7 @@ def main():
       depth = grd.deptho.values
 
     # Get masking for different regions
+    if not args.basin : args.basin = dcase.basin_file
     basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, basin_from_file=args.basin)
 
     ts_path = os.path.normpath(os.path.join(ocn_diag_root, '..', 'notebooks', 'ts'))
