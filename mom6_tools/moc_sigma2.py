@@ -73,6 +73,7 @@ def main():
   except:
     depth = grd.deptho
 
+  if not args.basin : args.basin = dcase.basin_file
   basin_code_xr = m6toolbox.genBasinMasks(grd.geolon, grd.geolat, depth, basin_from_file=args.basin)
 
   # create a grid using xgcm

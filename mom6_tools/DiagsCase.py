@@ -66,9 +66,11 @@ class DiagsCase(object,):
                     end_date: ...
                 Fnames: ...    # history file suffixes per stream, see get_fname
                 Misc:          # optional
-                    savefigs: ... # defaults to True
+                    savefigs: ... # optional; defaults to True
+                    png_dir: ...  # optional; path to output PNG figures (default: 'PNG')
+                    oce_cat: ...  # optional; ocean catalog file for observational datasets
+                    basin_file: ... # optional; file containing pre-computed basin masks (default: '', masks are computed)
                 Transports: ...   # optional; sections for volume/mass transports
-                oce_cat: ...      # optional; ocean catalog file for observational datasets
 
             xrformat : boolean, optional
             If True, returns an xarray Dataset with the grid. Otherwise (default), returns an
@@ -121,11 +123,16 @@ class DiagsCase(object,):
         ts = self.full_config.get('TS') or {}
         self.ts_start_date = ts.get('start_date')
         self.ts_end_date = ts.get('end_date')
-        self.savefigs = (self.full_config.get('Misc') or {}).get('savefigs', True)
         self.label = self.get_value('SNAME')
         self.ocn_diag_root = self.create_output_dir()
-        self.oce_cat = self.full_config.get('oce_cat')
         self.transports = self.full_config.get('Transports') or {}
+
+        misc = self.full_config.get('Misc') or {}
+        self.savefigs = misc.get('savefigs', True)
+        self.png_dir = misc.get('png_dir') or 'PNG'
+        self.oce_cat = misc.get('oce_cat') or \
+            '/glade/campaign/cgd/oce/projects/CESM-MOM6/diagnostics/oce-catalogs/reference-datasets.yml'
+        self.basin_file = misc.get('basin_file') or ''
 
     def get_fname(self, key):
         """Returns the full path (glob pattern) of the history files for a given
@@ -215,7 +222,7 @@ class DiagsCase(object,):
             Path to the PNG output directory.
         """
 
-        png_dir = os.path.join('PNG', subdir) if subdir else 'PNG'
+        png_dir = os.path.join(self.png_dir, subdir) if subdir else self.png_dir
         os.makedirs(png_dir, exist_ok=True)
         return png_dir
 
