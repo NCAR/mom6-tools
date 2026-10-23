@@ -45,9 +45,6 @@ Transports:
               'h.Bosporus_Strait':['vmo', None],
            }
 
-# path to ocean-related datasets catalog
-oce_cat: "reference-datasets.yml"
-
 # dask_jobqueue cluster settings.
 # Paths below are used verbatim -- edit <username> to your own username.
 # See https://jobqueue.dask.org/en/latest/configuration.html and mom6_tools.jobqueue
@@ -66,3 +63,6 @@ Jobqueue:
 # Miscellaneous Settings
 Misc:
   savefigs: False
+  # png_dir: "PNG"    # directory for output PNG figures (default: PNG)
+  oce_cat: "reference-datasets.yml"   # path to ocean-related datasets catalog
+  # basin_file: ""    # file with pre-computed basin masks (default: None)
