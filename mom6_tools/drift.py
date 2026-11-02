@@ -14,33 +14,24 @@ from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
 from datetime import datetime
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 from collections import OrderedDict
 import yaml, os, intake, nc_time_axis
 
-try: import argparse
-except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
-
-def options():
-  parser = argparse.ArgumentParser(description='''Compute horizontal drift and/or RMS: model versus \
-                      observations.''')
-  parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
-    with metadata for the experiment to be processed.''')
-  parser.add_argument('var', type=str, help='''Name of variable to be processed.  \
-    Currently, only thetao or so are supported.''')
+def parse_args():
+  parser = get_parser(description='''Compute horizontal drift and/or RMS: model versus observations.''',
+                      dates=False)
+  parser.add_argument('var', type=str,
+                      help='''Name of variable to be processed. Currently, only thetao or so are supported.''')
   parser.add_argument('--drift', action='store_true',
                       help='''Compute drift. Default is False''')
   parser.add_argument('--rms', action='store_true',
                       help='''Compute rms. Default is False''')
-  parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
-                      help='''Number of workers to use. Default=0 (serial).''')
-  parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
-                      help='''Name of observational product in the oce-catalog  \
-    to compare against. Default is woa-2018-tx2_3v2-annual-all''')
-  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
-  add_jobqueue_args(parser)
-  cmdLineArgs = parser.parse_args()
-  return cmdLineArgs
+  parser.add_argument('-o', '--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
+                      help='''Name of observational product in the oce-catalog to compare against.
+                      Default is woa-2018-tx2_3v2-annual-all''')
+  return parser.parse_args()
 
 def HorizontalMeanRmse_da(var, dims=('yh', 'xh'), weights=None, basins=None, debug=False):
   """
@@ -546,7 +537,7 @@ def dict_to_da(stats_dict):
 def main(stream=False):
 
   # Get options
-  args = options()
+  args = parse_args()
 
   # Read in the yaml file and create the case instance
   dcase = DiagsCase(args.diag_config_yml_path)

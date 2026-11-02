@@ -2,8 +2,8 @@ import argparse
 
 import pytest
 
+from mom6_tools.cli import get_parser
 from mom6_tools.jobqueue import (
-    add_jobqueue_args,
     cluster_class_from_name,
     get_cluster,
     release_workers,
@@ -62,9 +62,7 @@ def test_explicit_local_cluster_by_class():
     release_workers(parallel, cluster, client)
 
 def test_local_cluster_via_cli_args():
-  parser = argparse.ArgumentParser()
-  parser.add_argument('-nw', '--number_of_workers', type=int, default=1)
-  add_jobqueue_args(parser)
+  parser = get_parser('test', config=False, dates=False)
   args = parser.parse_args(['-nw', '2', '--cluster-class', 'LocalCluster'])
 
   parallel, cluster, client = get_cluster(args.number_of_workers, args=args, threads_per_worker=1)
@@ -133,9 +131,7 @@ def test_jobqueue_settings_without_cluster_class_warn():
 
 
 def test_cli_jobqueue_flags_without_cluster_class_warn():
-  parser = argparse.ArgumentParser()
-  parser.add_argument('-nw', '--number_of_workers', type=int, default=1)
-  add_jobqueue_args(parser)
+  parser = get_parser('test', config=False, dates=False)
   args = parser.parse_args(['-nw', '2', '--queue', 'casper', '--cores', '4'])
 
   with pytest.warns(UserWarning, match='cores, queue'):

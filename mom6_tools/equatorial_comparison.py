@@ -4,42 +4,25 @@ import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-import warnings, os, yaml, argparse
+import warnings, os, yaml
 import pandas as pd
 import dask, intake
 from datetime import datetime, date
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6plot import yzcompare, yzplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import shiftgrid, add_global_attrs, weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import cime_xmlquery
 
-def parseCommandLine():
-  """
-  Parse the command line positional and optional arguments.
-  This is the highest level procedure invoked from the very end of the script.
-  """
-  parser = argparse.ArgumentParser(description=
-      '''
-      Compares (model vs obs) T, S and U near the Equator.
-      ''',
-  epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
-  parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
-    describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
-                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
-                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
-                      help='''Number of workers to use (default=0, serial job).''')
-  parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
-                      help='''Name of observational product in the oce-catalog  \
-                              to compare against. Default is woa-2018-tx2_3v2-annual-all''')
-  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
-  add_jobqueue_args(parser)
-  optCmdLineArgs = parser.parse_args()
-  return optCmdLineArgs
+def parse_args():
+  parser = get_parser(description='''Compares (model vs obs) T, S and U near the Equator.''',
+                      epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
+  parser.add_argument('-o', '--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
+                      help='''Name of observational product in the oce-catalog to compare against.
+                      Default is woa-2018-tx2_3v2-annual-all''')
+  return parser.parse_args()
 
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
@@ -278,10 +261,10 @@ def main():
   '''
   Main procedure that calls the driver.
   '''
-  args = parseCommandLine()
+  args = parse_args()
   driver(args)
 
-# Invoke main() which calls parseCommandLine() and the driver.
+# Invoke main() which calls parse_args() and the driver.
 if __name__ == '__main__':
   main()
 

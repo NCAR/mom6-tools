@@ -6,8 +6,8 @@ requested.
 get_cluster() does this in three steps:
 
 1. Collect cluster_class and config from every source: cluster_class as
-   given, else args.cluster_class from a parser that called
-   add_jobqueue_args(), else a cluster_class: key inside config -- the
+   given, else args.cluster_class from a parser built by
+   mom6_tools.cli.get_parser(), else a cluster_class: key inside config -- the
    YAML Jobqueue: block, which callers pass in explicitly as config=. A
    batch cluster is always opt-in and is never inferred from the presence
    of resource settings: submitting batch jobs requires naming the class
@@ -38,7 +38,7 @@ import warnings
 import argparse
 
 # Settings shared by the diag_config.yml `Jobqueue:` block, the CLI flags
-# from add_jobqueue_args(), and the kwargs accepted by dask_jobqueue cluster
+# from mom6_tools.cli.get_parser(), and the kwargs accepted by dask_jobqueue cluster
 # classes (e.g. PBSCluster, SLURMCluster).
 JOBQUEUE_KEYS = [
     'cores', 'memory', 'processes', 'interface', 'queue', 'walltime',
@@ -47,35 +47,8 @@ JOBQUEUE_KEYS = [
 
 # Everything the `Jobqueue:` block may contain. It also accepts
 # cluster_class, so a diag_config.yml can opt into batch workers (e.g.
-# cluster_class: PBSCluster) without every caller passing --cluster-class.
+# cluster_class: PBSCluster)
 JOBQUEUE_CONFIG_KEYS = ['cluster_class'] + JOBQUEUE_KEYS
-
-
-def add_jobqueue_args(parser):
-  '''Add the standard dask-jobqueue CLI flags to an argparse parser.
-
-  Each flag defaults to None so resolve_jobqueue_kwargs() can distinguish a
-  value the user explicitly passed from one picked up elsewhere.
-  '''
-  group = parser.add_argument_group('dask-jobqueue')
-  group.add_argument('--cores', type=int, help='Cores per worker job.')
-  group.add_argument('--memory', type=str, help="Memory per worker job, e.g. '4GB'.")
-  group.add_argument('--processes', type=int, help='Python processes per worker job.')
-  group.add_argument('--interface', type=str, help="Network interface, e.g. 'ib0'.")
-  group.add_argument('--queue', type=str, help='Batch queue to submit worker jobs to.')
-  group.add_argument('--walltime', type=str, help="Walltime per worker job, e.g. '02:00:00'.")
-  group.add_argument('--resource-spec', type=str, help='PBS resource_spec string.')
-  group.add_argument('--account', type=str, help='Account/project to charge worker jobs to.')
-  group.add_argument('--log-directory', type=str, help='Directory for worker job logs.')
-  group.add_argument('--local-directory', type=str, help='Directory for worker scratch space.')
-  group.add_argument('--cluster-class', type=str,
-                      help="Exact dask cluster class name to use, e.g. 'LocalCluster' "
-                           "(default, runs workers on this node without submitting batch "
-                           "jobs), 'PBSCluster', or 'SLURMCluster'. dask_jobqueue "
-                           "classes: https://jobqueue.dask.org/en/latest/api.html "
-                           "-- LocalCluster: "
-                           "https://docs.dask.org/en/stable/deploying-python.html")
-  return parser
 
 
 def cluster_class_from_name(cluster_class):
@@ -148,7 +121,7 @@ def resolve_jobqueue_kwargs(cluster_class, args={}, config={}):
     or dask_jobqueue.SLURMCluster) -- see cluster_class_from_name(). Not
     for dask.distributed.LocalCluster.
   args : argparse.Namespace, optional
-    Parsed CLI args, e.g. from a parser that called add_jobqueue_args().
+    Parsed CLI args, e.g. from a parser built by mom6_tools.cli.get_parser().
   config : dict, optional
     The `Jobqueue:` block from diag_config.yml (or any dict of the same
     keys as JOBQUEUE_KEYS).
@@ -216,7 +189,7 @@ def get_cluster(nw, cluster_class=None, args={}, config={}, **kwargs):
     get_cluster(nw, cluster_class='SLURMCluster', queue='regular').
   - From a script: get_cluster(nw, args=args,
     config=dcase.jobqueue_config), where args came from a parser
-    that called add_jobqueue_args() and dcase is a DiagsCase built from
+    built by mom6_tools.cli.get_parser() and dcase is a DiagsCase built from
     diag_config.yml. The YAML block is only ever read from
     config -- it is never picked up off args -- and a cluster_class: key
     in it counts as naming the class.
@@ -233,7 +206,7 @@ def get_cluster(nw, cluster_class=None, args={}, config={}, **kwargs):
     args.cluster_class if set, then to config['cluster_class'] if set,
     else dask.distributed.LocalCluster.
   args : argparse.Namespace, optional
-    Parsed CLI args, e.g. from a parser that called add_jobqueue_args().
+    Parsed CLI args, e.g. from a parser built by mom6_tools.cli.get_parser().
   config : dict, optional
     The `Jobqueue:` block from diag_config.yml, if any.
   **kwargs

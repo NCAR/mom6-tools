@@ -6,36 +6,36 @@ Create directory and template yaml file for a new case to be processed using mom
 import os, yaml
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.cli import get_parser
 import socket
 
-def options():
-  try: import argparse
-  except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
-  parser = argparse.ArgumentParser(description='''Create a new case to be processed using mom6_tools.''')
-  parser.add_argument('caseroot',  type=str, help='''Path to the CASEROOT''')
-  parser.add_argument('shortname', type=str, help='''A short name descring the experiment''')
-  parser.add_argument('-sd','--start_date', type=str, default='0038-01-01',
+def parse_args():
+  parser = get_parser(description='''Create a new case to be processed using mom6_tools.''',
+                      config=False,
+                      dates=False,
+                      workers=False)
+  parser.add_argument('caseroot', type=str,
+                      help='''Path to the CASEROOT''')
+  parser.add_argument('shortname', type=str,
+                      help='''A short name describing the experiment''')
+  parser.add_argument('-sd', '--start_date', type=str, default='0038-01-01',
                       help='''Start year to compute averages. Default 0038-01-01''')
-  parser.add_argument('-ed','--end_date', type=str, default='0059-01-01',
-                     help='''End year to compute averages. Default 0059-01-01''')
-  parser.add_argument('-p','--proj_code', type=str, default='NCGD0011',
-                     help='''Project code. Default NCGD0011''')
-  parser.add_argument('-ce','--conda_env', type=str, default='dev2',
-                     help='''Conda env to be used for running the scripts. Default dev2''')
-  parser.add_argument('-cl','--cluster', type=str, default='casper',
-                     help='''Name of the cluster to run the scripts via batch jobs. Default casper, but cheyenne is also supported.''')
+  parser.add_argument('-ed', '--end_date', type=str, default='0059-01-01',
+                      help='''End year to compute averages. Default 0059-01-01''')
+  parser.add_argument('-p', '--proj_code', type=str, default='NCGD0011',
+                      help='''Project code. Default NCGD0011''')
+  parser.add_argument('-ce', '--conda_env', type=str, default='dev2',
+                      help='''Conda env to be used for running the scripts. Default dev2''')
+  parser.add_argument('-cl', '--cluster', type=str, default='casper',
+                      help='''Name of the cluster to run the scripts via batch jobs. Default casper, but cheyenne
+                      is also supported.''')
   parser.add_argument('--cluster-class', type=str, default='PBSCluster',
-                     help='''Name of the dask cluster class to use. Default PBSCluster''')
-
-  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
-                      action="store_true")
-  cmdLineArgs = parser.parse_args()
-  return cmdLineArgs
-  main(cmdLineArgs)
+                      help='''Name of the dask cluster class to use. Default PBSCluster''')
+  return parser.parse_args()
 
 def main():
   # Get options
-  args = options()
+  args = parse_args()
   # construct a dict with essential info
   case_config = {'Avg' : {'start_date' : args.start_date,
                           'end_date' : args.end_date}}

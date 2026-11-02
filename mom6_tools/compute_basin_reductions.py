@@ -9,8 +9,9 @@ import textwrap
 import re
 import subprocess
 import nbformat
-import argparse, warnings
+import warnings
 from datetime import datetime
+from mom6_tools.cli import get_parser
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import filter_vars_2D_tracers
 from mom6_tools.m6toolbox import replace_cell_content
@@ -20,14 +21,17 @@ from mom6_tools.DiagsCase import DiagsCase
 warnings.filterwarnings("ignore")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description=
-        "This script computes area-weighted mean and integral time series of a given ocean variable "
-        "over predefined ocean basin masks. It takes as input a dataset file and loops "
-        "over specified basin masks to extract and average/integrate the variable within each region.")
-    parser.add_argument('config_yml', type=str, help='Path to YAML configuration file.')
-    parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty, it will process all 2D variables on tracer points).')
-    parser.add_argument('-f', '--fname', type=str, default='native', help='Name of the history file stream (default is native)')
-    parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
+    parser = get_parser(description='''This script computes area-weighted mean and integral time series of a given
+                        ocean variable over predefined ocean basin masks. It takes as input a dataset file and
+                        loops over specified basin masks to extract and average/integrate the variable within
+                        each region.''',
+                        dates=False,
+                        workers=False)
+    parser.add_argument('-v', '--variable', type=str, default='',
+                        help='''Variable to be processed (default is empty, it will process all 2D variables on
+                        tracer points).''')
+    parser.add_argument('-f', '--fname', type=str, default='native',
+                        help='''Name of the history file stream (default is native)''')
     return parser.parse_args()
 
 # Function to submit PBS script for each variable
@@ -157,7 +161,7 @@ def main():
     fname = args.fname
 
     # Read in the yaml file and create the case instance
-    dcase = DiagsCase(args.config_yml)
+    dcase = DiagsCase(args.diag_config_yml_path)
     stream = dcase.get_fname(fname)
 
     args.casename = dcase.casename

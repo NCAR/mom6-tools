@@ -7,33 +7,20 @@ import warnings, dask, intake
 from datetime import datetime
 import xarray as xr
 from mom6_tools.m6toolbox import cime_xmlquery
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 from mom6_tools import m6plot
 from mom6_tools  import m6toolbox
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
 
-def options():
-  try: import argparse
-  except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
-  parser = argparse.ArgumentParser(description='''Script for plotting meridional overturning circulation.''')
-  parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
-    describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
-                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
-                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
-                      help='''Number of workers to use (default=2).''')
-  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
-                      action="store_true")
-  add_jobqueue_args(parser)
-  cmdLineArgs = parser.parse_args()
-  return cmdLineArgs
+def parse_args():
+  parser = get_parser(description='''Script for plotting meridional overturning circulation.''')
+  return parser.parse_args()
 
 def main():
   # Get options
-  args = options()
+  args = parse_args()
 
   nw = args.number_of_workers
 

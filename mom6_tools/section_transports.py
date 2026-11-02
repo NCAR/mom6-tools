@@ -9,22 +9,14 @@ import matplotlib.pyplot as plt
 import os, yaml
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 from datetime import datetime
 
-try: import argparse
-except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
-
-def options():
-  parser = argparse.ArgumentParser(description='''Script for plotting time-series of transports across vertical sections.''')
-  parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
-    describing the run and diagnostics to be performed.''')
-
-  parser.add_argument('-nw','--number_of_workers',  type=int, default=1, help='''Number of workers to use (default=1).''')
-  parser.add_argument('-debug', help='''Add priting statements for debugging purposes''', action="store_true")
-  add_jobqueue_args(parser)
-  args = parser.parse_args()
-  return args
+def parse_args():
+  parser = get_parser(description='''Script for plotting time-series of transports across vertical sections.''',
+                      dates=False)
+  return parser.parse_args()
 
 class Transport():
   def __init__(self, args, sections_dict, section, ylim=None, zlim=None, mks2Sv=True, debug=False):
@@ -132,7 +124,7 @@ def main(stream=False):
 
   start = datetime.now()
   # Get options
-  args = options()
+  args = parse_args()
 
   nw = args.number_of_workers
   # Read in the yaml file

@@ -16,44 +16,32 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import warnings, os, yaml, argparse, glob
+import warnings, os, yaml, glob
 from datetime import datetime
 from scipy.ndimage import uniform_filter1d
 from xgcm import Grid
 from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery
-import warnings, os, yaml, argparse
+import warnings, os, yaml
 import pandas as pd
 import dask
 from datetime import datetime, date
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import add_global_attrs
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 
-def parseCommandLine():
-  """
-  Parse the command line positional and optional arguments.
-  """
-  parser = argparse.ArgumentParser(description=
-      '''
-      Compute zonal-mean zonal wind stress and wind stress curl as functions
-      of latitude and time. Produce Hovmoller diagrams for the Southern Ocean.
-      ''',
-  epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
-  parser.add_argument('input_path', type=str, help='''Path to yaml config file
-    or glob pattern for native history files (e.g. '/path/*native*0001-??.nc').''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
-                      help='''Start date to select data. Default is to use all available data
-                      (or value set in yaml config).''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
-                      help='''End date to select data. Default is to use all available data
-                      (or value set in yaml config).''')
-  parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
-                      help='''Number of workers to use (default=0, serial job).''')
-  add_jobqueue_args(parser)
-  optCmdLineArgs = parser.parse_args()
-  return optCmdLineArgs
+def parse_args():
+  parser = get_parser(description='''Compute zonal-mean zonal wind stress and wind stress curl as functions of
+                      latitude and time. Produce Hovmoller diagrams for the Southern Ocean.''',
+                      epilog='Written by Gustavo Marques (gmarques@ucar.edu).',
+                      config=False)
+  parser.add_argument('input_path', type=str,
+                      help='''Path to yaml config file or glob pattern for native history files
+                      (e.g. '/path/*native*0001-??.nc'). With a glob pattern, all available data is used
+                      unless -sd/-ed are given.''')
+  return parser.parse_args()
 
 
 def driver(args):
@@ -247,10 +235,10 @@ def main():
   '''
   Main procedure that calls the driver.
   '''
-  args = parseCommandLine()
+  args = parse_args()
   driver(args)
 
-# Invoke main() which calls parseCommandLine() and the driver.
+# Invoke main() which calls parse_args() and the driver.
 if __name__ == '__main__':
   main()
 

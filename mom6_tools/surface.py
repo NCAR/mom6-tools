@@ -3,42 +3,26 @@
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
-import warnings, os, yaml, argparse
+import warnings, os, yaml
 import pandas as pd
 import dask, intake
 from datetime import datetime, date
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery
 from mom6_tools.m6toolbox import weighted_temporal_mean
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
 
-def parseCommandLine():
-  """
-  Parse the command line positional and optional arguments.
-  This is the highest level procedure invoked from the very end of the script.
-  """
-  parser = argparse.ArgumentParser(description=
-      '''
-      Compute time-averages of surface variables (SST, SSS, SSU, SSV and MLD), and (when possible)
-      compare results against observational datasets.
-      ''',
-  epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
-  parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
-    describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
-                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
-                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
+def parse_args():
+  parser = get_parser(description='''Compute time-averages of surface variables (SST, SSS, SSU, SSV and MLD), and
+                      (when possible) compare results against observational datasets.''',
+                      epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
   parser.add_argument('--mld_obs', type=str, default='mld-deboyer-2023-tx2_3v2',
-                      help='''Name of the observation-based MLD dataset in the oce-catalog. Default is mld-deboyer-2023-tx2_3v2''')
-  parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
-                      help='''Number of workers to use (default=0, serial job).''')
-  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
-  add_jobqueue_args(parser)
-  optCmdLineArgs = parser.parse_args()
-  return optCmdLineArgs
+                      help='''Name of the observation-based MLD dataset in the oce-catalog.
+                      Default is mld-deboyer-2023-tx2_3v2''')
+  return parser.parse_args()
 
 # This is where all the action happends, i.e., functions for each diagnostic are called.
 
@@ -546,10 +530,10 @@ def main():
   '''
   Main procedure that calls the driver.
   '''
-  args = parseCommandLine()
+  args = parse_args()
   driver(args)
 
-# Invoke main() which calls parseCommandLine() and the driver.
+# Invoke main() which calls parse_args() and the driver.
 if __name__ == '__main__':
   main()
 

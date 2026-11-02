@@ -2,12 +2,12 @@
 
 # generates MOM6 diagnostics
 
-import argparse
 from netCDF4 import MFDataset, Dataset
 import numpy as np
 import matplotlib.pyplot as plt
 from mom6_tools.m6plot import xyplot
 from mom6_tools.MOM6grid import MOM6grid
+from mom6_tools.cli import get_parser
 import warnings
 import os
 
@@ -20,39 +20,25 @@ class MyError(Exception):
   def __str__(self):
     return repr(self.value)
 
-def parseCommandLine():
-  """
-  Parse the command line positional and optional arguments.
-  This is the highest level procedure invoked from the very end of the script.
-  """
-  parser = argparse.ArgumentParser(description=
-      '''
-      Make lat/lon plots for MOM6.
-      ''',
-  epilog='Written by Gustavo Marques, Jan. 2018.')
-
+def parse_args():
+  parser = get_parser(description='''Make lat/lon plots for MOM6.''',
+                      epilog='Written by Gustavo Marques, Jan. 2018.',
+                      config=False,
+                      dates=False,
+                      workers=False)
   parser.add_argument('-case_name', type=str, default='test',
-      help='''Case name. Default is test.''')
-
+                      help='''Case name. Default is test.''')
   parser.add_argument('-geometry', type=str, default='ocean_geometry.nc',
-      help='''The name of the ocean geometry file. Default is ocean_geometry.nc''')
-
+                      help='''The name of the ocean geometry file. Default is ocean_geometry.nc''')
   parser.add_argument('-outfile', type=str, default='sfc_daily__0000.nc',
-      help='''The name of the netCDF file to be used. Default is sfc_daily__0000.nc''')
-
+                      help='''The name of the netCDF file to be used. Default is sfc_daily__0000.nc''')
   parser.add_argument('-variable', type=str, default='SST',
-      help='''The name of the variable to be plotted. Default is SST.''')
-
+                      help='''The name of the variable to be plotted. Default is SST.''')
   parser.add_argument('-start', type=int, default=0,
-      help='''Initial time indice to be plotted. Default is 0.''')
-
+                      help='''Initial time index to be plotted. Default is 0.''')
   parser.add_argument('-end', type=int, default=-1,
-      help='''Final time indice to be plotted. Default is -1.''')
-
-  optCmdLineArgs = parser.parse_args()
-  global case_name
-  case_name = optCmdLineArgs.case_name
-  return optCmdLineArgs
+                      help='''Final time index to be plotted. Default is -1.''')
+  return parser.parse_args()
 
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
@@ -96,7 +82,7 @@ def latlon_plot(args, ncfile, grd, variable):
           units = nc.variables[var].units
           #TODO: convert days to date
           xyplot( data , grd.geolon, grd.geolat, area=grd.Ah,
-            suptitle=case_name,
+            suptitle=args.case_name,
             title=r'%s, [%s] - Year: %5.1f'%(var,units,time[t]),
             extend='both',
             clim=clim,
@@ -112,10 +98,10 @@ def main():
   '''
   Main procedure that calls the driver.
   '''
-  args = parseCommandLine()
+  args = parse_args()
   driver(args)
 
-# Invoke main() which calls parseCommandLine() and the driver.
+# Invoke main() which calls parse_args() and the driver.
 if __name__ == '__main__':
   main()
 

@@ -17,35 +17,22 @@ from mom6_tools.DiagsCase import DiagsCase
 import pandas as pd
 import getpass
 from datetime import datetime
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 from collections import OrderedDict
 import yaml, os
 
-try: import argparse
-except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
-
-def options():
-  parser = argparse.ArgumentParser(description='''Script for computing and plotting statistics.''')
-  parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
-    describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
-                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
-                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ocean_stats', help='''Extract time series from ocean.stats and ocean.stats.nc ''', \
-                      action="store_true")
-  parser.add_argument('-time_series', help='''Extract time-series for thetaoga and soga and saves \
-                       annual means in a netCDF file''', action="store_true")
-  parser.add_argument('-forcing', help='''Compute global time averages and regionally-averaged time-series \
-                      of forcing fields''', action="store_true")
-  parser.add_argument('-surface', help='''Compute global time averages and regionally-averaged time-series \
-                      of surface fields''', action="store_true")
-  parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
-                      help='''Number of workers to use. Default=0 (serial).''')
-  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
-  add_jobqueue_args(parser)
-  cmdLineArgs = parser.parse_args()
-  return cmdLineArgs
+def parse_args():
+  parser = get_parser(description='''Script for computing and plotting statistics.''')
+  parser.add_argument('-ocean_stats', action='store_true',
+                      help='''Extract time series from ocean.stats and ocean.stats.nc''')
+  parser.add_argument('-time_series', action='store_true',
+                      help='''Extract time-series for thetaoga and soga and save annual means in a netCDF file''')
+  parser.add_argument('-forcing', action='store_true',
+                      help='''Compute global time averages and regionally-averaged time-series of forcing fields''')
+  parser.add_argument('-surface', action='store_true',
+                      help='''Compute global time averages and regionally-averaged time-series of surface fields''')
+  return parser.parse_args()
 
 def min_da(da, dims=('yh', 'xh')):
   """
@@ -375,7 +362,7 @@ def dict_to_da(stats_dict):
 def main(stream=False):
 
   # Get options
-  args = options()
+  args = parse_args()
   args.nw = args.number_of_workers
 
   if not args.ocean_stats and not args.surface and not args.forcing and not args.time_series:

@@ -7,8 +7,9 @@ import numpy as np
 import glob
 import textwrap
 import subprocess
-import argparse, warnings
+import warnings
 from datetime import datetime
+from mom6_tools.cli import get_parser
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import filter_vars, replace_cell_content
 from mom6_tools.MOM6grid import MOM6grid
@@ -18,13 +19,12 @@ from mom6_tools.DiagsCase import DiagsCase
 warnings.filterwarnings("ignore")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Create monthly climatology and averages for datasets.')
-    parser.add_argument('config_yml', type=str, help='Path to YAML configuration file.')
-    parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty).')
-    parser.add_argument('-f', '--fname', type=str, default='z', help='Name of the history file stream (default is z)')
-    parser.add_argument('-sd', '--start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
-    parser.add_argument('-ed', '--end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
-    parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
+    parser = get_parser(description='''Create monthly climatology and averages for datasets.''',
+                        workers=False)
+    parser.add_argument('-v', '--variable', type=str, default='',
+                        help='''Variable to be processed (default is empty).''')
+    parser.add_argument('-f', '--fname', type=str, default='z',
+                        help='''Name of the history file stream (default is z)''')
     return parser.parse_args()
 
 # Function to submit PBS script for each variable
@@ -124,7 +124,7 @@ def main():
     fname = args.fname
 
     # Read in the yaml file and create the case instance
-    dcase = DiagsCase(args.config_yml)
+    dcase = DiagsCase(args.diag_config_yml_path)
     stream = dcase.get_fname(fname)
 
     args.casename = dcase.casename

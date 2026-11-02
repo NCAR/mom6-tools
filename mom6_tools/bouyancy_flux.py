@@ -3,46 +3,29 @@
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
-import warnings, os, yaml, argparse
+import warnings, os, yaml
 import pandas as pd
 import dask
 from datetime import datetime, date
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import add_global_attrs
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.wright_eos import alpha_wright_eos, beta_wright_eos
 
-def parseCommandLine():
-  """
-  Parse the command line positional and optional arguments.
-  This is the highest level procedure invoked from the very end of the script.
-  """
-  parser = argparse.ArgumentParser(description=
-      '''
-      Compute time-averages of surface variables (SST, SSS, SSU, SSV and MLD), and (when possible)
-      compare results against observational datasets.
-      ''',
-  epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
-  parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
-    describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
-                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
-                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
-                      help='''Number of workers to use (default=0, serial job).''')
-  parser.add_argument('-g','--gravity',  type=float, default=9.8,
+def parse_args():
+  parser = get_parser(description='''Compute time-averages of surface variables (SST, SSS, SSU, SSV and MLD), and
+                      (when possible) compare results against observational datasets.''',
+                      epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
+  parser.add_argument('-g', '--gravity', type=float, default=9.8,
                       help='''The gravitational acceleration of the Earth. (default = 9.8 m s-2)''')
-  parser.add_argument('-rho_0','--mean_density',  type=float, default=1035.0,
+  parser.add_argument('-rho_0', '--mean_density', type=float, default=1035.0,
                       help='''The mean ocean density. (default = 1035.0 kg m-3)''')
-  parser.add_argument('-c_p','--heat_capacity',  type=float, default=3992.0,
+  parser.add_argument('-c_p', '--heat_capacity', type=float, default=3992.0,
                       help='''The heat capacity of sea water. (default = 3992.0 J kg-1 K-1)''')
-  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
-  add_jobqueue_args(parser)
-  optCmdLineArgs = parser.parse_args()
-  return optCmdLineArgs
+  return parser.parse_args()
 
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
@@ -179,10 +162,10 @@ def main():
   '''
   Main procedure that calls the driver.
   '''
-  args = parseCommandLine()
+  args = parse_args()
   driver(args)
 
-# Invoke main() which calls parseCommandLine() and the driver.
+# Invoke main() which calls parse_args() and the driver.
 if __name__ == '__main__':
   main()
 

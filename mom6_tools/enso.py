@@ -6,7 +6,8 @@ import numpy as np
 import warnings, dask, netCDF4, intake
 from datetime import datetime, date
 import xarray as xr
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 import cftime
 import nc_time_axis
 import momlevel as ml
@@ -21,31 +22,20 @@ import yaml, os, intake, pickle
 from mom6_tools.DiagsCase import DiagsCase
 
 
-def options():
-  try: import argparse
-  except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
-  parser = argparse.ArgumentParser(description='''Script for computing and plotting nino3.4 variability and composite.. \
-    Acknowledgment: this script builds on work by John Krasting (NOAA/GFDL). \
-    The original version can be found at:  \
-    https://github.com/jkrasting/mar/blob/main/src/gfdlnb/notebooks/ocean/ENSO_variability.ipynb.\
-    ''')
-  parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
-    describing the run and diagnostics to be performed.''')
-  parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
-                      help='''Number of workers to use (default=2).''')
-  parser.add_argument('-ys','--year_shift',  type=int, default='0',
-                      help="An integer used to shift the time coordinate. For example, for G cases forced with JRA-55 \
-                            one might set -ys 1957. Default is 0.")
-  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
-                      action="store_true")
-
-  add_jobqueue_args(parser)
-  cmdLineArgs = parser.parse_args()
-  return cmdLineArgs
+def parse_args():
+  parser = get_parser(description='''Script for computing and plotting nino3.4 variability and composite.
+                      Acknowledgment: this script builds on work by John Krasting (NOAA/GFDL).
+                      The original version can be found at:
+                      https://github.com/jkrasting/mar/blob/main/src/gfdlnb/notebooks/ocean/ENSO_variability.ipynb.''',
+                      dates=False)
+  parser.add_argument('-ys', '--year_shift', type=int, default=0,
+                      help='''An integer used to shift the time coordinate. For example, for G cases forced with
+                      JRA-55 one might set -ys 1957. Default is 0.''')
+  return parser.parse_args()
 
 def main(stream=False):
   # Get options
-  args = options()
+  args = parse_args()
   nw = args.number_of_workers
 
   # Read in the yaml file

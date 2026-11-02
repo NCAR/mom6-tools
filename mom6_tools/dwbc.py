@@ -5,10 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.interpolate import interp1d
-import warnings, os, yaml, argparse, dask
+import warnings, os, yaml, dask
 from datetime import datetime
 import gsw
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 from mom6_tools.m6toolbox import cime_xmlquery
 from mom6_tools.DiagsCase import DiagsCase
 
@@ -23,24 +24,10 @@ LON_MIN = -77.0
 LON_MAX = -70.0
 
 
-def options():
-  try: import argparse
-  except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
-  parser = argparse.ArgumentParser(description='''Script for plotting the 26.5N DWBC transect
-    (mean meridional velocity, 77W-70W) following Bilo & Johns (2020).''')
-  parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
-    describing the run and diagnostics to be performed.''')
-  parser.add_argument('-sd','--start_date', type=str, default='',
-                      help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-ed','--end_date', type=str, default='',
-                      help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
-                      help='''Number of workers to use (default=0, serial).''')
-  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
-                      action="store_true")
-  add_jobqueue_args(parser)
-  cmdLineArgs = parser.parse_args()
-  return cmdLineArgs
+def parse_args():
+  parser = get_parser(description='''Script for plotting the 26.5N DWBC transect (mean meridional velocity,
+                      77W-70W) following Bilo & Johns (2020).''')
+  return parser.parse_args()
 
 
 def base_26N_transect(lon_min=-77.0, lon_max=-70.0):
@@ -95,7 +82,7 @@ def base_26N_transect(lon_min=-77.0, lon_max=-70.0):
 
 def main():
   # Get options
-  args = options()
+  args = parse_args()
   nw = args.number_of_workers
 
   # Read in the yaml file and create the case instance

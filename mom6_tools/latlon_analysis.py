@@ -2,7 +2,6 @@
 
 # tools for generating MOM6 diagnostics
 
-import argparse
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +11,8 @@ from mom6_tools import m6plot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import cime_xmlquery
-from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
+from mom6_tools.jobqueue import get_cluster, release_workers
+from mom6_tools.cli import get_parser
 from mom6_tools.DiagsCase import DiagsCase
 
 class MyError(Exception):
@@ -24,49 +24,32 @@ class MyError(Exception):
   def __str__(self):
     return repr(self.value)
 
-def parseCommandLine():
-  """
-  Parse the command line positional and optional arguments.
-  This is the highest level procedure invoked from the very end of the script.
-  """
-  parser = argparse.ArgumentParser(description=
-      '''
-      Perform latlon analysis (e.g., time averages and spatial mean) and call plotting functions.
-      ''',
-  epilog='Written by Gustavo Marques (gmarques@ucar.edu).')
-
-  parser.add_argument('infile', type=str, help='''Path to the file to be processed.
-                      It can be either sfc_* or frc_* files (i.e <some_path>/run/case_name.mom6.sfc_*)''')
-
+def parse_args():
+  parser = get_parser(description='''Perform latlon analysis (e.g., time averages and spatial mean) and call
+                      plotting functions.''',
+                      epilog='Written by Gustavo Marques (gmarques@ucar.edu).',
+                      config=False,
+                      dates=False)
+  parser.add_argument('infile', type=str,
+                      help='''Path to the file to be processed. It can be either sfc_* or frc_* files
+                      (i.e <some_path>/run/case_name.mom6.sfc_*)''')
   parser.add_argument('-case_name', type=str, default='test',
-      help='''Case name. Default is test.''')
-
+                      help='''Case name. Default is test.''')
   parser.add_argument('-static', type=str, default='ocean_static.nc',
-      help='''The name of the ocean geometry file. Default is ocean_static.nc''')
-
+                      help='''The name of the ocean geometry file. Default is ocean_static.nc''')
   parser.add_argument('-variables', type=str, default=None,
-      help='''Tuple containing variables to be averaged and plotted.
-      Variable must besepareted by comma (e.g., SST,SSS).
-      Default is none, which will process all variables.''')
-
+                      help='''Tuple containing variables to be averaged and plotted.
+                      Variables must be separated by commas (e.g., SST,SSS).
+                      Default is none, which will process all variables.''')
   parser.add_argument('-year_start', type=int, default=80,
-      help='''Start year to compute averages. Default is 80.''')
-
+                      help='''Start year to compute averages. Default is 80.''')
   parser.add_argument('-year_end', type=int, default=100,
-      help='''End year to compute averages. Default is 100.''')
-
-  parser.add_argument('-savefigs', help='''Save figures in a PNG format.''',
-      action="store_true")
-
-  parser.add_argument('-time_series', help='''If true, plot time-series of area-averaged statistics''',
-      action="store_true")
-
-  parser.add_argument('-nw','--number_of_workers', type=int, default=0,
-      help='''Number of workers to use (default=0, serial job).''')
-
-  add_jobqueue_args(parser)
-  optCmdLineArgs = parser.parse_args()
-  return optCmdLineArgs
+                      help='''End year to compute averages. Default is 100.''')
+  parser.add_argument('-savefigs', action='store_true',
+                      help='''Save figures in a PNG format.''')
+  parser.add_argument('-time_series', action='store_true',
+                      help='''If true, plot time-series of area-averaged statistics''')
+  return parser.parse_args()
 
 #-- This is where all the action happends, i.e., functions for each diagnostic are called.
 
@@ -208,10 +191,10 @@ def main():
   '''
   Main procedure that calls the driver.
   '''
-  args = parseCommandLine()
+  args = parse_args()
   driver(args)
 
-# Invoke main() which calls parseCommandLine() and the driver.
+# Invoke main() which calls parse_args() and the driver.
 if __name__ == '__main__':
   main()
 

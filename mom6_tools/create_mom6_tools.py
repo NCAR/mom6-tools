@@ -6,29 +6,29 @@ Create directory and template yaml file for a new case to be processed using mom
 import os, yaml
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.cli import get_parser
 
-def options():
-  try: import argparse
-  except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
-  parser = argparse.ArgumentParser(description='''Create a new case to be processed using mom6_tools.''')
-  parser.add_argument('caseroot', type=str, help='''Path to the CASEROOT''')
-  parser.add_argument('shortname', type=str, help='''A short name describing the experiment''')
+def parse_args():
+  parser = get_parser(description='''Create a new case to be processed using mom6_tools.''',
+                      config=False,
+                      dates=False,
+                      workers=False)
+  parser.add_argument('caseroot', type=str,
+                      help='''Path to the CASEROOT''')
+  parser.add_argument('shortname', type=str,
+                      help='''A short name describing the experiment''')
   parser.add_argument('--ocn_diag_root', type=str, default=None,
-                     help='''Path to store diagnostics output. Default is
-                     <current directory>/<casename>/ncfiles/''')
-  parser.add_argument('-sd','--start_date', type=str, default='0038-01-01',
+                      help='''Path to store diagnostics output. Default is
+                      <current directory>/<casename>/ncfiles/''')
+  parser.add_argument('-sd', '--start_date', type=str, default='0038-01-01',
                       help='''Start year to compute averages. Default 0038-01-01''')
-  parser.add_argument('-ed','--end_date', type=str, default='0059-01-01',
-                     help='''End year to compute averages. Default 0059-01-01''')
-  parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
-                      action="store_true")
-  cmdLineArgs = parser.parse_args()
-  return cmdLineArgs
-  main(cmdLineArgs)
+  parser.add_argument('-ed', '--end_date', type=str, default='0059-01-01',
+                      help='''End year to compute averages. Default 0059-01-01''')
+  return parser.parse_args()
 
 def main():
   # Get options
-  args = options()
+  args = parse_args()
   # construct a dict with essential info
   case_config = {'Avg' : {'start_date' : args.start_date,
                           'end_date' : args.end_date}}
