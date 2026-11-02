@@ -10,7 +10,6 @@ from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 import momlevel as ml
 from mom6_tools import m6plot
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import genBasinMasks
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import add_global_attrs
 from mom6_tools.m6toolbox import cime_xmlquery
