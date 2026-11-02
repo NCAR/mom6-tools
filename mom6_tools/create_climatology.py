@@ -24,6 +24,8 @@ def parse_args():
     parser.add_argument('-f', '--fname', type=str, default='z', help='Name of the history file stream (default is z)')
     parser.add_argument('-sd', '--start_date', type=str, default='', help='Start date for averaging (YYYY-MM).')
     parser.add_argument('-ed', '--end_date', type=str, default='', help='End date for averaging (YYYY-MM).')
+    parser.add_argument('-b', '--basin', type=str, default='', help='Read basin code from file. Default is empty, '
+                         'which will generate basin code using genBasinMasks.')
     parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
     return parser.parse_args()
 
@@ -127,6 +129,10 @@ def main():
     dcase = DiagsCase(args.config_yml)
     stream = dcase.get_fname(fname)
 
+    if not args.basin : args.basin = dcase.basin_file
+    # Resolve before os.chdir(climo_path) below; the notebook treats '' (not None) as unset
+    args.basin = os.path.abspath(args.basin) if args.basin else ''
+
     args.casename = dcase.casename
     ocn_diag_root = dcase.create_output_dir('climo')
 
@@ -218,7 +224,7 @@ def main():
       #path_out = f"{ocn_diag_root}/../../notebooks/climo/"
       os.chdir(climo_path)
       file_out = f"{variable}.ipynb"
-      cmd = f"papermill {template_path} {file_out} -p variable {variable} -p stream {fname} -p long_name '{long_name}'"
+      cmd = f"papermill {template_path} {file_out} -p variable {variable} -p stream {fname} -p long_name '{long_name}' -p basin '{args.basin}'"
       print(cmd)
       file_out = os.path.join(climo_path, f'{variable}.ipynb')
       subprocess.run(cmd, shell=True, check=True)

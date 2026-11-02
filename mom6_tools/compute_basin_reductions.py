@@ -15,6 +15,7 @@ from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import filter_vars_2D_tracers
 from mom6_tools.m6toolbox import replace_cell_content
 from mom6_tools.DiagsCase import DiagsCase
+from mom6_tools.m6toolbox import genBasinMasks
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -27,6 +28,8 @@ def parse_args():
     parser.add_argument('config_yml', type=str, help='Path to YAML configuration file.')
     parser.add_argument('-v', '--variable', type=str, default='', help='Variable to be processed (default is empty, it will process all 2D variables on tracer points).')
     parser.add_argument('-f', '--fname', type=str, default='native', help='Name of the history file stream (default is native)')
+    parser.add_argument('-b', '--basin', type=str, default='', help='Read basin code from file. Default is empty, '
+                         'which will generate basin code using genBasinMasks.')
     parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
     return parser.parse_args()
 
@@ -167,9 +170,6 @@ def main():
     print('Variable is:', variable)
     print('Stream is:', stream)
 
-    # GMM, update this
-    basin_code = xr.open_dataset('/glade/work/gmarques/cesm/tx2_3/basin_masks/basin_masks_tx2_3v2_20250318.nc')['basin_masks']
-
     # read grid info
     grd = dcase.get_grid(xrformat=True)
 
@@ -177,6 +177,14 @@ def main():
       area = xr.where(grd.wet == 1, grd.area_t, 0.)
     except:
       area = xr.where(grd.wet == 1, grd.areacello, 0.)
+    try:
+      depth = grd.depth_ocean.values
+    except:
+      depth = grd.deptho.values
+
+    # Get masking for different regions
+    if not args.basin : args.basin = dcase.basin_file
+    basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, basin_from_file=args.basin)
 
     ts_path = os.path.normpath(os.path.join(ocn_diag_root, '..', 'notebooks', 'ts'))
     os.makedirs(ts_path, exist_ok=True)

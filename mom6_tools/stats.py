@@ -42,6 +42,9 @@ def options():
                       of surface fields''', action="store_true")
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
+  parser.add_argument('-b','--basin',  type=str, default='',
+                      help='''Read basin code from file. Default is empty, \
+                              which will generate basin code using genBasinMasks.''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   add_jobqueue_args(parser)
   cmdLineArgs = parser.parse_args()
@@ -415,10 +418,9 @@ def main(stream=False):
   except:
     depth = grd.deptho.values
 
-  # remove Nan's, otherwise genBasinMasks won't work
   # Get masking for different regions
-  depth[np.isnan(depth)] = 0.0
-  basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, xda=True)
+  if not args.basin : args.basin = dcase.basin_file
+  basin_code = genBasinMasks(grd.geolon.values, grd.geolat.values, depth, basin_from_file=args.basin)
 
   #select a few basins, namely, Global, MedSea,BalticSea,HudsonBay Arctic,
   # Pacific, Atlantic, Indian, Southern, LabSea and BaffinBay
