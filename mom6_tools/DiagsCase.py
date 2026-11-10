@@ -197,7 +197,7 @@ class DiagsCase(object,):
             Path to the output directory.
         """
 
-        output_dir = self.get_value('OCN_DIAG_ROOT')
+        output_dir = os.path.expandvars(self.get_value('OCN_DIAG_ROOT'))
         if subdir:
             output_dir = os.path.join(output_dir, subdir)
 
