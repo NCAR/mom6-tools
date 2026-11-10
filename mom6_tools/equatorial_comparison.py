@@ -117,7 +117,10 @@ def driver(args):
   print('Selecting data between {} and {} (time) and -10 to 10 (yh)...'.format(args.start_date, \
         args.end_date))
   startTime = datetime.now()
-  ds_sel = ds.sel(time=slice(args.start_date, args.end_date)).sel(yh=slice(-10,10)).isel(z_i=slice(0,15)).isel(z_l=slice(0,14))
+  # keep layers down to zmax (nk layers, nk+1 interfaces)
+  zmax = 500.
+  nk = int((ds.z_l <= zmax).sum())
+  ds_sel = ds.sel(time=slice(args.start_date, args.end_date)).sel(yh=slice(-10,10)).isel(z_i=slice(0,nk+1)).isel(z_l=slice(0,nk))
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Annual mean then time averaging...')
@@ -134,14 +137,14 @@ def driver(args):
   temp_eq = np.ma.masked_invalid(thetao.isel(yh=j).values)
   salt_eq = np.ma.masked_invalid(so.isel(yh=j).values)
   u_eq    = np.ma.masked_invalid(uo.isel(yh=j).values)
-  thetao_obs_eq = np.ma.masked_invalid(thetao_obs.sel(yh=slice(-10,10)).isel(yh=j).isel(z_l=slice(0,14)).values)
-  salt_obs_eq = np.ma.masked_invalid(salt_obs.sel(yh=slice(-10,10)).isel(yh=j).isel(z_l=slice(0,14)).values)
+  thetao_obs_eq = np.ma.masked_invalid(thetao_obs.sel(yh=slice(-10,10)).isel(yh=j).isel(z_l=slice(0,nk)).values)
+  salt_obs_eq = np.ma.masked_invalid(salt_obs.sel(yh=slice(-10,10)).isel(yh=j).isel(z_l=slice(0,nk)).values)
 
   release_workers(parallel, cluster, client)
 
   print('Equatorial Upper Ocean plots...')
   y = ds.yh.values
-  zz = ds.z_i[0:15].values
+  zz = ds.z_i[0:nk+1].values
   x = ds.xh.values
   [X, Z] = np.meshgrid(x, zz)
   z = 0.5 * ( Z[:-1] + Z[1:])
@@ -193,7 +196,7 @@ def driver(args):
 
   # y and z from model
   y_model = thetao.yh.values
-  z = ds.z_i[0:15].values
+  z = ds.z_i[0:nk+1].values
   [Y, Z_model] = np.meshgrid(y_model, z)
   z_model = 0.5 * ( Z_model[0:-1,:] + Z_model[1:,:] )
 
@@ -250,7 +253,7 @@ def driver(args):
   z_obs = 0.5 * ( Z_obs[:-1,:] + Z_obs[1:,:] )
 
   x_model = so.xh.values
-  z = ds.z_i[0:15].values
+  z = ds.z_i[0:nk+1].values
   [X, Z_model] = np.meshgrid(x_model, z)
   z_model = 0.5 * ( Z_model[:-1,:] + Z_model[1:,:] )
 
