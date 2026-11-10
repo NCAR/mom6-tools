@@ -790,6 +790,30 @@ def genBasinMasks(x=None,y=None,depth=None,verbose=False, xda=True, basin_from_f
   code1[tmp] = 17
   rmask_od['SouthernOcean60S'] = xr.where(code1 == 17, 1.0, 0.0)
 
+  # Southern Ocean South of Atlantic Ocean
+  if verbose: print('Processing Southern Ocean South of Atlantic Ocean ...')
+  tmp = (code1 == 17) & (x >= -60.) & (x <= 20.)
+  code1[tmp] = 18
+  rmask_od['SouthernOceanAtlantic'] = xr.where(code1 == 18, 1.0, 0.0)
+
+  # Southern Ocean South of Indian Ocean
+  if verbose: print('Processing Southern Ocean South of Indian Ocean ...')
+  tmp = (code1 == 17) & ((x >= 20.) & (x <= 73.) | (x >= -287.) & (x <= -245.))
+  code1[tmp] = 19
+  rmask_od['SouthernOceanIndian'] = xr.where(code1 == 19, 1.0, 0.0)
+
+  # Southern Ocean South of Australia/New Zealand
+  if verbose: print('Processing Southern Ocean South of Australia/New Zealand ...')
+  tmp = (code1 == 17) & (x >= -245.) & (x <= -195.)
+  code1[tmp] = 20
+  rmask_od['SouthernOceanAustralia'] = xr.where(code1 == 20, 1.0, 0.0)
+
+  # Southern Ocean South of Pacific Ocean
+  if verbose: print('Processing Southern Ocean South of Pacific Ocean ...')
+  tmp = (code1 == 17) & (x >= -195.) & (x <= -60.)
+  code1[tmp] = 21
+  rmask_od['SouthernOceanPacific'] = xr.where(code1 == 21, 1.0, 0.0)
+
   if verbose:
     print("""
   Basin codes:
@@ -798,11 +822,12 @@ def genBasinMasks(x=None,y=None,depth=None,verbose=False, xda=True, basin_from_f
   (1) Southern Ocean      (8) Hudson Bay      (15) Gulf of Mexico
   (2) Atlantic Ocean      (9) Baltic Sea      (16) Arctic Ocean North of 80N
   (3) Pacific Ocean       (10) Red Sea        (17) Southern Ocean South of 60S
-  (4) Arctic Ocean        (11) Persian Gulf
-  (5) Indian Ocean        (12) Lab Sea
-  (6) Mediterranean Sea   (13) Baffin Bay
+  (4) Arctic Ocean        (11) Persian Gulf   (18) Southern Ocean South of Atlantic
+  (5) Indian Ocean        (12) Lab Sea        (19) Southern Ocean South of Indian
+  (6) Mediterranean Sea   (13) Baffin Bay     (20) Southern Ocean South of Australia
+                                              (21) Southern Ocean South of Pacific
 
-  Important: basin codes overlap. Code 12 to 17 are only loaded if xda=True.
+  Important: basin codes overlap. Code 12 and above are only loaded if xda=True.
 
     """)
 
