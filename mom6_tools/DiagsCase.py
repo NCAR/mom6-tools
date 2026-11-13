@@ -65,10 +65,15 @@ class DiagsCase(object,):
                     start_date: ...
                     end_date: ...
                 Fnames: ...    # history file suffixes per stream, see get_fname
+                Obs:           # optional; observational datasets to use for comparison
+                    oce_cat: ...  # optional; path to the ocean catalogs for observational datasets (default is
+                                    '/glade/campaign/cgd/oce/projects/CESM-MOM6/diagnostics/oce-catalogs/reference-datasets.yml')
+                    WOA: ...      # optional; Name of the WOA data in the ocean catalogs (default is woa-2018-tx2_3v2-annual-all,
+                                    which needs to be updated once the 65-layer z-grid is used in the simulations)
+                    MLD: ...      # optional; Name of the MLD data in the ocean catalogs (default is mld-deboyer-2023-tx2_3v2)
                 Misc:          # optional
                     savefigs: ... # optional; defaults to True
                     png_dir: ...  # optional; path to output PNG figures (default: 'PNG')
-                    oce_cat: ...  # optional; ocean catalog file for observational datasets
                     basin_file: ... # optional; file containing pre-computed basin masks (default: '', masks are computed)
                 Transports: ...   # optional; sections for volume/mass transports
 
@@ -127,12 +132,20 @@ class DiagsCase(object,):
         self.ocn_diag_root = self.create_output_dir()
         self.transports = self.full_config.get('Transports') or {}
 
+        obs = self.full_config.get('Obs') or {}
+        self.oce_cat = obs.get('oce_cat') or \
+            '/glade/campaign/cgd/oce/projects/CESM-MOM6/diagnostics/oce-catalogs/reference-datasets.yml'
+        self.woa = obs.get('WOA') or 'woa-2018-tx2_3v2-annual-all'
+        self.mld = obs.get('MLD') or 'mld-deboyer-2023-tx2_3v2'
+
         misc = self.full_config.get('Misc') or {}
         self.savefigs = misc.get('savefigs', True)
         self.png_dir = misc.get('png_dir') or 'PNG'
-        self.oce_cat = misc.get('oce_cat') or \
-            '/glade/campaign/cgd/oce/projects/CESM-MOM6/diagnostics/oce-catalogs/reference-datasets.yml'
         self.basin_file = misc.get('basin_file') or ''
+
+        if misc.get('oce_cat') or self.full_config.get('oce_cat'):
+            print("WARNING: 'oce_cat' must be under 'Obs'; the value found elsewhere is ignored. "
+                  f"Using oce_cat = {self.oce_cat}")
 
     def get_fname(self, key):
         """Returns the full path (glob pattern) of the history files for a given
