@@ -42,6 +42,7 @@ def main(stream=False):
 
   # Read in the yaml file
   dcase = DiagsCase(args.diag_config_yml_path)
+  args.oce_cat = dcase.oce_cat
   ocn_diag_root = dcase.ocn_diag_root
 
   args.casename = dcase.casename
@@ -246,12 +247,13 @@ def plt_heat_transport_model_vs_obs(advective, diffusive, hbd, basin_code_xr, gr
   # Atlantic, Arctic, Med, Black and Hudson Bay combined
   atl_regions = ['AtlanticOcean', 'Arctic', 'MedSea', 'BlackSea', 'HudsonBay']
   # Load Observations
-  fObs = xr.open_dataset('/glade/work/gmarques/cesm/datasets/Trenberth_and_Caron_Heat_Transport.nc')
+  catalog = intake.open_catalog(args.oce_cat)
+  fObs = catalog['pht-trenberth-caron'].to_dask()
   # POP JRA-55, 31 year (years 29-59)
-  pop = xr.open_dataset('/glade/u/home/gmarques/Notebooks/POP/MHT/MHT_mean.g210.GIAF_JRA.v13.gx1v7.01.nc')
+  pop = catalog['pht-pop-jra-gx1v7'].to_dask()
   # Estimate based on the JRA-55 v1.3 forcing (Tsujino et al, 2019)
   # basin = 0 is Global; basin = 1 is Atlantic and basin = 2 is IndoPacific
-  jra = xr.open_dataset('/glade/work/gmarques/cesm/datasets/Heat_transport/jra55fcst_v1_3_annual_1x1/nht_jra55do_v1_3.nc')
+  jra = catalog['pht-jra'].to_dask()
   #Trenberth and Caron
   yobs = fObs.variables['ylat'][:]
   NCEP = {}; NCEP['Global'] = fObs.variables['OTn']
