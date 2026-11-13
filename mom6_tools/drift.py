@@ -16,7 +16,7 @@ from mom6_tools.DiagsCase import DiagsCase
 from datetime import datetime
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from collections import OrderedDict
-import yaml, os, intake, nc_time_axis
+import yaml, os, intake, nc_time_axis, warnings
 
 try: import argparse
 except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
@@ -662,6 +662,19 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
 
   # set coordinates to the same as the model's
   obs['xh'] = model.xh; obs['yh'] = model.yh;
+
+  # Match obs and model levels by index: obs and model layer depths differ by
+  # rounding errors, so xarray's value-based alignment would silently drop levels.
+  if obs.sizes['z_l'] != model.sizes['z_l']:
+    raise ValueError('Obs has {} levels but model has {}'.format(obs.sizes['z_l'], model.sizes['z_l']))
+  max_dz = float(np.abs(obs.z_l.values - model.z_l.values).max())
+  if max_dz > 1.0e-3:
+    raise ValueError('Obs and model layer depths differ by up to {:.6f} m '
+                     '(tolerance is 1 mm)'.format(max_dz))
+  if not np.array_equal(obs.z_l.values, model.z_l.values):
+    warnings.warn('Obs and model layer depths are not identical (max difference '
+                  '{:.3g} m); matching levels by index and using model z_l for obs.'.format(max_dz))
+  obs['z_l'] = model.z_l
 
   # compute difference
   diff = model - obs
