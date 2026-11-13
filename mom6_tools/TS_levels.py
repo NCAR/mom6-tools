@@ -37,9 +37,10 @@ def parseCommandLine():
   parser.add_argument('-b','--basin',  type=str, default='',
                       help='''Read basin code from file. Default is empty, \
                               which will generate basin code using genBasinMasks.''')
-  parser.add_argument('-o','--obs', type=str, default='woa-2018-tx2_3v2-annual-all',
-                      help='''Name of observational product in the oce-catalog  \
-                              to compare against. Default is woa-2018-tx2_3v2-annual-all''')
+  parser.add_argument('-o','--obs', type=str, default=None,
+                      help='''Name of the WOA product in the oce-catalog to compare against.  \
+                              Default is to use the value set in Obs:WOA in diag_config_yml_path  \
+                              (woa-2018-tx2_3v2-annual-all if not set)''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   add_jobqueue_args(parser)
   optCmdLineArgs = parser.parse_args()
@@ -53,6 +54,7 @@ def driver(args):
 
   # Read in the yaml file
   dcase = DiagsCase(args.diag_config_yml_path)
+  if not args.obs: args.obs = dcase.woa
   ocn_diag_root = dcase.ocn_diag_root
   args.pngdir = dcase.create_png_dir('TS_levels')
 
