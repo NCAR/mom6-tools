@@ -31,8 +31,10 @@ def parseCommandLine():
                       help='''Start year to compute averages. Default is to use value set in diag_config_yml_path''')
   parser.add_argument('-ed','--end_date', type=str, default='',
                       help='''End year to compute averages. Default is to use value set in diag_config_yml_path''')
-  parser.add_argument('--mld_obs', type=str, default='mld-deboyer-2023-tx2_3v2',
-                      help='''Name of the observation-based MLD dataset in the oce-catalog. Default is mld-deboyer-2023-tx2_3v2''')
+  parser.add_argument('-o','--obs', type=str, default=None,
+                      help='''Name of the observation-based MLD dataset in the oce-catalog. \
+                              Default is to use the value set in Obs:MLD in diag_config_yml_path \
+                              (mld-deboyer-2023-tx2_3v2 if not set)''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use (default=0, serial job).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
@@ -47,6 +49,7 @@ def driver(args):
 
   # Read in the yaml file
   dcase = DiagsCase(args.diag_config_yml_path)
+  if not args.obs: args.obs = dcase.mld
   args.ocn_diag_root = dcase.ocn_diag_root
 
   args.casename = dcase.casename
@@ -103,9 +106,10 @@ def driver(args):
   # load obs-based mld from oce-catalog
   try:
     catalog = intake.open_catalog(dcase.oce_cat)
-    mld_obs = catalog[args.mld_obs].to_dask()
-  except Exception as e:
-    print("WARNING: No obs available, check config file.")
+    mld_obs = catalog[args.obs].to_dask()
+  except (KeyError, OSError) as e:
+    print(f"WARNING: Could not load obs-based MLD '{args.obs}' from {dcase.oce_cat}: {e!r}")
+    print("         Skipping comparisons against obs.")
     mld_obs = None
 
   if args.savefigs:
@@ -301,7 +305,7 @@ def get_MLD(ds, var, mld_obs, grd, args):
             "pad": 0.05,
             "aspect": 40,
             "shrink": 0.8,
-            "label": "MLD monthly climatology bias [model - {}] (m)".format(args.mld_obs)
+            "label": "MLD monthly climatology bias [model - {}] (m)".format(args.obs)
         }
     )
     plt.suptitle('{}, from {} to {}'.format(args.label, args.start_date,
