@@ -345,6 +345,10 @@ def driver(args):
 # misc functions
 def myStats_da(da, weights, dims=('yh', 'xh'), basins=None, debug=False):
   rmask_od = OrderedDict()
+  # Load once and compute each region's stats inside the loop. Otherwise every region's
+  # lazy graph (holding its own full 3D copy of the weights) is kept until the end, so
+  # memory grows with n_levels * n_regions and the job gets killed.
+  da = da.load()
   for reg in basins.region:
     if debug: print('Region: ', reg)
     # select region in the DataArray
@@ -358,7 +362,7 @@ def myStats_da(da, weights, dims=('yh', 'xh'), basins=None, debug=False):
     da_std  = std_da(da_reg , dims, tmp_weights,  total_weights, da_mean)
     da_rms  = rms_da(da_reg , dims, tmp_weights,  total_weights)
     out = stats_to_ds(da_min, da_max, da_mean, da_std, da_rms)
-    rmask_od[str(reg.values)] = out
+    rmask_od[str(reg.values)] = out.load()
 
   return dict_to_da(rmask_od) # create dataarray using rmask_od
 
