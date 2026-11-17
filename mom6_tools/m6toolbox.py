@@ -11,6 +11,7 @@ import xarray as xr
 from collections import OrderedDict
 import subprocess
 import warnings
+import os
 
 def filter_vars_2D_tracers(ds):
     """Keep only 2D variables at tracer points."""
@@ -41,6 +42,18 @@ def filter_vars(ds):
       ('time', 'rho2_l', 'yh', 'xq')
     }
     return ds.drop_vars([var for var in ds.data_vars if tuple(ds[var].dims) not in allowed_dims])
+
+def expand_path(path):
+  """Return path with surrounding whitespace stripped and $VARS and ~ expanded.
+
+  Raises ValueError if the result still contains '$', i.e. it references an
+  environment variable that is not defined, so a typo or missing variable fails
+  loudly instead of silently producing a literal '$USER' directory.
+  """
+  expanded = os.path.expanduser(os.path.expandvars(str(path).strip()))
+  if '$' in expanded:
+    raise ValueError(f"Undefined environment variable in path: {path!r} -> {expanded!r}")
+  return expanded
 
 def cime_xmlquery(caseroot, varname):
   """run CIME's xmlquery for varname in the directory caseroot, return the value"""
