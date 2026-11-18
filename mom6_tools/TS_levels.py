@@ -10,7 +10,7 @@ import dask
 from datetime import datetime, date
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.m6toolbox import add_global_attrs, genBasinMasks, weighted_temporal_mean_vars
-from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.m6toolbox import cime_xmlquery, check_vertical_levels
 from mom6_tools.m6plot import xycompare, polarcomparison, chooseColorLevels
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
@@ -114,15 +114,7 @@ def driver(args):
 
   # Match obs and model levels by index: obs and model layer depths differ by
   # rounding errors, so xarray's value-based alignment would silently drop levels.
-  if obs.sizes['depth'] != ds.sizes['z_l']:
-    raise ValueError('Obs has {} levels but model has {}'.format(obs.sizes['depth'], ds.sizes['z_l']))
-  max_dz = float(np.abs(obs.depth.values - ds.z_l.values).max())
-  if max_dz > 1.0e-3:
-    raise ValueError('Obs and model layer depths differ by up to {:.6f} m '
-                     '(tolerance is 1 mm)'.format(max_dz))
-  if not np.array_equal(obs.depth.values, ds.z_l.values):
-    warnings.warn('Obs and model layer depths are not identical (max difference '
-                  '{:.3g} m); matching levels by index and using model z_l for obs.'.format(max_dz))
+  check_vertical_levels(obs.depth, ds.z_l)
   obs = obs.assign_coords(depth=ds.z_l.values)
   obs_temp = obs.thetao
   obs_salt = obs.so

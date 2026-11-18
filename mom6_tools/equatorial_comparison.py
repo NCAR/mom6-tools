@@ -13,7 +13,7 @@ from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6plot import yzcompare, yzplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import shiftgrid, add_global_attrs, weighted_temporal_mean_vars
-from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.m6toolbox import cime_xmlquery, check_vertical_levels
 
 def parseCommandLine():
   """
@@ -118,15 +118,7 @@ def driver(args):
 
   # Obs levels are selected by index below, so obs must be on the model's vertical grid
   # (up to rounding errors); otherwise obs would be plotted at the wrong depths.
-  if obs.sizes['z_l'] != ds.sizes['z_l']:
-    raise ValueError('Obs has {} levels but model has {}'.format(obs.sizes['z_l'], ds.sizes['z_l']))
-  max_dz = float(np.abs(obs.z_l.values - ds.z_l.values).max())
-  if max_dz > 1.0e-3:
-    raise ValueError('Obs and model layer depths differ by up to {:.6f} m '
-                     '(tolerance is 1 mm)'.format(max_dz))
-  if not np.array_equal(obs.z_l.values, ds.z_l.values):
-    warnings.warn('Obs and model layer depths are not identical (max difference '
-                  '{:.3g} m); matching levels by index.'.format(max_dz))
+  check_vertical_levels(obs.z_l, ds.z_l)
 
   print('Selecting data between {} and {} (time) and -10 to 10 (yh)...'.format(args.start_date, \
         args.end_date))
