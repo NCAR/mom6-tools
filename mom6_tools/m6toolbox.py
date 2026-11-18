@@ -10,6 +10,7 @@ from scipy.io import netcdf
 import xarray as xr
 from collections import OrderedDict
 import subprocess
+import warnings
 
 def filter_vars_2D_tracers(ds):
     """Keep only 2D variables at tracer points."""
@@ -98,6 +99,38 @@ def check_time_interval(ti,tf,nc):
     raise SyntaxError('Selected start/end years outside the range of the dataset. Please fix that and run again.')
 
  return
+
+def check_vertical_levels(obs_z, model_z, tol=1.0e-3):
+  '''
+  Checks that obs and model are on the same vertical grid (up to rounding errors)
+  so that their levels can be matched by index.
+
+  Parameters
+  ----------
+  obs_z : 1D array-like (e.g., xarray.DataArray)
+    Obs layer depths [m].
+  model_z : 1D array-like (e.g., xarray.DataArray)
+    Model layer depths [m].
+  tol : float, optional
+    Maximum allowed absolute difference between obs and model depths [m]. Default is 1 mm.
+
+  Raises
+  ------
+  ValueError
+    If the number of levels differs or depths differ by more than tol.
+  '''
+  obs_z = np.asarray(obs_z)
+  model_z = np.asarray(model_z)
+  if obs_z.size != model_z.size:
+    raise ValueError('Obs has {} levels but model has {}'.format(obs_z.size, model_z.size))
+  max_dz = float(np.abs(obs_z - model_z).max())
+  if max_dz > tol:
+    raise ValueError('Obs and model layer depths differ by up to {:.6f} m '
+                     '(tolerance is {:g} m)'.format(max_dz, tol))
+  if not np.array_equal(obs_z, model_z):
+    warnings.warn('Obs and model layer depths are not identical (max difference '
+                  '{:.3g} m); using model z_l for obs.'.format(max_dz))
+  return
 
 def weighted_temporal_mean_vars(ds,attrs=None):
     """
