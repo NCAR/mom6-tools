@@ -13,7 +13,7 @@ import argparse, warnings
 from datetime import datetime
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
 from mom6_tools.m6toolbox import filter_vars_2D_tracers
-from mom6_tools.m6toolbox import replace_cell_content
+from mom6_tools.m6toolbox import replace_cell_content, select_files_by_date
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import genBasinMasks
 
@@ -238,7 +238,8 @@ def main():
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
 
-      files = stream
+      files = select_files_by_date(stream, dcase.ts_start_date, dcase.ts_end_date)
+      print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
       ds = xr.open_mfdataset(files,
                        parallel=False,
                        combine="nested",

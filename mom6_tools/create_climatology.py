@@ -9,7 +9,7 @@ import textwrap
 import subprocess
 import argparse, warnings
 from datetime import datetime
-from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs
+from mom6_tools.m6toolbox import weighted_temporal_mean_vars, add_global_attrs, select_files_by_date
 from mom6_tools.m6toolbox import filter_vars, replace_cell_content
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
@@ -195,7 +195,8 @@ def main():
         """Preprocess function that selects the specified variable."""
         return ds[[variable]]
 
-      files = stream
+      files = select_files_by_date(stream, start_date, end_date)
+      print(f"Opening {len(files)} files: {files[0]} ... {files[-1]}")
       ds = xr.open_mfdataset(files,
                        parallel=True,
                        combine="nested",
