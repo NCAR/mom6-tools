@@ -9,7 +9,7 @@ import dask
 from datetime import datetime, date
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import add_global_attrs
+from mom6_tools.m6toolbox import add_global_attrs, select_files_by_date
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 
@@ -63,7 +63,9 @@ def driver(args):
   startTime = datetime.now()
 
 
-  ds = xr.open_mfdataset(dcase.get_fname('native'), parallel=parallel)
+  files = select_files_by_date(dcase.get_fname('native'), args.start_date, args.end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds = xr.open_mfdataset(files, parallel=parallel)
   # use datetime
   #ds1['time'] = ds1.indexes['time'].to_datetimeindex()
 

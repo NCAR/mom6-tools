@@ -13,7 +13,7 @@ import momlevel as ml
 import xwavelet as xw
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import add_global_attrs
-from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.m6toolbox import cime_xmlquery, select_files_by_date
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import geoslice
 import matplotlib.pyplot as plt
@@ -82,7 +82,9 @@ def main(stream=False):
   print('Reading dataset...')
   startTime = datetime.now()
 
-  ds = xr.open_mfdataset(args.native, parallel=parallel, \
+  files = select_files_by_date(args.native, dcase.ts_start_date, dcase.ts_end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds = xr.open_mfdataset(files, parallel=parallel, \
                              combine="nested", concat_dim="time", \
                              preprocess=preprocess).chunk({"time": 12})
 

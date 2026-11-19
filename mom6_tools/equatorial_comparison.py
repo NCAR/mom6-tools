@@ -13,7 +13,7 @@ from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6plot import yzcompare, yzplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.m6toolbox import shiftgrid, add_global_attrs, weighted_temporal_mean_vars
-from mom6_tools.m6toolbox import cime_xmlquery, check_vertical_levels
+from mom6_tools.m6toolbox import cime_xmlquery, check_vertical_levels, select_files_by_date
 
 def parseCommandLine():
   """
@@ -106,7 +106,9 @@ def driver(args):
 #      variables.append('time_bnds')
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(args.monthly, parallel=parallel,
+  files = select_files_by_date(args.monthly, args.start_date, args.end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds1 = xr.open_mfdataset(files, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   # use datetime

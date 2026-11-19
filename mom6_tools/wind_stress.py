@@ -20,7 +20,7 @@ import warnings, os, yaml, argparse, glob
 from datetime import datetime
 from scipy.ndimage import uniform_filter1d
 from xgcm import Grid
-from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery
+from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery, select_files_by_date
 import warnings, os, yaml, argparse
 import pandas as pd
 import dask
@@ -103,7 +103,13 @@ def driver(args):
     variables = ['tauuo', 'tauvo']
     return ds[[v for v in variables if v in ds]]
 
-  ds = xr.open_mfdataset(file_pattern,
+  # Matches the selection below: only filter when both dates are given
+  if args.start_date and args.end_date:
+    files = select_files_by_date(file_pattern, args.start_date, args.end_date)
+  else:
+    files = select_files_by_date(file_pattern)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds = xr.open_mfdataset(files,
                          preprocess=preprocess,
                          data_vars='minimal',
                          coords='minimal',

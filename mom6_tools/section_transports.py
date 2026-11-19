@@ -7,7 +7,7 @@ import numpy
 import nc_time_axis
 import matplotlib.pyplot as plt
 import os, yaml
-from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.m6toolbox import cime_xmlquery, select_files_by_date
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from datetime import datetime
@@ -65,7 +65,9 @@ class Transport():
     for t in range(len(tiles)):
       inFileName = '{}.mom6.{}*nc.{}'.format(args.infile+args.casename, section, str(tiles[t]))
       if debug: print('inFileName {}, variable {}'.format(inFileName,var))
-      ds = xr.open_mfdataset(inFileName, combine='by_coords', parallel=args.parallel)
+      inFiles = select_files_by_date(inFileName, args.ts_start_date, args.ts_end_date)
+      if debug: print('Opening {} files: {} ... {}'.format(len(inFiles), inFiles[0], inFiles[-1]))
+      ds = xr.open_mfdataset(inFiles, combine='by_coords', parallel=args.parallel)
       #ds['time'] = ds.indexes['time'].to_datetimeindex()
       if debug: print(ds)
       if var in ds.variables:
