@@ -32,6 +32,9 @@ def options():
                       help='''Compute drift. Default is False''')
   parser.add_argument('--rms', action='store_true',
                       help='''Compute rms. Default is False''')
+  parser.add_argument('--monthly', action='store_true',
+                      help='''Use monthly model output instead of annual means. Default is False \
+                              (annual means weighted by days in each month).''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
   parser.add_argument('-b','--basin',  type=str, default='',
@@ -661,8 +664,12 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  # Compute annual mean time series
-  model = weighted_temporal_mean(ds,var)
+  if args.monthly:
+    # Keep the native (monthly) time series
+    model = ds[var]
+  else:
+    # Compute annual mean time series
+    model = weighted_temporal_mean(ds,var)
 
   # set coordinates to the same as the model's
   obs['xh'] = model.xh; obs['yh'] = model.yh;
