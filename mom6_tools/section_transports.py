@@ -7,7 +7,7 @@ import numpy
 import nc_time_axis
 import matplotlib.pyplot as plt
 import os, yaml
-from mom6_tools.m6toolbox import cime_xmlquery, select_files_by_date
+from mom6_tools.m6toolbox import cime_xmlquery, select_files_by_date, weighted_temporal_mean
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from datetime import datetime
@@ -20,6 +20,9 @@ def options():
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
 
+  parser.add_argument('--monthly', action='store_true',
+                      help='''Use monthly model output instead of annual means. Default is False \
+                              (annual means weighted by days in each month).''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=1, help='''Number of workers to use (default=1).''')
   parser.add_argument('-debug', help='''Add priting statements for debugging purposes''', action="store_true")
   add_jobqueue_args(parser)
@@ -102,6 +105,9 @@ class Transport():
     print('Selecting data between {} and {}...'.format(args.ts_start_date, args.ts_end_date))
     da = xr.DataArray(total, coords={'time': time}, dims=['time']).sel(
            time=slice(args.ts_start_date, args.ts_end_date))
+    if not args.monthly:
+      # Compute annual mean time series
+      da = weighted_temporal_mean(da.to_dataset(name='transport'), 'transport')
     total = da.values
     time = da['time'].values
 
