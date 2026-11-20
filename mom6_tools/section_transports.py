@@ -20,9 +20,10 @@ def options():
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
 
-  parser.add_argument('--monthly', action='store_true',
-                      help='''Use monthly model output instead of annual means. Default is False \
-                              (annual means weighted by days in each month).''')
+  parser.add_argument('--monthly', action=argparse.BooleanOptionalAction, default=None,
+                      help='''Use monthly model output (--monthly) or annual means weighted by days \
+                              in each month (--no-monthly). Default is set by TS: annual_mean in \
+                              diag_config_yml_path (annual means if not set).''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=1, help='''Number of workers to use (default=1).''')
   parser.add_argument('-debug', help='''Add priting statements for debugging purposes''', action="store_true")
   add_jobqueue_args(parser)
@@ -143,6 +144,7 @@ def main(stream=False):
   nw = args.number_of_workers
   # Read in the yaml file
   dcase = DiagsCase(args.diag_config_yml_path)
+  if args.monthly is None: args.monthly = not dcase.annual_mean
   args.ts_start_date = dcase.ts_start_date
   args.ts_end_date = dcase.ts_end_date
   ocn_diag_root = dcase.ocn_diag_root

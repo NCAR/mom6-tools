@@ -66,6 +66,8 @@ class DiagsCase(object,):
                 TS:            # optional; time series window (None: entire record)
                     start_date: ...
                     end_date: ...
+                    annual_mean: ...  # optional; if true (default), time series are annual means weighted
+                                        by days in each month; if false, the native (monthly) output is used
                 Fnames: ...    # history file suffixes per stream, see get_fname
                 Obs:           # optional; observational datasets to use for comparison
                     oce_cat: ...  # optional; path to the ocean catalogs for observational datasets (default is
@@ -127,6 +129,7 @@ class DiagsCase(object,):
         self.end_date = self.get_value('end_date', 'Avg')
         self.ts_start_date = self.get_value('start_date', 'TS')
         self.ts_end_date = self.get_value('end_date', 'TS')
+        self.annual_mean = self.get_value('annual_mean', 'TS', True)
         self.label = self.get_value('SNAME')
         self.ocn_diag_root = self.create_output_dir()
 
