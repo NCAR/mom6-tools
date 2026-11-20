@@ -9,7 +9,7 @@ import dask
 from datetime import datetime, date
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import add_global_attrs
+from mom6_tools.m6toolbox import add_global_attrs, select_files_by_date
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.wright_eos import alpha_wright_eos, beta_wright_eos
@@ -77,7 +77,9 @@ def driver(args):
     variables = ['hfds','PRCmE', 'time_bnds']
     return ds[variables]
 
-  ds1 = xr.open_mfdataset(dcase.get_fname('native'), parallel=parallel)
+  files = select_files_by_date(dcase.get_fname('native'), args.start_date, args.end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds1 = xr.open_mfdataset(files, parallel=parallel)
 
   ds1 = preprocess1(ds1)
 
@@ -86,7 +88,7 @@ def driver(args):
     variables = ['tos', 'sos', 'time_bnds']
     return ds[variables]
 
-  ds2 = xr.open_mfdataset(dcase.get_fname('native'), parallel=parallel)
+  ds2 = xr.open_mfdataset(files, parallel=parallel)
 
   ds2 = preprocess2(ds2)
 

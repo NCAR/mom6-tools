@@ -13,7 +13,7 @@ from datetime import datetime, date
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
-from mom6_tools.m6toolbox import weighted_temporal_mean, mom6_latlon2ij, cime_xmlquery
+from mom6_tools.m6toolbox import weighted_temporal_mean, mom6_latlon2ij, cime_xmlquery, select_files_by_date
 
 def parseCommandLine():
     """
@@ -83,7 +83,9 @@ def driver(args):
         return ds[variables]
 
     # The full case archive
-    ds = xr.open_mfdataset(args.monthly,
+    files = select_files_by_date(args.monthly, args.start_date, args.end_date)
+    print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+    ds = xr.open_mfdataset(files,
                         data_vars='minimal',coords='minimal',compat='override',
                         parallel=parallel,
                         preprocess=preprocess)

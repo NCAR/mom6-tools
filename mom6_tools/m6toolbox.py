@@ -145,6 +145,76 @@ def check_vertical_levels(obs_z, model_z, tol=1.0e-3):
                   '{:.3g} m); using model z_l for obs.'.format(max_dz))
   return
 
+def select_files_by_date(pattern, start_date=None, end_date=None, whole_years=False):
+  """Returns the sorted list of files matching the glob `pattern` whose filename
+  dates fall within [start_date, end_date], so that only the needed files are opened.
+
+  The date is parsed from the end of each filename, trying in order:
+    1. *YYYY-MM.nc -> compared at monthly resolution;
+    2. *YYYY.nc    -> compared at yearly resolution;
+    3. *.nc        -> no date in the filename; all files are returned.
+  An optional numeric tile suffix after .nc (e.g. *YYYY-MM.nc.0003) is allowed.
+  The first form that matches at least one file is used, and only files of that
+  form are considered. Files are only pre-filtered: the caller should still
+  apply .sel(time=slice(start_date, end_date)) to trim within files.
+
+  Parameters
+  ----------
+  pattern : str
+      Glob pattern of the files (e.g. DiagsCase.get_fname(key)).
+  start_date, end_date : str, None, or list of these
+      Dates as 'YYYY-MM' or 'YYYY-MM-DD' (the day is ignored). None or ''
+      leaves that end unbounded. If both are unset, all matching files are
+      returned without parsing their names.
+      A list combines several windows (e.g. [Avg start, TS start]): the earliest
+      start and the latest end are used, and any unset entry leaves that end
+      unbounded.
+  whole_years : bool, optional
+      If True, widen the range to start in January and end in December, e.g.
+      for scripts that compute annual means before selecting dates.
+  """
+  import glob, os, re
+
+  files = sorted(glob.glob(pattern))
+  if not files:
+    raise FileNotFoundError(f'No files match {pattern}')
+
+  def combine(dates, pick):
+    if not isinstance(dates, (list, tuple)):
+      dates = [dates]
+    if not dates or not all(dates):
+      return None
+    return pick(d[:7] for d in dates)
+
+  start = combine(start_date, min)
+  end = combine(end_date, max)
+
+  if start is None and end is None:
+    return files
+
+  if whole_years:
+    start = start[:4] + '-01' if start else None
+    end = end[:4] + '-12' if end else None
+
+  tile = r'\.nc(\.\d+)?$'
+  for regex, ndigits in ((r'(\d{4}-\d{2})' + tile, 7), (r'(\d{4})' + tile, 4)):
+    dated = []
+    for f in files:
+      m = re.search(regex, os.path.basename(f))
+      if m:
+        dated.append((m.group(1), f))
+    if not dated:
+      continue
+    s = start[:ndigits] if start else None
+    e = end[:ndigits] if end else None
+    selected = [f for d, f in dated if (s is None or d >= s) and (e is None or d <= e)]
+    if not selected:
+      raise ValueError(f'No files matching {pattern} fall within {start} to {end}')
+    return selected
+
+  # No date in the filenames: fall back to every .nc file
+  return [f for f in files if re.search(tile, f)] or files
+
 def weighted_temporal_mean_vars(ds,attrs=None):
     """
     Loop over all data_vars is ds and compute a weighted

@@ -7,7 +7,7 @@ import warnings, dask, intake
 from datetime import datetime
 import xarray as xr
 from xgcm import Grid
-from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.m6toolbox import cime_xmlquery, select_files_by_date
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools import m6plot
 from mom6_tools  import m6toolbox
@@ -102,7 +102,10 @@ def main():
         ds[v] = xr.zeros_like(ds.vo)
     return ds[variables]
 
-  ds = xr.open_mfdataset(args.sigma2, parallel=parallel, preprocess=preprocess)
+  # Extend to whole years so the annual means computed below are not built from partial years
+  files = select_files_by_date(args.sigma2, args.start_date, args.end_date, whole_years=True)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds = xr.open_mfdataset(files, parallel=parallel, preprocess=preprocess)
 
   print('Time elasped: ', datetime.now() - startTime)
 

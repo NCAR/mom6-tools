@@ -12,7 +12,7 @@ from mom6_tools import m6plot
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import add_global_attrs
-from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.m6toolbox import cime_xmlquery, select_files_by_date
 from mom6_tools.m6toolbox import geoslice
 from mom6_tools.m6toolbox import infer_bounds
 from mom6_tools.m6toolbox import standard_grid_area
@@ -86,7 +86,9 @@ def main(stream=False):
   print('Reading dataset...')
   startTime = datetime.now()
 
-  ds = xr.open_mfdataset(args.monthly, parallel=parallel, \
+  files = select_files_by_date(args.monthly, args.start_date, args.end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds = xr.open_mfdataset(files, parallel=parallel, \
                              combine="nested", concat_dim="time", \
                              preprocess=preprocess,use_cftime=True).chunk({"time": 12})
 
