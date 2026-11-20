@@ -144,7 +144,9 @@ def main(stream=False):
   args.pngdir = dcase.create_png_dir('Transports')
 
   # load sections where transports are computed online
-  sections = dcase.transports['sections']
+  sections = dcase.transports.get('sections')
+  if not sections:
+    raise SystemExit("ERROR: no 'sections' found under 'Transports' in diag_config.yml; nothing to compute.")
   args.casename = dcase.casename
 
   parallel, cluster, client = get_cluster(nw, args=args,

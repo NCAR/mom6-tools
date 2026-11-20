@@ -34,8 +34,10 @@ class DiagsCase(object,):
 
     Methods
     -------
-    get_value(var)
+    get_value(var, section='Case', default=None)
         Returns the value of a variable defined in yaml config file.
+    get_path(var, section='Case', default=None)
+        Same as get_value, with $VARS and ~ expanded (for path variables).
     get_fname(key)
         Returns the full path (glob pattern) of the history files for a given stream.
     get_grid(xrformat)
@@ -106,7 +108,7 @@ class DiagsCase(object,):
                 # This should fall back to some default configuration instead
                 raise ValueError("'Jobqueue' section missing or empty in diag_config.yml. \n Consult https://jobqueue.dask.org/en/latest/clusters-configuration.html#configuration-files for information on how to set up a user-level jobqueue.yaml file.")
 
-        self.caseroot = expand_path(self.get_value('CASEROOT'))
+        self.caseroot = self.get_path('CASEROOT')
         self.casename = cime_xmlquery(self.caseroot, 'CASE')
 
         # Location of MOM6 output files
@@ -121,29 +123,26 @@ class DiagsCase(object,):
         self.diag_fields = None
         self.xrformat = xrformat
 
-        # `or {}` also covers sections present in the yaml but left blank (loaded as None)
-        avg = self.full_config.get('Avg') or {}
-        self.start_date = avg.get('start_date')
-        self.end_date = avg.get('end_date')
-        ts = self.full_config.get('TS') or {}
-        self.ts_start_date = ts.get('start_date')
-        self.ts_end_date = ts.get('end_date')
+        self.start_date = self.get_value('start_date', 'Avg')
+        self.end_date = self.get_value('end_date', 'Avg')
+        self.ts_start_date = self.get_value('start_date', 'TS')
+        self.ts_end_date = self.get_value('end_date', 'TS')
         self.label = self.get_value('SNAME')
         self.ocn_diag_root = self.create_output_dir()
+
+        # `or {}` also covers a Transports section present in the yaml but left blank (loaded as None)
         self.transports = self.full_config.get('Transports') or {}
 
-        obs = self.full_config.get('Obs') or {}
-        self.oce_cat = obs.get('oce_cat') or \
+        self.oce_cat = self.get_path('oce_cat', 'Obs') or \
             '/glade/campaign/cgd/oce/projects/CESM-MOM6/diagnostics/oce-catalogs/reference-datasets.yml'
-        self.woa = obs.get('WOA') or 'woa-2018-tx2_3v2-annual-all'
-        self.mld = obs.get('MLD') or 'mld-deboyer-2023-tx2_3v2'
+        self.woa = self.get_value('WOA', 'Obs') or 'woa-2018-tx2_3v2-annual-all'
+        self.mld = self.get_value('MLD', 'Obs') or 'mld-deboyer-2023-tx2_3v2'
 
-        misc = self.full_config.get('Misc') or {}
-        self.savefigs = misc.get('savefigs', True)
-        self.png_dir = misc.get('png_dir') or 'PNG'
-        self.basin_file = misc.get('basin_file') or ''
+        self.savefigs = self.get_value('savefigs', 'Misc', True)
+        self.png_dir = self.get_path('png_dir', 'Misc') or 'PNG'
+        self.basin_file = self.get_path('basin_file', 'Misc') or ''
 
-        if misc.get('oce_cat') or self.full_config.get('oce_cat'):
+        if self.get_value('oce_cat', 'Misc') or self.full_config.get('oce_cat'):
             print("WARNING: 'oce_cat' must be under 'Obs'; the value found elsewhere is ignored. "
                   f"Using oce_cat = {self.oce_cat}")
 
@@ -177,24 +176,43 @@ class DiagsCase(object,):
         return MOM6grid(static_file, geom_file,
                          xrformat=self.xrformat if xrformat is None else xrformat)
 
-    def get_value(self, var):
+    def get_value(self, var, section='Case', default=None):
         """ Returns the value of a variable in yaml config file.
+
+        The string "none" (any case) is returned as None; other values are
+        returned as-is. Use get_path for variables holding paths.
 
         Parameters
         ----------
         var : string
             Variable name
+        section : string, optional
+            Top-level section of diag_config.yml to look in (default 'Case').
+        default : optional
+            Value returned if the section or variable is missing.
 
         """
 
-        val = self._config.get(var)
+        # `or {}` also covers sections present in the yaml but left blank (loaded as None)
+        val = (self.full_config.get(section) or {}).get(var, default)
 
         if type(val) == type("") and val.lower() == "none":
             val = None
 
-        log.info(f"get_value::\n\trequsted variable: {var} \n\treturning value: {val}"\
+        log.info(f"get_value::\n\trequested variable: {section}.{var} \n\treturning value: {val}"\
                  f"\n\ttype: {type(val)}")
         return val
+
+    def get_path(self, var, section='Case', default=None):
+        """ Returns the value of a path variable in yaml config file, with
+        $VARS and ~ expanded via expand_path. Missing / "none" values are
+        returned as None (or `default`).
+
+        Parameters are the same as for get_value.
+        """
+
+        val = self.get_value(var, section, default)
+        return expand_path(val) if isinstance(val, str) else val
 
     def create_output_dir(self, subdir=None):
         """Create and return the directory used for diagnostic outputs.
@@ -210,7 +228,7 @@ class DiagsCase(object,):
             Path to the output directory.
         """
 
-        output_dir = expand_path(self.get_value('OCN_DIAG_ROOT'))
+        output_dir = self.get_path('OCN_DIAG_ROOT')
         if subdir:
             output_dir = os.path.join(output_dir, subdir)
 
@@ -292,7 +310,7 @@ class DiagsCase(object,):
 
 
     def _parse_diag_table(self):
-        diag_table_path = os.path.join(self.get_value('RUNDIR'), 'diag_table')
+        diag_table_path = os.path.join(self.get_path('RUNDIR'), 'diag_table')
 
         with open(diag_table_path,'r') as diag_table:
 
@@ -364,9 +382,9 @@ class DiagsCase(object,):
             assert hist_file_prefix in self.diag_files, f"Cannot find "+hist_file_prefix+" in diag_table"
 
         # create a list of all files including the requested fields:
-        rundir = self.get_value("RUNDIR")
+        rundir = self.get_path("RUNDIR")
         dout_s = self.get_value('DOUT_S')
-        dout_s_root = self.get_value("DOUT_S_ROOT")
+        dout_s_root = self.get_path("DOUT_S_ROOT")
         regex = DiagsCase.convert_prefix_to_regex(hist_file_prefix)
         log.info(f"regex to determine all files including {field0}: {regex}")
         all_nc_files = []
