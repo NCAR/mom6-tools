@@ -32,6 +32,10 @@ def options():
                       help='''Compute drift. Default is False''')
   parser.add_argument('--rms', action='store_true',
                       help='''Compute rms. Default is False''')
+  parser.add_argument('--monthly', action=argparse.BooleanOptionalAction, default=None,
+                      help='''Use monthly model output (--monthly) or annual means weighted by days \
+                              in each month (--no-monthly). Default is set by TS: annual_mean in \
+                              diag_config_yml_path (annual means if not set).''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
   parser.add_argument('-b','--basin',  type=str, default='',
@@ -554,6 +558,7 @@ def main(stream=False):
 
   # Read in the yaml file and create the case instance
   dcase = DiagsCase(args.diag_config_yml_path)
+  if args.monthly is None: args.monthly = not dcase.annual_mean
   if not args.obs: args.obs = dcase.woa
   args.ts_start_date = dcase.ts_start_date
   args.ts_end_date = dcase.ts_end_date
@@ -659,8 +664,12 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  # Compute annual mean time series
-  model = weighted_temporal_mean(ds,var)
+  if args.monthly:
+    # Keep the native (monthly) time series
+    model = ds[var]
+  else:
+    # Compute annual mean time series
+    model = weighted_temporal_mean(ds,var)
 
   # set coordinates to the same as the model's
   obs['xh'] = model.xh; obs['yh'] = model.yh;

@@ -30,13 +30,18 @@ def parse_args():
     parser.add_argument('-f', '--fname', type=str, default='native', help='Name of the history file stream (default is native)')
     parser.add_argument('-b', '--basin', type=str, default='', help='Read basin code from file. Default is empty, '
                          'which will generate basin code using genBasinMasks.')
+    parser.add_argument('--monthly', action=argparse.BooleanOptionalAction, default=None,
+                        help='Use monthly model output (--monthly) or annual means weighted by days in each '
+                             'month (--no-monthly). Default is set by TS: annual_mean in config_yml '
+                             '(annual means if not set).')
     parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
     return parser.parse_args()
 
 # Function to submit PBS script for each variable
-def submit_pbs_script(var, fname):
+def submit_pbs_script(var, fname, monthly=False):
     """Create and submit a PBS script for generating area-weighted mean time series."""
 
+    flag = ' --monthly' if monthly else ' --no-monthly'
     pbs_script = textwrap.dedent(f"""\
     #!/bin/bash
     #PBS -N {fname}_{var}
@@ -50,7 +55,7 @@ def submit_pbs_script(var, fname):
     module load conda
     conda activate mom6-tools
 
-    mom6-tools_compute_basin_reductions diag_config.yml -v {var} -f {fname}
+    mom6-tools_compute_basin_reductions diag_config.yml -v {var} -f {fname}{flag}
     """)
 
     # Create the directory if it does not exist
@@ -77,7 +82,7 @@ def remove_m2_from_units(units):
     """
     return re.sub(r"\s*m-2\s*", " ", units).strip()
 
-def process_dataset(ds1, basin_code, area, output_dir, casename, dataset_label, ts_start_date=None, ts_end_date=None):
+def process_dataset(ds1, basin_code, area, output_dir, casename, dataset_label, ts_start_date=None, ts_end_date=None, monthly=False):
     """Compute area-weighted mean and integral time series for all 2D variables in the given dataset."""
 
     print(f'Selecting data between {ts_start_date} and {ts_end_date}...')
@@ -88,10 +93,14 @@ def process_dataset(ds1, basin_code, area, output_dir, casename, dataset_label, 
 
     print(f'Processing data from {start_date} to {end_date}')
 
-    print(f'Computing annual mean...')
-    startTime = datetime.now()
-    ds_ann = weighted_temporal_mean_vars(ds_sel)
-    print('Time elasped: ', datetime.now() - startTime)
+    if monthly:
+      # Keep the native (monthly) time series
+      ds_ann = ds_sel
+    else:
+      print(f'Computing annual mean...')
+      startTime = datetime.now()
+      ds_ann = weighted_temporal_mean_vars(ds_sel)
+      print('Time elasped: ', datetime.now() - startTime)
 
     # Iterate over all variables and save to separate files
     print(f'Iterate over all variables and save to separate files...')
@@ -161,6 +170,7 @@ def main():
 
     # Read in the yaml file and create the case instance
     dcase = DiagsCase(args.config_yml)
+    if args.monthly is None: args.monthly = not dcase.annual_mean
     stream = dcase.get_fname(fname)
 
     args.casename = dcase.casename
@@ -229,7 +239,7 @@ def main():
       # Loop over the variables in the dataset and submit a PBS job for each
       for var in ds_file.data_vars:
         # Submit a PBS script for the variable
-        submit_pbs_script(var, fname)
+        submit_pbs_script(var, fname, monthly=args.monthly)
 
     else:
       print(f'Processing {variable}')
@@ -251,7 +261,8 @@ def main():
 
       # Process variable in dataset
       process_dataset(ds, basin_code, area, ocn_diag_root, args.casename, fname,
-                       ts_start_date=dcase.ts_start_date, ts_end_date=dcase.ts_end_date)
+                       ts_start_date=dcase.ts_start_date, ts_end_date=dcase.ts_end_date,
+                       monthly=args.monthly)
 
       print(f'Generating notebook for {variable}')
       long_name = ds[variable].long_name
@@ -267,7 +278,7 @@ def main():
       #cmd = f"papermill {file_in} {file_out} -p variable {variable}"
       cmd = f"papermill {template_path} {file_out} -p variable {variable} -p long_name '{long_name}'"
       print(cmd)
-      file_out = os.path.join(ts_path, f'{variable}.ipynb')
+      file_out = os.path.join(ts_path, file_out)
       subprocess.run(cmd, shell=True, check=True)
       replace_cell_content(file_out, variable, file_out)
       os.chdir(cwd)
