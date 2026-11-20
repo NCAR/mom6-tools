@@ -32,9 +32,10 @@ def options():
                       help='''Compute drift. Default is False''')
   parser.add_argument('--rms', action='store_true',
                       help='''Compute rms. Default is False''')
-  parser.add_argument('--monthly', action='store_true',
-                      help='''Use monthly model output instead of annual means. Default is False \
-                              (annual means weighted by days in each month).''')
+  parser.add_argument('--monthly', action=argparse.BooleanOptionalAction, default=None,
+                      help='''Use monthly model output (--monthly) or annual means weighted by days \
+                              in each month (--no-monthly). Default is set by TS: annual_mean in \
+                              diag_config_yml_path (annual means if not set).''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
   parser.add_argument('-b','--basin',  type=str, default='',
@@ -558,6 +559,7 @@ def main(stream=False):
   # Read in the yaml file and create the case instance
   dcase = DiagsCase(args.diag_config_yml_path)
   if not args.obs: args.obs = dcase.drift
+  if args.monthly is None: args.monthly = not dcase.annual_mean
   args.ts_start_date = dcase.ts_start_date
   args.ts_end_date = dcase.ts_end_date
 

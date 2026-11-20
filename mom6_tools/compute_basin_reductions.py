@@ -30,8 +30,10 @@ def parse_args():
     parser.add_argument('-f', '--fname', type=str, default='native', help='Name of the history file stream (default is native)')
     parser.add_argument('-b', '--basin', type=str, default='', help='Read basin code from file. Default is empty, '
                          'which will generate basin code using genBasinMasks.')
-    parser.add_argument('--monthly', action='store_true', help='Use monthly model output instead of annual means. '
-                         'Default is False (annual means weighted by days in each month).')
+    parser.add_argument('--monthly', action=argparse.BooleanOptionalAction, default=None,
+                        help='Use monthly model output (--monthly) or annual means weighted by days in each '
+                             'month (--no-monthly). Default is set by TS: annual_mean in config_yml '
+                             '(annual means if not set).')
     parser.add_argument('-debug', action='store_true', help='Enable debug mode.')
     return parser.parse_args()
 
@@ -39,16 +41,15 @@ def parse_args():
 def submit_pbs_script(var, fname, monthly=False):
     """Create and submit a PBS script for generating area-weighted mean time series."""
 
-    suffix = '_monthly' if monthly else ''
-    flag = ' --monthly' if monthly else ''
+    flag = ' --monthly' if monthly else ' --no-monthly'
     pbs_script = textwrap.dedent(f"""\
     #!/bin/bash
-    #PBS -N {fname}_{var}{suffix}
+    #PBS -N {fname}_{var}
     #PBS -A p93300012
     #PBS -l select=1:ncpus=1:mem=4GB
     #PBS -l walltime=02:00:00
     #PBS -q casper
-    #PBS -o {fname}/{fname}_{var}{suffix}.o
+    #PBS -o {fname}/{fname}_{var}.o
     #PBS -j oe
 
     module load conda
@@ -60,7 +61,7 @@ def submit_pbs_script(var, fname, monthly=False):
     # Create the directory if it does not exist
     os.makedirs(fname, exist_ok=True)
     # Write the PBS script to a temporary file
-    pbs_filename = os.path.join(fname, f"basin_means_{fname}_{var}{suffix}.sh")
+    pbs_filename = os.path.join(fname, f"basin_means_{fname}_{var}.sh")
     with open(pbs_filename, 'w') as f:
         f.write(pbs_script)
 
@@ -169,6 +170,7 @@ def main():
 
     # Read in the yaml file and create the case instance
     dcase = DiagsCase(args.config_yml)
+    if args.monthly is None: args.monthly = not dcase.annual_mean
     stream = dcase.get_fname(fname)
 
     args.casename = dcase.casename
@@ -273,8 +275,7 @@ def main():
       cwd = os.getcwd()
       os.chdir(ts_path)
       file_in  = f"template.ipynb"
-      suffix = '_monthly' if args.monthly else ''
-      file_out = f"{variable}{suffix}.ipynb"
+      file_out = f"{variable}.ipynb"
       #cmd = f"papermill {file_in} {file_out} -p variable {variable}"
       cmd = f"papermill {template_path} {file_out} -p variable {variable} -p long_name '{long_name}'"
       print(cmd)
