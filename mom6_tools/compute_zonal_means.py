@@ -25,20 +25,28 @@ SECTORS = {'Weddell': (-60., 20.),
            'WestPacific': (90., 160.),
            'Ross': (160., -130.),
            'AmundsenBellingshausen': (-130., -60.)}
+# per-variable metadata and plot settings
+VARS = {'thetao': {'long_name': 'sea water potential temperature', 'units': 'degC',
+                   'title': 'θ (°C)', 'dtitle': 'Δθ (°C)', 'cmap': 'RdYlBu_r', 'decimals': 2},
+        'so': {'long_name': 'sea water salinity', 'units': 'psu',
+               'title': 'S (psu)', 'dtitle': 'ΔS (psu)', 'cmap': 'viridis', 'decimals': 3}}
 SIG2_LEVELS = [35.5, 36.0, 36.5, 36.8, 36.9, 37.0, 37.05, 37.1, 37.15]   # sigma2 contours drawn on the sections
 
 def options():
   try: import argparse
   except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
   parser = argparse.ArgumentParser(description='''Computes Southern Ocean volume-weighted zonal-mean sections of \
-    potential temperature, salinity and sigma2 (TEOS-10, from the 3-D fields) in consecutive n-year blocks, for the \
+    potential temperature or salinity in consecutive n-year blocks, for the \
     region south of lat_max and the five Antarctic sea-ice sectors (Weddell, Indian, WestPacific, Ross, \
     AmundsenBellingshausen). Each block is the mean of the annual means of its years (z-level stream); an incomplete \
-    final block is dropped. By default there is a single block spanning the whole averaging window. Results are saved \
-    in OCN_DIAG_ROOT/<casename>_so_zonal_means_<tag>.nc (tag = <n>yr, or full when --nyears is not given) and plotted \
-    (each block, and each block minus the first) in <png_dir>/SO_zonal_means/.''')
+    final block is dropped. By default there is a single block spanning the whole averaging window. Sections are \
+    overlaid with sigma2 contours (TEOS-10, from the 3-D thetao and so). Results are saved in \
+    OCN_DIAG_ROOT/<casename>_so_zonal_means_<var>_<tag>.nc (tag = <n>yr, or full when --nyears is not given) and \
+    plotted (each block, and each block minus the first) in <png_dir>/SO_zonal_means/.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
+  parser.add_argument('-v','--variable', type=str, required=True, choices=list(VARS),
+                      help='''Name of variable to be processed: thetao or so.''')
   parser.add_argument('-n','--nyears', type=int, default=None,
                       help='''Block length in years (e.g. 10 gives years 1-10, 11-20, ...). Default is a single \
                       block spanning the complete years of the averaging window.''')
@@ -165,7 +173,8 @@ def main():
   args.outdir = dcase.create_png_dir('SO_zonal_means')
   # file tag: block length, or 'full' for a single block over the whole window (length known only after reading data)
   args.tag = '{}yr'.format(args.nyears) if args.nyears else 'full'
-  ncfile = os.path.join(dcase.ocn_diag_root, '{}_so_zonal_means_{}.nc'.format(args.casename, args.tag))
+  ncfile = os.path.join(dcase.ocn_diag_root,
+                        '{}_so_zonal_means_{}_{}.nc'.format(args.casename, args.variable, args.tag))
 
   print('Casename is:', args.casename)
   print('netCDF file:', ncfile)
@@ -201,6 +210,10 @@ def compute(args, dcase, ncfile, nw):
 
   parallel, cluster, client = get_cluster(nw, args=args,
                                           config=dcase.jobqueue_config)
+
+  # thetao and so are both read, since the sigma2 contours need them; the selected variable and sigma2 are saved
+  var = args.variable
+  save_vars = [var, 'sigma2']
 
   def preprocess(ds):
     ''' Return a dataset desired variables'''
@@ -238,7 +251,7 @@ def compute(args, dcase, ncfile, nw):
 
   # block means = mean of the annual zonal-mean sections, computed one year at a time
   shape = (len(REGIONS), len(z), len(lat1))
-  out = {v: np.full((len(blocks),) + shape, np.nan) for v in ['thetao', 'so', 'sigma2']}
+  out = {v: np.full((len(blocks),) + shape, np.nan) for v in save_vars}
   wvol = None
   print('Computing zonal means...')
   startTime = datetime.now()
@@ -251,13 +264,13 @@ def compute(args, dcase, ncfile, nw):
       yr = weighted_temporal_mean_vars(dsy).isel(time=0).load()
       T = yr.thetao.values.astype('f8')
       S = yr.so.values.astype('f8')
-      fields = {'thetao': T, 'so': S, 'sigma2': sigma2(T, S, z, lon, lat)}
+      fields = {var: T if var == 'thetao' else S, 'sigma2': sigma2(T, S, z, lon, lat)}
       for v, x in fields.items():
         sec, ws = zonal_mean(x, vol, masks)
         ok = np.isfinite(sec)
         acc[v] += np.where(ok, sec, 0.)
         cnt[v] += ok
-        if wvol is None and v == 'thetao': wvol = ws
+        if wvol is None and v == var: wvol = ws
       if args.debug: print('  year', y, datetime.now() - startTime)
     for v in out:
       with np.errstate(invalid='ignore', divide='ignore'):
@@ -283,12 +296,9 @@ def compute(args, dcase, ncfile, nw):
     lon_east=('region', np.array([180.] + [SECTORS[r][1] for r in REGIONS[1:]]),
               {'long_name': 'Eastern longitude bound of region (exclusive, mod 360)', 'units': 'degrees_east'}))
   dims = ('block', 'region', 'z_l', 'lat')
-  dso['thetao'] = (dims, out['thetao'].astype('f4'),
-                   {'long_name': 'Volume-weighted zonal-mean sea water potential temperature, block mean of annual means',
-                    'units': 'degC'})
-  dso['so'] = (dims, out['so'].astype('f4'),
-               {'long_name': 'Volume-weighted zonal-mean sea water salinity, block mean of annual means',
-                'units': 'psu'})
+  dso[var] = (dims, out[var].astype('f4'),
+              {'long_name': 'Volume-weighted zonal-mean {}, block mean of annual means'.format(VARS[var]['long_name']),
+               'units': VARS[var]['units']})
   dso['sigma2'] = (dims, out['sigma2'].astype('f4'),
                    {'long_name': 'Volume-weighted zonal-mean potential density referenced to 2000 dbar (TEOS-10, '
                                  'from 3-D annual-mean thetao and so), block mean of annual means',
@@ -300,7 +310,8 @@ def compute(args, dcase, ncfile, nw):
                      {'long_name': 'Sum over longitude of wet cell area (areacello)', 'units': 'm2'})
   attrs = {'description': 'Southern Ocean volume-weighted zonal-mean sections in consecutive n-year blocks. Each block '
                           'is the mean of the annual means (weighted by days in each month) of its years, computed as '
-                          'the mean of the annual zonal-mean sections. sigma2 is computed with TEOS-10 (gsw) from the '
+                          'the mean of the annual zonal-mean sections. sigma2 (saved for the contours) is '
+                          'computed with TEOS-10 (gsw) from the '
                           '3-D annual-mean thetao and so and then zonally averaged. NaN = no water.',
            'regions': 'Circumpolar = all longitudes south of lat_max; sectors (west <= lon < east, mod 360): '
                       + '; '.join('{} {:g}..{:g}'.format(r, *SECTORS[r]) for r in REGIONS[1:])
@@ -311,9 +322,10 @@ def compute(args, dcase, ncfile, nw):
            'blocks': ', '.join('{}-{}'.format(*b) for b in blocks),
            'dropped_blocks': '; '.join('{}-{} ({})'.format(*b) for b in dropped) if dropped else 'none',
            'source': args.monthly,
+           'variable': var,
            'casename': args.casename, 'module': os.path.basename(__file__)}
   add_global_attrs(dso, attrs)
-  enc = {v: {'_FillValue': np.float32(np.nan)} for v in ['thetao', 'so', 'sigma2']}
+  enc = {v: {'_FillValue': np.float32(np.nan)} for v in save_vars}
   enc.update({v: {'_FillValue': None} for v in ['wet_volume', 'wet_area', 'z_l', 'z_i', 'lat', 'lon_west', 'lon_east']})
   dso.to_netcdf(ncfile, encoding=enc)
   print('Saved', ncfile)
@@ -337,16 +349,14 @@ def color_levels(x, w, n=16, decimals=3):
   return lev
 
 def section_figure(nrow):
-  """Figure with nrow x 3 section panels (shared axes) and a thin row of colorbar axes at the bottom."""
-  fig = plt.figure(figsize=(12, 1.9 * nrow + 1.3), layout='constrained')
-  gs = fig.add_gridspec(nrow + 1, 3, height_ratios=[1.] * nrow + [0.07])
-  axs = np.empty((nrow, 3), dtype=object)
+  """Figure with a column of nrow section panels (shared axes) and a thin colorbar axis at the bottom."""
+  fig = plt.figure(figsize=(6, 1.9 * nrow + 1.3), layout='constrained')
+  gs = fig.add_gridspec(nrow + 1, 1, height_ratios=[1.] * nrow + [0.07])
+  axs = []
   for r in range(nrow):
-    for c in range(3):
-      axs[r, c] = fig.add_subplot(gs[r, c], sharex=axs[0, 0], sharey=axs[0, 0])
-      if r < nrow - 1: axs[r, c].tick_params(labelbottom=False)
-      if c > 0: axs[r, c].tick_params(labelleft=False)
-  cax = [fig.add_subplot(gs[nrow, c]) for c in range(3)]
+    axs.append(fig.add_subplot(gs[r], sharex=axs[0] if axs else None, sharey=axs[0] if axs else None))
+    if r < nrow - 1: axs[r].tick_params(labelbottom=False)
+  cax = fig.add_subplot(gs[nrow])
   return fig, axs, cax
 
 def plot(args, ncfile):
@@ -354,15 +364,13 @@ def plot(args, ncfile):
     _plot(args, ds.load())
 
 def _plot(args, ds):
+  v = args.variable
+  st = VARS[v]
   n = int(ds.attrs['nyears'])
   late = edges(ds.lat.values)
   zi = ds.z_i.values
   nb = ds.sizes['block']
   lab = ['years {}-{}'.format(int(a), int(b)) for a, b in zip(ds.block_start.values, ds.block_end.values)]
-  var = ['thetao', 'so', 'sigma2']
-  title = {'thetao': 'θ (°C)', 'so': 'S (psu)', 'sigma2': 'σ2 (kg m⁻³)'}
-  dtitle = {'thetao': 'Δθ (°C)', 'so': 'ΔS (psu)', 'sigma2': 'Δσ2 (kg m⁻³)'}
-  cmap = {'thetao': 'RdYlBu_r', 'so': 'viridis', 'sigma2': 'cividis_r'}
 
   def panel(ax, data, s2, **kw):
     pc = ax.pcolormesh(late, zi, data, shading='flat', **kw)
@@ -377,22 +385,21 @@ def _plot(args, ds):
     # absolute sections, color levels shared by all blocks: equal-volume bins between the 2nd and 98th
     # volume-weighted percentiles south of 50S, so the weakly stratified deep ocean is not washed out
     fig, axs, cax = section_figure(nb)
-    w = np.broadcast_to(d.wet_volume.values, d.thetao.shape)
+    w = np.broadcast_to(d.wet_volume.values, d[v].shape)
     south = (d.lat < -50.).values if (d.lat < -50.).sum() > 2 else np.ones(d.sizes['lat'], bool)
-    for c, v in enumerate(var):
-      lev = color_levels(d[v].values[..., south], w[..., south], decimals=2 if v == 'thetao' else 3)
-      norm = BoundaryNorm(lev, plt.get_cmap(cmap[v]).N, extend='both')
-      for b in range(nb):
-        pc = panel(axs[b, c], d[v].isel(block=b), d.sigma2.isel(block=b), cmap=cmap[v], norm=norm)
-        if b == 0: axs[b, c].set_title(title[v], fontsize=10)
-        if c == 0: axs[b, c].set_ylabel('{}\ndepth (m)'.format(lab[b]), fontsize=8)
-      axs[-1, c].set_xlabel('latitude')
-      cb = fig.colorbar(pc, cax=cax[c], orientation='horizontal', extend='both', spacing='uniform',
-                        ticks=lev[::2], format='%.2f' if v == 'thetao' else '%.3f')
-      cb.ax.tick_params(labelsize=7)
+    lev = color_levels(d[v].values[..., south], w[..., south], decimals=st['decimals'])
+    norm = BoundaryNorm(lev, plt.get_cmap(st['cmap']).N, extend='both')
+    for b in range(nb):
+      pc = panel(axs[b], d[v].isel(block=b), d.sigma2.isel(block=b), cmap=st['cmap'], norm=norm)
+      axs[b].set_ylabel('{}\ndepth (m)'.format(lab[b]), fontsize=8)
+    axs[0].set_title(st['title'], fontsize=10)
+    axs[-1].set_xlabel('latitude')
+    cb = fig.colorbar(pc, cax=cax, orientation='horizontal', extend='both', spacing='uniform',
+                      ticks=lev[::2], format='%.{}f'.format(st['decimals']))
+    cb.ax.tick_params(labelsize=7)
     fig.suptitle('{} ({}): {} zonal means, {}-year blocks; contours: σ2'.format(args.casename, args.label, reg, n),
                  fontsize=10, x=0.01, ha='left')
-    fname = os.path.join(args.outdir, '{}_so_zonal_means_{}_{}.png'.format(args.casename, reg, args.tag))
+    fname = os.path.join(args.outdir, '{}_so_zonal_means_{}_{}_{}.png'.format(args.casename, v, reg, args.tag))
     fig.savefig(fname, dpi=110)
     plt.close(fig)
     print('Saved', fname)
@@ -402,21 +409,20 @@ def _plot(args, ds):
       print('Only one block, skipping difference figure for', reg)
       continue
     fig, axs, cax = section_figure(nb - 1)
-    for c, v in enumerate(var):
-      dd = d[v].isel(block=slice(1, None)) - d[v].isel(block=0)
-      lim = np.nanpercentile(np.abs(dd.values), 95)
-      lim = lim if lim > 0 else 1.
-      for b in range(1, nb):
-        pc = panel(axs[b - 1, c], dd.isel(block=b - 1), d.sigma2.isel(block=b), cmap='RdBu_r', vmin=-lim, vmax=lim)
-        if b == 1: axs[b - 1, c].set_title(dtitle[v], fontsize=10)
-        if c == 0: axs[b - 1, c].set_ylabel('{}\ndepth (m)'.format(lab[b]), fontsize=8)
-      axs[-1, c].set_xlabel('latitude')
-      cb = fig.colorbar(pc, cax=cax[c], orientation='horizontal', extend='both',
-                        ticks=MaxNLocator(5, symmetric=True))
-      cb.ax.tick_params(labelsize=7)
+    dd = d[v].isel(block=slice(1, None)) - d[v].isel(block=0)
+    lim = np.nanpercentile(np.abs(dd.values), 95)
+    lim = lim if lim > 0 else 1.
+    for b in range(1, nb):
+      pc = panel(axs[b - 1], dd.isel(block=b - 1), d.sigma2.isel(block=b), cmap='RdBu_r', vmin=-lim, vmax=lim)
+      axs[b - 1].set_ylabel('{}\ndepth (m)'.format(lab[b]), fontsize=8)
+    axs[0].set_title(st['dtitle'], fontsize=10)
+    axs[-1].set_xlabel('latitude')
+    cb = fig.colorbar(pc, cax=cax, orientation='horizontal', extend='both',
+                      ticks=MaxNLocator(5, symmetric=True))
+    cb.ax.tick_params(labelsize=7)
     fig.suptitle('{} ({}): {} zonal means, each {}-year block minus {}; contours: σ2 of the block'.format(
                  args.casename, args.label, reg, n, lab[0]), fontsize=10, x=0.01, ha='left')
-    fname = os.path.join(args.outdir, '{}_so_zonal_means_diff_{}_{}.png'.format(args.casename, reg, args.tag))
+    fname = os.path.join(args.outdir, '{}_so_zonal_means_diff_{}_{}_{}.png'.format(args.casename, v, reg, args.tag))
     fig.savefig(fname, dpi=110)
     plt.close(fig)
     print('Saved', fname)

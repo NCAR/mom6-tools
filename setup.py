@@ -69,7 +69,7 @@ setup(
             'mom6-tools_mom6_xyplot=mom6_tools.mom6_xyplot:main',
             'mom6-tools_poleward_heat_transport=mom6_tools.poleward_heat_transport:main',
             'mom6-tools_section_transports=mom6_tools.section_transports:main',
-            'mom6-tools_so_zonal_means=mom6_tools.so_zonal_means:main',
+            'mom6-tools_zonal_means=mom6_tools.compute_zonal_means:main',
             'mom6-tools_stats=mom6_tools.stats:main',
             'mom6-tools_surface=mom6_tools.surface:main',
             'mom6-tools_tao_mooring_comparison=mom6_tools.tao_mooring_comparison:main',
