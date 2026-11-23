@@ -5,6 +5,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm
+from matplotlib.ticker import MaxNLocator
 import numpy as np
 import xarray as xr
 from datetime import datetime
@@ -12,6 +13,7 @@ from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars
 from mom6_tools.m6toolbox import add_global_attrs
+from mom6_tools.m6toolbox import check_vertical_levels
 
 warnings.filterwarnings('ignore')
 import gsw
@@ -42,7 +44,9 @@ def options():
     five Antarctic sea-ice sectors (Weddell, Indian, WestPacific, Ross, AmundsenBellingshausen). The section is the \
     mean of the annual means of the complete years in the window (z-level stream). Sections are overlaid with sigma2 \
     contours (TEOS-10, from the 3-D thetao and so). Results are saved in OCN_DIAG_ROOT/<casename>_zonal_means.nc \
-    and plotted (one figure per region, with theta, salinity and sigma2 panels) in <png_dir>/zonal_means/.''')
+    and plotted (one figure per region, with theta, salinity and sigma2 panels) in <png_dir>/zonal_means/. \
+    If Misc: zonal_mean in diag_config_yml_path points to the <casename>_zonal_means.nc of another case, \
+    difference figures (this case minus that case) are also saved, labeled with Misc: zonal_mean_sname.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
   parser.add_argument('-sd','--start_date', type=str, default='',
@@ -144,9 +148,16 @@ def main():
   args.savefigs = dcase.savefigs
   args.outdir = dcase.create_png_dir('zonal_means')
   ncfile = os.path.join(dcase.ocn_diag_root, '{}_zonal_means.nc'.format(args.casename))
+  # optional comparison case (Misc: zonal_mean / zonal_mean_sname)
+  args.zonal_mean = dcase.zonal_mean
+  args.zonal_mean_sname = dcase.zonal_mean_sname
+  if args.zonal_mean and not os.path.isfile(args.zonal_mean):
+    raise FileNotFoundError('Misc: zonal_mean in {} not found: {}'.format(args.diag_config_yml_path,
+                                                                         args.zonal_mean))
 
   print('Casename is:', args.casename)
   print('netCDF file:', ncfile)
+  if args.zonal_mean: print('Comparing with:', args.zonal_mean)
 
   compute(args, dcase, ncfile, nw)
   if args.savefigs:
@@ -321,7 +332,14 @@ def panel(ax, ds, data, s2, **kw):
 
 def plot(args, ncfile):
   with xr.open_dataset(ncfile) as ds:
-    _plot(args, ds.load())
+    ds = ds.load()
+  _plot(args, ds)
+  if args.zonal_mean:
+    with xr.open_dataset(args.zonal_mean) as ds_ref:
+      ds_ref = ds_ref.load()
+    ds_ref = check_compatible(ds, ds_ref, args.zonal_mean)
+    ref_label = args.zonal_mean_sname or ds_ref.attrs.get('casename', os.path.basename(args.zonal_mean))
+    plot_diff(args, ds, ds_ref, ref_label)
 
 def _plot(args, ds):
   period = 'years {}-{}'.format(int(ds.attrs['year_start']), int(ds.attrs['year_end']))
@@ -346,6 +364,58 @@ def _plot(args, ds):
     fig.suptitle('{} ({}): {} zonal mean, {}; contours: σ2'.format(args.casename, args.label, reg, period),
                  fontsize=10, x=0.01, ha='left')
     fname = os.path.join(args.outdir, '{}_zonal_means_{}.png'.format(args.casename, reg))
+    fig.savefig(fname, dpi=110)
+    plt.close(fig)
+    print('Saved', fname)
+
+def check_compatible(ds, ds_ref, ref_file):
+  """
+  Check that ds_ref (read from ref_file) has the variables of ds on the same region/z_l/lat axes.
+  Vertical levels are checked with check_vertical_levels (tolerance 1 mm). Returns ds_ref on the
+  z_l and lat coordinates of ds, so that differences are taken level by level and row by row.
+  """
+  missing = [v for v in VARS if v not in ds_ref]
+  if missing:
+    raise ValueError('{} not in {}'.format(missing, ref_file))
+  # vertical levels: same number and depths (up to rounding)
+  try:
+    check_vertical_levels(ds_ref.z_l, ds.z_l)
+  except ValueError as e:
+    raise ValueError('Vertical levels of {} do not match this case: {}'.format(ref_file, e))
+  for c in ['region', 'lat']:
+    a, b = ds[c].values, ds_ref[c].values
+    same = a.shape == b.shape and (np.array_equal(a, b) if a.dtype.kind in 'OUS' else np.allclose(a, b))
+    if not same:
+      raise ValueError('{} differs between this case and {} ({} vs {} points); both must be on the same grid and '
+                       'computed with the same -lat'.format(c, ref_file, a.size, b.size))
+  return ds_ref.assign_coords(z_l=ds.z_l, lat=ds.lat)
+
+def plot_diff(args, ds, ds_ref, ref_label):
+  """
+  Difference sections, ds minus ds_ref: one figure per region with thetao, so and sigma2 panels. ds and ds_ref
+  are datasets written by compute() on the same region/z_l/lat axes. Symmetric color limits from the
+  95th percentile of |difference| in each panel; contours are sigma2 of ds.
+  """
+  period = 'years {}-{}'.format(int(ds.attrs['year_start']), int(ds.attrs['year_end']))
+  ref_period = 'years {}-{}'.format(int(ds_ref.attrs['year_start']), int(ds_ref.attrs['year_end']))
+  for reg in ds.region.values:
+    d = ds.sel(region=reg)
+    fig, axs, cax = section_figure(len(VARS))
+    for c, (v, st) in enumerate(VARS.items()):
+      dd = d[v] - ds_ref[v].sel(region=reg)
+      lim = np.nanpercentile(np.abs(dd.values), 95)
+      lim = lim if lim > 0 else 1.
+      pc = panel(axs[c], d, dd, d.sigma2, cmap='RdBu_r', vmin=-lim, vmax=lim)
+      axs[c].set_title(st['dtitle'], fontsize=10)
+      axs[c].set_xlabel('latitude')
+      cb = fig.colorbar(pc, cax=cax[c], orientation='horizontal', extend='both',
+                        ticks=MaxNLocator(5, symmetric=True))
+      cb.ax.tick_params(labelsize=7)
+    axs[0].set_ylabel('depth (m)')
+    fig.suptitle('{} ({}, {}) minus {} ({}): {} zonal mean; contours: σ2 of {}'.format(
+                 args.casename, args.label, period, ref_label, ref_period, reg, args.label),
+                 fontsize=10, x=0.01, ha='left')
+    fname = os.path.join(args.outdir, '{}_zonal_means_diff_{}.png'.format(args.casename, reg))
     fig.savefig(fname, dpi=110)
     plt.close(fig)
     print('Saved', fname)
