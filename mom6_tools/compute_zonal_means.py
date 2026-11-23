@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, warnings
+import os, copy, warnings
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -44,10 +44,14 @@ def options():
     five Antarctic sea-ice sectors (Weddell, Indian, WestPacific, Ross, AmundsenBellingshausen). The section is the \
     mean of the annual means of the years in the window (z-level stream); a year only partly in the window \
     contributes the mean of its available months. Sections are overlaid with sigma2 \
-    contours (TEOS-10, from the 3-D thetao and so). Results are saved in OCN_DIAG_ROOT/<casename>_zonal_means.nc \
-    and plotted (one figure per region, with theta, salinity and sigma2 panels) in <png_dir>/zonal_means/. \
-    If Misc: zonal_mean in diag_config_yml_path points to the <casename>_zonal_means.nc of another case, \
-    difference figures (this case minus that case) are also saved, labeled with Misc: zonal_mean_sname.''')
+    contours (TEOS-10, from the 3-D thetao and so), and plotted (one figure per region, with theta, salinity and \
+    sigma2 panels) in <png_dir>/zonal_means/. The sections are always saved in \
+    OCN_DIAG_ROOT/<casename>_zonal_means_<yyyy>-<yyyy>.nc (years averaged). \
+    If Misc: zonal_mean_file in diag_config_yml_path points to the <casename>_zonal_means_<yyyy>-<yyyy>.nc of \
+    another case, or is 'self' (this case's own mean over model years --ref_year_start to --ref_year_end, \
+    independent of the averaging window), the difference (this case minus the reference) is also saved, in \
+    OCN_DIAG_ROOT/<casename>_zonal_means_<yyyy>-<yyyy>_diff.nc, and difference figures are also plotted, labeled \
+    with the SNAME of the reference case (stored in its file).''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
   parser.add_argument('-sd','--start_date', type=str, default='',
@@ -56,6 +60,12 @@ def options():
                       help='''End date. Default is the Avg end_date in diag_config_yml_path''')
   parser.add_argument('-lat','--lat_max', type=float, default=-30.,
                       help='''Northern limit (default -30).''')
+  parser.add_argument('--ref_year_start', type=int, default=1,
+                      help='''First model year (inclusive) of the reference when Misc: zonal_mean_file is 'self'. \
+                              Default is 1.''')
+  parser.add_argument('--ref_year_end', type=int, default=20,
+                      help='''Last model year (inclusive) of the reference when Misc: zonal_mean_file is 'self'. \
+                              Default is 20.''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=2,
                       help='''Number of workers to use (default=2).''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''',
@@ -148,25 +158,84 @@ def main():
   args.label = dcase.label
   args.savefigs = dcase.savefigs
   args.outdir = dcase.create_png_dir('zonal_means')
-  ncfile = os.path.join(dcase.ocn_diag_root, '{}_zonal_means.nc'.format(args.casename))
-  # optional comparison case (Misc: zonal_mean / zonal_mean_sname)
-  args.zonal_mean = dcase.zonal_mean
-  args.zonal_mean_sname = dcase.zonal_mean_sname
-  if args.zonal_mean and not os.path.isfile(args.zonal_mean):
-    raise FileNotFoundError('Misc: zonal_mean in {} not found: {}'.format(args.diag_config_yml_path,
-                                                                         args.zonal_mean))
+  # optional comparison case (Misc: zonal_mean_file); 'self' = this case's own reference years
+  args.ref_file = dcase.zonal_mean_file
+  self_ref = args.ref_file.lower() == 'self'
+  if self_ref:
+    if args.ref_year_start > args.ref_year_end:
+      raise ValueError('--ref_year_start ({}) must not be greater than --ref_year_end ({})'.format(
+                       args.ref_year_start, args.ref_year_end))
+  elif args.ref_file and not os.path.isfile(args.ref_file):
+    raise FileNotFoundError('Misc: zonal_mean_file in {} not found: {}'.format(args.diag_config_yml_path,
+                                                                              args.ref_file))
 
   print('Casename is:', args.casename)
-  print('netCDF file:', ncfile)
-  if args.zonal_mean: print('Comparing with:', args.zonal_mean)
+  # reference, prepared before the averaging window below so that an unusable reference fails early:
+  # this case's own reference years ('self'), or another case's fields file
+  ds_ref = None
+  if self_ref:
+    print('Comparing with model years {}-{} of this case'.format(args.ref_year_start, args.ref_year_end))
+    ds_ref = compute_reference(args, dcase, nw)
+    ref_years = (args.ref_year_start, args.ref_year_end)   # requested reference years
+  elif args.ref_file:
+    print('Comparing with:', args.ref_file)
+    with xr.open_dataset(args.ref_file) as d:
+      ds_ref = d.load()
+    if ds_ref.attrs.get('content') == 'difference':
+      raise ValueError('{} holds differences (a *_diff.nc file); Misc: zonal_mean_file must point to a fields file '
+                       '<casename>_zonal_means_<yyyy>-<yyyy>.nc'.format(args.ref_file))
+    ref_years = (int(ds_ref.attrs['year_start']), int(ds_ref.attrs['year_end']))   # years in the reference file
 
-  compute(args, dcase, ncfile, nw)
+  ds = compute(args, dcase, nw)
+  # output file name without extension: <casename>_zonal_means_<yyyy>-<yyyy> (years averaged)
+  ncbase = os.path.join(dcase.ocn_diag_root, '{}_zonal_means_{:04d}-{:04d}'.format(
+                        args.casename, int(ds.attrs['year_start']), int(ds.attrs['year_end'])))
+
+  # always save the fields; also save the difference when there is a reference
+  save(ds, ncbase + '.nc')
+
+  if ds_ref is not None:
+    ds_ref = check_compatible(ds, ds_ref, args.ref_file)
+    # label of the reference in figures: its SNAME, stored in its file (this case's SNAME for 'self')
+    ref_label = ds_ref.attrs['sname']
+    save(difference(ds, ds_ref, args.ref_file, ref_label, ref_years), ncbase + '_diff.nc')
+
   if args.savefigs:
-    plot(args, ncfile)
+    _plot(args, ds)
+    if ds_ref is not None:
+      plot_diff(args, ds, ds_ref, ref_label)
 
   print('{} was run successfully!'.format(os.path.basename(__file__)))
 
-def compute(args, dcase, ncfile, nw):
+def compute_reference(args, dcase, nw):
+  """
+  Self reference: run compute() for model years args.ref_year_start to args.ref_year_end (inclusive),
+  independent of the averaging window. Prints a warning if fewer years than requested have data; raises
+  ValueError if none do. Returns the reference dataset (not saved).
+  """
+  y0, y1 = args.ref_year_start, args.ref_year_end
+  ref_args = copy.copy(args)
+  ref_args.start_date = '{:04d}-01-01'.format(y0)
+  ref_args.end_date = '{:04d}-12-31'.format(y1)
+  print('\nComputing the self reference (model years {}-{})...'.format(y0, y1))
+  try:
+    ds_ref = compute(ref_args, dcase, nw)
+  except ValueError as e:
+    raise ValueError("Misc: zonal_mean_file is 'self' but no model output was found between {} and {} "
+                     "(--ref_year_start/--ref_year_end), so 'self' is not applicable for these years. "
+                     "Adjust the reference years, or set Misc: zonal_mean_file to the "
+                     "<casename>_zonal_means_<yyyy>-<yyyy>.nc of another case.".format(ref_args.start_date, ref_args.end_date)) from e
+
+  nyears = int(ds_ref.attrs['nyears'])
+  if nyears < y1 - y0 + 1:
+    print("WARNING: Misc: zonal_mean_file is 'self' but only {} of the {} years between {} and {} have model data. "
+          "Using those {} years for the reference. Adjust --ref_year_start/--ref_year_end, or compare against "
+          "another case, to avoid this warning.".format(nyears, y1 - y0 + 1, ref_args.start_date,
+                                                        ref_args.end_date, nyears))
+  return ds_ref
+
+def compute(args, dcase, nw):
+  """Zonal-mean sections averaged over args.start_date to args.end_date. Returns the dataset (not saved)."""
   # read grid info
   grd = dcase.get_grid(xrformat=True)
   try:
@@ -275,7 +344,7 @@ def compute(args, dcase, ncfile, nw):
   dso['wet_area'] = (('region', 'lat'), (area[None].astype('f8') * masks).sum(-1),
                      {'long_name': 'Sum over longitude of wet cell area (areacello)', 'units': 'm2'})
   attrs = {'description': 'Southern Ocean volume-weighted zonal-mean sections, averaged over the years '
-                          'between start_date and end_date (a partial year contributes the mean of its available '
+                          'year_start to year_end (a partial year contributes the mean of its available '
                           'months): the mean of the annual means (weighted by days in each '
                           'month), computed as the mean of the annual zonal-mean sections. sigma2 is '
                           'computed with TEOS-10 (gsw) from the '
@@ -285,19 +354,45 @@ def compute(args, dcase, ncfile, nw):
                       + '. The five sectors tile the circumpolar region.',
            'lat_definition': 'lat is the row mean of geolat over wet cells (all longitudes); rows south of lat_max',
            'lat_max': args.lat_max,
-           'start_date': str(args.start_date), 'end_date': str(args.end_date),
            'year_start': np.int32(years[0]), 'year_end': np.int32(years[-1]), 'nyears': np.int32(len(years)),
            'missing_years': ', '.join(str(y) for y in gaps) or 'none',
            'partial_years': ', '.join('{} ({} months)'.format(y, m) for y, m in partial.items()) or 'none',
            'source': args.monthly,
-           'casename': args.casename, 'module': os.path.basename(__file__)}
+           'casename': args.casename, 'sname': args.label, 'module': os.path.basename(__file__),
+           'content': 'fields'}
   add_global_attrs(dso, attrs)
-  enc = {v: {'_FillValue': np.float32(np.nan)} for v in save_vars}
-  enc.update({v: {'_FillValue': None} for v in ['wet_volume', 'wet_area', 'z_l', 'z_i', 'lat', 'lon_west', 'lon_east']})
-  dso.to_netcdf(ncfile, encoding=enc)
-  print('Saved', ncfile)
 
   release_workers(parallel, cluster, client)
+  return dso
+
+def difference(ds, ds_ref, ref_file, ref_label, ref_years):
+  """
+  ds minus ds_ref for the VARS, on the coordinates and weights of ds, with ds's attributes plus those of the
+  reference (ref_*). ref_file is the reference's file, or 'self'; ref_label is the reference's SNAME.
+  ref_years = (start, end) is saved as ref_year_start/ref_year_end: the requested years for a self
+  reference, or the year_start/year_end of the reference file.
+  """
+  dd = ds.copy()
+  dd.attrs = dict(ds.attrs)
+  for v in VARS:
+    dd[v] = (ds[v] - ds_ref[v]).astype('f4')
+    dd[v].attrs = dict(ds[v].attrs, long_name='Difference (this case minus reference) of ' + ds[v].attrs['long_name'])
+  dd.attrs['content'] = 'difference'
+  dd.attrs['description'] = 'Difference, this case minus the reference (ref_*), of: ' + ds.attrs['description']
+  dd.attrs['ref_file'] = ref_file
+  dd.attrs['ref_sname'] = ref_label
+  dd.attrs['ref_year_start'], dd.attrs['ref_year_end'] = (np.int32(y) for y in ref_years)
+  for a in ['casename', 'nyears', 'missing_years', 'partial_years', 'source']:
+    if a in ds_ref.attrs:
+      dd.attrs['ref_' + a] = ds_ref.attrs[a]
+  return dd
+
+def save(ds, ncfile):
+  """Write a dataset from compute() or difference() to ncfile."""
+  enc = {v: {'_FillValue': np.float32(np.nan)} for v in VARS}
+  enc.update({v: {'_FillValue': None} for v in ['wet_volume', 'wet_area', 'z_l', 'z_i', 'lat', 'lon_west', 'lon_east']})
+  ds.to_netcdf(ncfile, encoding=enc)
+  print('Saved', ncfile)
 
 def edges(c):
   """Cell edges from centers (midpoints, with the end cells mirrored)."""
@@ -335,17 +430,6 @@ def panel(ax, ds, data, s2, **kw):
   ax.set_xlim(edges(ds.lat.values)[[0, -1]])
   return pc
 
-def plot(args, ncfile):
-  with xr.open_dataset(ncfile) as ds:
-    ds = ds.load()
-  _plot(args, ds)
-  if args.zonal_mean:
-    with xr.open_dataset(args.zonal_mean) as ds_ref:
-      ds_ref = ds_ref.load()
-    ds_ref = check_compatible(ds, ds_ref, args.zonal_mean)
-    ref_label = args.zonal_mean_sname or ds_ref.attrs.get('casename', os.path.basename(args.zonal_mean))
-    plot_diff(args, ds, ds_ref, ref_label)
-
 def _plot(args, ds):
   period = 'years {}-{}'.format(int(ds.attrs['year_start']), int(ds.attrs['year_end']))
   # color levels from south of 50S, so the weakly stratified deep ocean is not washed out
@@ -360,14 +444,14 @@ def _plot(args, ds):
       lev = color_levels(d[v].values[:, south], d.wet_volume.values[:, south], decimals=st['decimals'])
       norm = BoundaryNorm(lev, plt.get_cmap(st['cmap']).N, extend='both')
       pc = panel(axs[c], d, d[v], d.sigma2, cmap=st['cmap'], norm=norm)
-      axs[c].set_title(st['title'], fontsize=10)
+      axs[c].set_title(st['title'], fontsize=12)
       axs[c].set_xlabel('latitude')
       cb = fig.colorbar(pc, cax=cax[c], orientation='horizontal', extend='both', spacing='uniform',
                         ticks=lev[::2], format='%.{}f'.format(st['decimals']))
       cb.ax.tick_params(labelsize=7)
     axs[0].set_ylabel('depth (m)')
     fig.suptitle('{} ({}): {} zonal mean, {}; contours: σ2'.format(args.casename, args.label, reg, period),
-                 fontsize=10, x=0.01, ha='left')
+                 fontsize=13, x=0.01, ha='left')
     fname = os.path.join(args.outdir, '{}_zonal_means_{}.png'.format(args.casename, reg))
     fig.savefig(fname, dpi=110)
     plt.close(fig)
@@ -375,7 +459,7 @@ def _plot(args, ds):
 
 def check_compatible(ds, ds_ref, ref_file):
   """
-  Check that ds_ref (read from ref_file) has the variables of ds on the same region/z_l/lat axes.
+  Check that ds_ref (read from ref_file, or 'self') has the variables of ds on the same region/z_l/lat axes.
   Vertical levels are checked with check_vertical_levels (tolerance 1 mm). Returns ds_ref on the
   z_l and lat coordinates of ds, so that differences are taken level by level and row by row.
   """
@@ -398,7 +482,7 @@ def check_compatible(ds, ds_ref, ref_file):
 def plot_diff(args, ds, ds_ref, ref_label):
   """
   Difference sections, ds minus ds_ref: one figure per region with thetao, so and sigma2 panels. ds and ds_ref
-  are datasets written by compute() on the same region/z_l/lat axes. Symmetric color limits from the
+  are datasets from compute() on the same region/z_l/lat axes. Symmetric color limits from the
   95th percentile of |difference| in each panel; contours are sigma2 of ds.
   """
   period = 'years {}-{}'.format(int(ds.attrs['year_start']), int(ds.attrs['year_end']))
@@ -411,15 +495,15 @@ def plot_diff(args, ds, ds_ref, ref_label):
       lim = np.nanpercentile(np.abs(dd.values), 95)
       lim = lim if lim > 0 else 1.
       pc = panel(axs[c], d, dd, d.sigma2, cmap='RdBu_r', vmin=-lim, vmax=lim)
-      axs[c].set_title(st['dtitle'], fontsize=10)
+      axs[c].set_title(st['dtitle'], fontsize=12)
       axs[c].set_xlabel('latitude')
       cb = fig.colorbar(pc, cax=cax[c], orientation='horizontal', extend='both',
                         ticks=MaxNLocator(5, symmetric=True))
       cb.ax.tick_params(labelsize=7)
     axs[0].set_ylabel('depth (m)')
-    fig.suptitle('{} ({}, {}) minus {} ({}): {} zonal mean; contours: σ2 of {}'.format(
+    fig.suptitle('{} ({}, {}) minus {} ({})\n{} zonal mean; contours: σ2 of {}'.format(
                  args.casename, args.label, period, ref_label, ref_period, reg, args.label),
-                 fontsize=10, x=0.01, ha='left')
+                 fontsize=13, x=0.01, ha='left')
     fname = os.path.join(args.outdir, '{}_zonal_means_diff_{}.png'.format(args.casename, reg))
     fig.savefig(fname, dpi=110)
     plt.close(fig)
