@@ -49,7 +49,7 @@ def driver(args):
 
   # Read in the yaml file
   dcase = DiagsCase(args.diag_config_yml_path)
-  if not args.obs: args.obs = dcase.woa
+  if not args.obs: args.obs = dcase.equatorial
   ocn_diag_root = dcase.ocn_diag_root
   args.pngdir = dcase.create_png_dir('Equatorial')
 

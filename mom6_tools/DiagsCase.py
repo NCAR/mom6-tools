@@ -24,13 +24,44 @@ class DiagsCase(object,):
 
     Attributes
     -------
+    caseroot
+        Path to the case root directory (Case.CASEROOT, with $VARS and ~ expanded)
     casename
         CIME case name (cime_xmlquery(CASEROOT, 'CASE'))
+    label
+        Short name of the case, used to label figures and outputs (Case.SNAME)
+    jobqueue_config
+        Dask jobqueue cluster settings (Jobqueue section; falls back to the user's
+        dask 'jobqueue.pbs' config if the section is missing)
+    xrformat
+        Default grid format for get_grid (constructor argument)
+    start_date, end_date
+        Time-averaging window (Avg.start_date, Avg.end_date); None means unbounded
+    ts_start_date, ts_end_date
+        Time series window (TS.start_date, TS.end_date); None means the entire record
+    transports
+        Sections for volume/mass transports (Transports section; {} if missing)
+    savefigs
+        Whether to save figures (Misc.savefigs; default True)
+    png_dir
+        Directory for PNG figures (Misc.png_dir; default 'PNG'), see create_png_dir
+    basin_file
+        File with pre-computed basin masks (Misc.basin_file; '' means masks are computed)
     ocn_diag_root
         Directory used for diagnostic outputs (created at construction time)
     hist_dir
         Directory containing MOM6 history (output) files, read from -- distinct
         from ocn_diag_root, which is written to
+    oce_cat
+        Path to the ocean catalog of observational datasets (Obs.oce_cat)
+    woa
+        Catalog name of the WOA dataset (Obs.WOA)
+    drift, equatorial, ts_levels
+        Catalog names of the obs datasets used by drift.py, equatorial_comparison.py
+        and TS_levels.py (Obs.Drift, Obs.Equatorial, Obs.TS_levels). Each falls back
+        to `woa` if unset or "none"; a --obs command-line argument overrides it.
+    mld
+        Catalog name of the mixed layer depth dataset (Obs.MLD)
 
     Methods
     -------
@@ -74,6 +105,9 @@ class DiagsCase(object,):
                                     '/glade/campaign/cgd/oce/projects/CESM-MOM6/diagnostics/oce-catalogs/reference-datasets.yml')
                     WOA: ...      # optional; Name of the WOA data in the ocean catalogs (default is woa-2018-tx2_3v2-annual-all,
                                     which needs to be updated once the 65-layer z-grid is used in the simulations)
+                    Drift: ...    # optional; Name of the obs data used by drift.py (default: the WOA value above)
+                    Equatorial: ... # optional; Name of the obs data used by equatorial_comparison.py (default: the WOA value above)
+                    TS_levels: ... # optional; Name of the obs data used by TS_levels.py (default: the WOA value above)
                     MLD: ...      # optional; Name of the MLD data in the ocean catalogs (default is mld-deboyer-2023-tx2_3v2)
                 Misc:          # optional
                     savefigs: ... # optional; defaults to True
@@ -139,6 +173,9 @@ class DiagsCase(object,):
         self.oce_cat = self.get_path('oce_cat', 'Obs') or \
             '/glade/campaign/cgd/oce/projects/CESM-MOM6/diagnostics/oce-catalogs/reference-datasets.yml'
         self.woa = self.get_value('WOA', 'Obs') or 'woa-2018-tx2_3v2-annual-all'
+        self.drift = self.get_value('Drift', 'Obs') or self.woa
+        self.equatorial = self.get_value('Equatorial', 'Obs') or self.woa
+        self.ts_levels = self.get_value('TS_levels', 'Obs') or self.woa
         self.mld = self.get_value('MLD', 'Obs') or 'mld-deboyer-2023-tx2_3v2'
 
         self.savefigs = self.get_value('savefigs', 'Misc', True)
