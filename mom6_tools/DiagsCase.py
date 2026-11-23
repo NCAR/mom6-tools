@@ -60,6 +60,7 @@ class DiagsCase(object,):
         Catalog names of the obs datasets used by drift.py, equatorial_comparison.py
         and TS_levels.py (Obs.Drift, Obs.Equatorial, Obs.TS_levels). Each falls back
         to `woa` if unset or "none"; a --obs command-line argument overrides it.
+        `drift` may also be 'self' (see drift.py --obs).
     mld
         Catalog name of the mixed layer depth dataset (Obs.MLD)
 
@@ -105,7 +106,9 @@ class DiagsCase(object,):
                                     '/glade/campaign/cgd/oce/projects/CESM-MOM6/diagnostics/oce-catalogs/reference-datasets.yml')
                     WOA: ...      # optional; Name of the WOA data in the ocean catalogs (default is woa-2018-tx2_3v2-annual-all,
                                     which needs to be updated once the 65-layer z-grid is used in the simulations)
-                    Drift: ...    # optional; Name of the obs data used by drift.py (default: the WOA value above)
+                    Drift: ...    # optional; Name of the obs data used by drift.py (default: the WOA value above),
+                                    or 'self' to compare against the model's own mean over reference years
+                                    (set with drift.py --ref_year_start/--ref_year_end; default years 1-20)
                     Equatorial: ... # optional; Name of the obs data used by equatorial_comparison.py (default: the WOA value above)
                     TS_levels: ... # optional; Name of the obs data used by TS_levels.py (default: the WOA value above)
                     MLD: ...      # optional; Name of the MLD data in the ocean catalogs (default is mld-deboyer-2023-tx2_3v2)
