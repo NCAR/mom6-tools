@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, glob, warnings
+import os, warnings
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ from datetime import datetime
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from mom6_tools.DiagsCase import DiagsCase
 from mom6_tools.m6toolbox import weighted_temporal_mean_vars
-from mom6_tools.m6toolbox import add_global_attrs
+from mom6_tools.m6toolbox import add_global_attrs, select_files_by_date
 from mom6_tools.m6toolbox import check_vertical_levels
 
 warnings.filterwarnings('ignore')
@@ -42,7 +42,8 @@ def options():
   parser = argparse.ArgumentParser(description='''Computes Southern Ocean volume-weighted zonal-mean sections of \
     potential temperature, salinity and sigma2 (TEOS-10, from the 3-D thetao and so), averaged over the averaging window, for the region south of lat_max and the \
     five Antarctic sea-ice sectors (Weddell, Indian, WestPacific, Ross, AmundsenBellingshausen). The section is the \
-    mean of the annual means of the complete years in the window (z-level stream). Sections are overlaid with sigma2 \
+    mean of the annual means of the years in the window (z-level stream); a year only partly in the window \
+    contributes the mean of its available months. Sections are overlaid with sigma2 \
     contours (TEOS-10, from the 3-D thetao and so). Results are saved in OCN_DIAG_ROOT/<casename>_zonal_means.nc \
     and plotted (one figure per region, with theta, salinity and sigma2 panels) in <png_dir>/zonal_means/. \
     If Misc: zonal_mean in diag_config_yml_path points to the <casename>_zonal_means.nc of another case, \
@@ -199,27 +200,30 @@ def compute(args, dcase, ncfile, nw):
 
   print('Reading dataset...')
   startTime = datetime.now()
-  ds = xr.open_mfdataset(args.monthly, parallel=parallel, \
+  files = select_files_by_date(args.monthly, args.start_date, args.end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds = xr.open_mfdataset(files, parallel=parallel, \
                          combine="nested", concat_dim="time", \
                          preprocess=preprocess, use_cftime=True).chunk({"time": 12})
   print('Time elasped: ', datetime.now() - startTime)
 
   print('Selecting data between {} and {}...'.format(args.start_date, args.end_date))
   ds_sel = ds.sel(time=slice(args.start_date, args.end_date))
-  # average over the complete (12-month) years of the window; partial years are skipped
+  # average over all years of the window, as in the other scripts: a year only partly in the window
+  # contributes the annual mean of its available months (weighted by days in each month)
   years, nmonths = np.unique(ds_sel.time.dt.year.values, return_counts=True)
-  partial = [int(y) for y, m in zip(years, nmonths) if m != 12]
-  years = [int(y) for y, m in zip(years, nmonths) if m == 12]
-  if partial:
-    print('Skipping partial years:', partial)
+  partial = {int(y): int(m) for y, m in zip(years, nmonths) if m != 12}
+  years = [int(y) for y in years]
   if not years:
-    raise ValueError('No complete year between {} and {}'.format(args.start_date, args.end_date))
+    raise ValueError('No model data between {} and {}'.format(args.start_date, args.end_date))
+  if partial:
+    print('Partial years (year: months):', partial)
   gaps = sorted(set(range(years[0], years[-1] + 1)) - set(years))
   print('Averaging {} years: {}-{}'.format(len(years), years[0], years[-1]),
         '(missing: {})'.format(gaps) if gaps else '')
 
   z = ds_sel.z_l.values
-  with xr.open_dataset(sorted(glob.glob(args.monthly))[0], decode_times=False) as d0:
+  with xr.open_dataset(files[0], decode_times=False) as d0:
     zi = d0.z_i.values
   vol = cell_volume(zi, dep, area)
 
@@ -232,7 +236,6 @@ def compute(args, dcase, ncfile, nw):
   startTime = datetime.now()
   for y in years:
     dsy = ds_sel.sel(time=slice('{:04d}-01-01'.format(y), '{:04d}-12-31'.format(y)))
-    assert dsy.sizes['time'] == 12, 'year {} has {} months'.format(y, dsy.sizes['time'])
     yr = weighted_temporal_mean_vars(dsy).isel(time=0).load()
     T = yr.thetao.values.astype('f8')
     S = yr.so.values.astype('f8')
@@ -271,8 +274,9 @@ def compute(args, dcase, ncfile, nw):
                                      '(geometric, from deptho, z_i and areacello; first year)', 'units': 'm3'})
   dso['wet_area'] = (('region', 'lat'), (area[None].astype('f8') * masks).sum(-1),
                      {'long_name': 'Sum over longitude of wet cell area (areacello)', 'units': 'm2'})
-  attrs = {'description': 'Southern Ocean volume-weighted zonal-mean sections, averaged over the complete years '
-                          'between start_date and end_date: the mean of the annual means (weighted by days in each '
+  attrs = {'description': 'Southern Ocean volume-weighted zonal-mean sections, averaged over the years '
+                          'between start_date and end_date (a partial year contributes the mean of its available '
+                          'months): the mean of the annual means (weighted by days in each '
                           'month), computed as the mean of the annual zonal-mean sections. sigma2 is '
                           'computed with TEOS-10 (gsw) from the '
                           '3-D annual-mean thetao and so and then zonally averaged. NaN = no water.',
@@ -283,7 +287,8 @@ def compute(args, dcase, ncfile, nw):
            'lat_max': args.lat_max,
            'start_date': str(args.start_date), 'end_date': str(args.end_date),
            'year_start': np.int32(years[0]), 'year_end': np.int32(years[-1]), 'nyears': np.int32(len(years)),
-           'skipped_years': ', '.join(str(y) for y in sorted(set(partial) | set(gaps))) or 'none',
+           'missing_years': ', '.join(str(y) for y in gaps) or 'none',
+           'partial_years': ', '.join('{} ({} months)'.format(y, m) for y, m in partial.items()) or 'none',
            'source': args.monthly,
            'casename': args.casename, 'module': os.path.basename(__file__)}
   add_global_attrs(dso, attrs)
