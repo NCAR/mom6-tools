@@ -77,6 +77,10 @@ class DiagsCase(object,):
                     savefigs: ... # optional; defaults to True
                     png_dir: ...  # optional; path to output PNG figures (default: 'PNG')
                     basin_file: ... # optional; file containing pre-computed basin masks (default: '', masks are computed)
+                    zonal_mean: ... # optional; <casename>_zonal_means.nc of another case, written by
+                                      compute_zonal_means.py, to compare against (default: '', no comparison)
+                    zonal_mean_sname: ... # optional; label of the zonal_mean case in figures (default: '', the
+                                            casename stored in the zonal_mean file is used)
                 Transports: ...   # optional; sections for volume/mass transports
 
             xrformat : boolean, optional
@@ -141,6 +145,9 @@ class DiagsCase(object,):
         self.savefigs = self.get_value('savefigs', 'Misc', True)
         self.png_dir = self.get_path('png_dir', 'Misc') or 'PNG'
         self.basin_file = self.get_path('basin_file', 'Misc') or ''
+        # optional reference for compute_zonal_means.py: another case's <casename>_zonal_means.nc
+        self.zonal_mean = self.get_path('zonal_mean', 'Misc') or ''
+        self.zonal_mean_sname = self.get_value('zonal_mean_sname', 'Misc') or ''
 
         if self.get_value('oce_cat', 'Misc') or self.full_config.get('oce_cat'):
             print("WARNING: 'oce_cat' must be under 'Obs'; the value found elsewhere is ignored. "
