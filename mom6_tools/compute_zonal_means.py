@@ -42,7 +42,7 @@ def options():
     five Antarctic sea-ice sectors (Weddell, Indian, WestPacific, Ross, AmundsenBellingshausen). The section is the \
     mean of the annual means of the complete years in the window (z-level stream). Sections are overlaid with sigma2 \
     contours (TEOS-10, from the 3-D thetao and so). Results are saved in OCN_DIAG_ROOT/<casename>_zonal_means.nc \
-    and plotted (one figure per variable and region) in <png_dir>/zonal_means/.''')
+    and plotted (one figure per region, with theta, salinity and sigma2 panels) in <png_dir>/zonal_means/.''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     describing the run and diagnostics to be performed.''')
   parser.add_argument('-sd','--start_date', type=str, default='',
@@ -299,15 +299,15 @@ def color_levels(x, w, n=16, decimals=3):
     lev = np.linspace(x.min(), x.max() + 1e-6, n + 1)
   return lev
 
-def section_figure(nrow):
-  """Figure with a column of nrow section panels (shared axes) and a thin colorbar axis at the bottom."""
-  fig = plt.figure(figsize=(6, 1.9 * nrow + 1.3), layout='constrained')
-  gs = fig.add_gridspec(nrow + 1, 1, height_ratios=[1.] * nrow + [0.07])
+def section_figure(ncol):
+  """Figure with a row of ncol section panels (shared axes), each with a thin colorbar axis below it."""
+  fig = plt.figure(figsize=(4.5 * ncol, 3.6), layout='constrained')
+  gs = fig.add_gridspec(2, ncol, height_ratios=[1., 0.06])
   axs = []
-  for r in range(nrow):
-    axs.append(fig.add_subplot(gs[r], sharex=axs[0] if axs else None, sharey=axs[0] if axs else None))
-    if r < nrow - 1: axs[r].tick_params(labelbottom=False)
-  cax = fig.add_subplot(gs[nrow])
+  for c in range(ncol):
+    axs.append(fig.add_subplot(gs[0, c], sharex=axs[0] if axs else None, sharey=axs[0] if axs else None))
+    if c > 0: axs[c].tick_params(labelleft=False)
+  cax = [fig.add_subplot(gs[1, c]) for c in range(ncol)]
   return fig, axs, cax
 
 def panel(ax, ds, data, s2, **kw):
@@ -328,26 +328,27 @@ def _plot(args, ds):
   # color levels from south of 50S, so the weakly stratified deep ocean is not washed out
   south = (ds.lat < -50.).values if (ds.lat < -50.).sum() > 2 else np.ones(ds.sizes['lat'], bool)
 
-  for v, st in VARS.items():
-    for reg in ds.region.values:
-      d = ds.sel(region=reg)
+  # one figure per region; panels from left to right: thetao, so, sigma2
+  for reg in ds.region.values:
+    d = ds.sel(region=reg)
+    fig, axs, cax = section_figure(len(VARS))
+    for c, (v, st) in enumerate(VARS.items()):
       # color levels: equal-volume bins between the 2nd and 98th volume-weighted percentiles
       lev = color_levels(d[v].values[:, south], d.wet_volume.values[:, south], decimals=st['decimals'])
       norm = BoundaryNorm(lev, plt.get_cmap(st['cmap']).N, extend='both')
-      fig, axs, cax = section_figure(1)
-      pc = panel(axs[0], d, d[v], d.sigma2, cmap=st['cmap'], norm=norm)
-      axs[0].set_ylabel('depth (m)', fontsize=8)
-      axs[0].set_title(st['title'], fontsize=10)
-      axs[0].set_xlabel('latitude')
-      cb = fig.colorbar(pc, cax=cax, orientation='horizontal', extend='both', spacing='uniform',
+      pc = panel(axs[c], d, d[v], d.sigma2, cmap=st['cmap'], norm=norm)
+      axs[c].set_title(st['title'], fontsize=10)
+      axs[c].set_xlabel('latitude')
+      cb = fig.colorbar(pc, cax=cax[c], orientation='horizontal', extend='both', spacing='uniform',
                         ticks=lev[::2], format='%.{}f'.format(st['decimals']))
       cb.ax.tick_params(labelsize=7)
-      fig.suptitle('{} ({}): {} zonal mean, {}; contours: σ2'.format(args.casename, args.label, reg, period),
-                   fontsize=10, x=0.01, ha='left')
-      fname = os.path.join(args.outdir, '{}_zonal_means_{}_{}.png'.format(args.casename, v, reg))
-      fig.savefig(fname, dpi=110)
-      plt.close(fig)
-      print('Saved', fname)
+    axs[0].set_ylabel('depth (m)')
+    fig.suptitle('{} ({}): {} zonal mean, {}; contours: σ2'.format(args.casename, args.label, reg, period),
+                 fontsize=10, x=0.01, ha='left')
+    fname = os.path.join(args.outdir, '{}_zonal_means_{}.png'.format(args.casename, reg))
+    fig.savefig(fname, dpi=110)
+    plt.close(fig)
+    print('Saved', fname)
 
 if __name__ == '__main__':
   main()
