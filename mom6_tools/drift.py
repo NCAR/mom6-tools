@@ -17,6 +17,7 @@ from datetime import datetime
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from collections import OrderedDict
 import yaml, os, intake, nc_time_axis, warnings
+import dask
 
 try: import argparse
 except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
@@ -140,7 +141,7 @@ def HorizontalMeanRmse_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
       out = stack_regions(rmask_od, basins.dims[0])
       if debug: print(out)
 
-    return out.compute()
+    return out
 
 def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, debug=False):
   """
@@ -217,7 +218,7 @@ def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
         if debug: print('horizontal mean is:', rmask_od[str(reg.values)])
       out = stack_regions(rmask_od, basins.dims[0])
 
-    return out.compute()
+    return out
 
 def stack_regions(rmask_od, dim):
   '''
@@ -793,19 +794,26 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
     # Horizontal Mean difference (model - obs)
     description = 'Horizontal Mean drift for {}'.format(var)
     print('\n {}...'.format(description))
-    startTime = datetime.now()
     vname = '{}_drift'.format(var)
     drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins3d, debug=args.debug).rename(vname)
-    print('Time elasped: ', datetime.now() - startTime)
 
   if args.rms:
     # Horizontal Mean rms (model - obs)
     description = 'Horizontal RMSE for {}'.format(var)
     print('\n {}...'.format(description))
-    startTime = datetime.now()
     vname = '{}_rms'.format(var)
     rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins3d, debug=args.debug).rename(vname)
-    print('Time elasped: ', datetime.now() - startTime)
+
+  # compute all regions, drift and rms together: one pass over the model output
+  print('\n Computing...')
+  startTime = datetime.now()
+  if args.drift and args.rms:
+    drift, rms = dask.compute(drift, rms)
+  elif args.drift:
+    drift = drift.compute()
+  elif args.rms:
+    rms = rms.compute()
+  print('Time elasped: ', datetime.now() - startTime)
 
   release_workers(parallel, cluster, client)
 
