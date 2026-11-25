@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mom6_tools.ClimoGenerator import ClimoGenerator
 from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs, weighted_temporal_mean
-from mom6_tools.m6toolbox import cime_xmlquery, check_vertical_levels
+from mom6_tools.m6toolbox import cime_xmlquery, check_vertical_levels, select_files_by_date
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
@@ -640,7 +640,9 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
   # read dataset
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(args.z, parallel=parallel,
+  files = select_files_by_date(args.z, args.ts_start_date, args.ts_end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds1 = xr.open_mfdataset(files, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 

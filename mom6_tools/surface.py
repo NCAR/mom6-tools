@@ -8,7 +8,7 @@ import pandas as pd
 import dask, intake
 from datetime import datetime, date
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
-from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery
+from mom6_tools.m6toolbox import add_global_attrs, cime_xmlquery, select_files_by_date
 from mom6_tools.m6toolbox import weighted_temporal_mean
 from mom6_tools.m6plot import xycompare, xyplot
 from mom6_tools.MOM6grid import MOM6grid
@@ -87,11 +87,14 @@ def driver(args):
     return ds[variables]
 
   # load monthly means
-  ds1 = xr.open_mfdataset(args.native, parallel=parallel,
+  files = select_files_by_date(args.native, args.start_date, args.end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds1 = xr.open_mfdataset(files, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   # load daily means
-  ds_daily = xr.open_mfdataset(args.sfc, parallel=parallel,
+  files_daily = select_files_by_date(args.sfc, args.start_date, args.end_date)
+  ds_daily = xr.open_mfdataset(files_daily, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   #ds = preprocess(ds1)
