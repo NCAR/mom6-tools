@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mom6_tools.ClimoGenerator import ClimoGenerator
 from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs, weighted_temporal_mean
-from mom6_tools.m6toolbox import cime_xmlquery, check_vertical_levels
+from mom6_tools.m6toolbox import cime_xmlquery, check_vertical_levels, select_files_by_date
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
 from mom6_tools.MOM6grid import MOM6grid
 from mom6_tools.DiagsCase import DiagsCase
@@ -17,13 +17,14 @@ from datetime import datetime
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
 from collections import OrderedDict
 import yaml, os, intake, nc_time_axis, warnings
+import dask
 
 try: import argparse
 except: raise Exception('This version of python is not new enough. python 2.7 or newer is required.')
 
 def options():
   parser = argparse.ArgumentParser(description='''Compute horizontal drift and/or RMS: model versus \
-                      observations.''')
+                      observations, or versus the model's own mean over reference years (--obs self).''')
   parser.add_argument('diag_config_yml_path', type=str, help='''Full path to the yaml file  \
     with metadata for the experiment to be processed.''')
   parser.add_argument('var', type=str, help='''Name of variable to be processed.  \
@@ -32,15 +33,27 @@ def options():
                       help='''Compute drift. Default is False''')
   parser.add_argument('--rms', action='store_true',
                       help='''Compute rms. Default is False''')
+  parser.add_argument('--monthly', action=argparse.BooleanOptionalAction, default=None,
+                      help='''Use monthly model output (--monthly) or annual means weighted by days \
+                              in each month (--no-monthly). Default is set by TS: annual_mean in \
+                              diag_config_yml_path (annual means if not set).''')
   parser.add_argument('-nw','--number_of_workers',  type=int, default=0,
                       help='''Number of workers to use. Default=0 (serial).''')
   parser.add_argument('-b','--basin',  type=str, default='',
                       help='''Read basin code from file. Default is empty, \
                               which will generate basin code using genBasinMasks.''')
   parser.add_argument('-o','--obs', type=str, default=None,
-                      help='''Name of the WOA product in the oce-catalog to compare against.  \
-                              Default is to use the value set in Obs:WOA in diag_config_yml_path  \
-                              (woa-2018-tx2_3v2-annual-all if not set)''')
+                      help='''Name of the obs product in the oce-catalog to compare against, or \
+                              'self' to compare against the model's mean over years \
+                              --ref_year_start to --ref_year_end. Default is the value of \
+                              Obs:Drift in diag_config_yml_path, then Obs:WOA \
+                              (woa-2018-tx2_3v2-annual-all if neither is set).''')
+  parser.add_argument('--ref_year_start', type=int, default=1,
+                      help='''First model year (inclusive) averaged to build the reference \
+                              when obs is 'self', independent of the TS window. Default is 1.''')
+  parser.add_argument('--ref_year_end', type=int, default=20,
+                      help='''Last model year (inclusive) averaged to build the reference \
+                              when obs is 'self', independent of the TS window. Default is 20.''')
   parser.add_argument('-debug',   help='''Add priting statements for debugging purposes''', action="store_true")
   add_jobqueue_args(parser)
   cmdLineArgs = parser.parse_args()
@@ -125,15 +138,8 @@ def HorizontalMeanRmse_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
         rmask_od[str(reg.values)] = rms_da(var, weights=tmp_weights, weights_sum=total_weights)
 
         if debug: print('rms is:', rmask_od[str(reg.values)])
-      # create DataArray to store output
-      out = xr.DataArray(np.zeros((len(basins.region), var.shape[0], var.shape[1])),
-                         dims=(basins.dims[0], var.dims[0], var.dims[1]),
-                         coords={basins.dims[0]:list(rmask_od.keys()),
-                                 var.dims[0]: var.time,
-                                 var.dims[1]: var.z_l})
+      out = stack_regions(rmask_od, basins.dims[0])
       if debug: print(out)
-      for i, rmask_field in enumerate(rmask_od.values()):
-        out.values[i,:,:] = rmask_field
 
     return out
 
@@ -210,17 +216,21 @@ def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
         total_weights = tmp_weights.sum(dim=dims)
         rmask_od[str(reg.values)] = mean_da(var, dims, weights=tmp_weights, weights_sum=total_weights)
         if debug: print('horizontal mean is:', rmask_od[str(reg.values)])
-      # create dataArray to store rmask_od
-      out = xr.DataArray(np.zeros((len(basins.region), var.shape[0], var.shape[1])),
-                         dims=(basins.dims[0], var.dims[0], var.dims[1]),
-                         coords={basins.dims[0]:list(rmask_od.keys()),
-                                 var.dims[0]: var.time,
-                                 var.dims[1]: var.z_l})
-
-    for i, rmask_field in enumerate(rmask_od.values()):
-      out.values[i,:,:] = rmask_field
+      out = stack_regions(rmask_od, basins.dims[0])
 
     return out
+
+def stack_regions(rmask_od, dim):
+  '''
+  Stack the regional results in rmask_od (region name -> DataArray) along a new
+  dimension dim, without computing them. Assigning each region into a numpy array
+  instead would compute each one separately, reading all the input data once per
+  region.
+  '''
+  out = xr.concat(list(rmask_od.values()), dim=dim, coords='minimal', compat='override')
+  out[dim] = list(rmask_od.keys())
+  out.attrs = {}
+  return out
 
 def min_da(da, dims=('yh', 'xh')):
   """
@@ -555,6 +565,7 @@ def main(stream=False):
   # Read in the yaml file and create the case instance
   dcase = DiagsCase(args.diag_config_yml_path)
   if not args.obs: args.obs = dcase.drift
+  if args.monthly is None: args.monthly = not dcase.annual_mean
   args.ts_start_date = dcase.ts_start_date
   args.ts_end_date = dcase.ts_end_date
 
@@ -583,9 +594,13 @@ def main(stream=False):
   # use all basins available
   #basins = basin_code
 
-  # load obs
-  catalog = intake.open_catalog(dcase.oce_cat)
-  obs = catalog[args.obs].to_dask()[args.var]
+  # load obs; 'self' means the reference is built from the model itself
+  # (mean of its first years), so there is no catalog entry to load
+  if args.obs.lower() == 'self':
+    obs = None
+  else:
+    catalog = intake.open_catalog(dcase.oce_cat)
+    obs = catalog[args.obs].to_dask()[args.var]
 
   # diff_rms
   horizontal_mean_diff_rms(grd, dcase, basins, args, obs,
@@ -596,9 +611,80 @@ def main(stream=False):
   return
 
 
+def self_reference(args, var, parallel=False):
+  '''
+  Build the reference field for obs = 'self': the time mean of the annual means
+  of model years args.ref_year_start to args.ref_year_end (inclusive), independent
+  of the TS window. If some of those years are missing, the available ones are
+  used and a warning is printed.
+
+  Parameters
+  ----------
+  args : object
+    Object with command line options (uses args.z, args.ref_year_start and
+    args.ref_year_end).
+  var : str
+    Name of the variable to average.
+  parallel : bool, optional
+    Passed to xr.open_mfdataset.
+
+  Returns
+  -------
+  xarray.DataArray
+    Loaded 3D (z_l, yh, xh) reference field.
+
+  Raises
+  ------
+  ValueError
+    If ref_year_start > ref_year_end, or if the model output has no data in
+    that range.
+  '''
+  y0, y1 = args.ref_year_start, args.ref_year_end
+  if y0 > y1:
+    raise ValueError(f"--ref_year_start ({y0}) must not be greater than --ref_year_end ({y1}).")
+  nyrs = y1 - y0 + 1
+  start_date, end_date = f'{y0:04d}-01-01', f'{y1:04d}-12-31'
+  not_applicable = (f"obs is 'self' but no model output was found between {start_date} and "
+                    f"{end_date} (--ref_year_start/--ref_year_end), so the 'self' option is "
+                    f"not applicable for these years. Adjust the reference years, or use a "
+                    f"WOA observation instead (--obs or Obs: Drift in diag_config.yml).")
+
+  try:
+    files = select_files_by_date(args.z, start_date, end_date)
+  except ValueError:
+    raise ValueError(not_applicable) from None
+  print('Opening {} files for the self reference: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds = xr.open_mfdataset(files, parallel=parallel,
+                         data_vars='minimal', compat='override', coords='minimal',
+                         chunks={'time': 12})
+  # also trims files that hold several years or have no date in their names
+  ds = ds.sel(time=slice(start_date, end_date))
+  if ds.sizes['time'] == 0:
+    raise ValueError(not_applicable)
+
+  annual = weighted_temporal_mean(ds, var)
+  nfound = annual.sizes['time']
+  if nfound < nyrs:
+    warnings.warn(f"obs is 'self' but only {nfound} of the {nyrs} years between {start_date} "
+                  f"and {end_date} have model data. Using those {nfound} years for the "
+                  f"reference. Adjust --ref_year_start/--ref_year_end, or compare against a "
+                  f"WOA observation instead (--obs or Obs: Drift in diag_config.yml), to "
+                  f"avoid this warning.")
+
+  print(f'Building reference from {nfound} model years ({start_date} to {end_date})...')
+  # load: the reference is a single 3D field; keeping it lazy would recompute it
+  # in every downstream calculation
+  ref = annual.mean('time').load()
+  # years actually averaged (may be fewer than requested), for labels and metadata
+  years = annual.time.dt.year.values
+  ref.attrs['reference_years'] = f'{int(years.min()):04d}-{int(years.max()):04d}'
+  return ref
+
+
 def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None):
   '''
-   Compute horizontal mean difference and rms: model versus observations.
+   Compute horizontal mean difference and rms: model versus observations, or
+   versus the model's own mean over reference years (obs = 'self').
 
    Parameters
   ----------
@@ -615,6 +701,10 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
 
   args : object
     Object with command line options.
+
+  obs : DataArray or None
+    Observed field to compare against. If None, the reference is built from the
+    model itself with self_reference (years args.ref_year_start to args.ref_year_end).
 
   Returns
   -------
@@ -640,7 +730,9 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
   # read dataset
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(args.z, parallel=parallel,
+  files = select_files_by_date(args.z, args.ts_start_date, args.ts_end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds1 = xr.open_mfdataset(files, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 
@@ -659,16 +751,30 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
 
   print('Time elasped: ', datetime.now() - startTime)
 
-  # Compute annual mean time series
-  model = weighted_temporal_mean(ds,var)
+  if args.monthly:
+    # Keep the native (monthly) time series
+    model = ds[var]
+  else:
+    # Compute annual mean time series
+    model = weighted_temporal_mean(ds,var)
 
-  # set coordinates to the same as the model's
-  obs['xh'] = model.xh; obs['yh'] = model.yh;
+  if obs is None:
+    # Self-reference: mean of model years ref_year_start to ref_year_end, read independently
+    # of the TS window. Same files as the model, so the grids already match.
+    obs = self_reference(args, var, parallel=parallel)
+    ref_years = obs.attrs['reference_years']
+    ref_label = f'model yrs {ref_years}'                    # used in plot titles
+    ref_attr = f'self (model mean, years {ref_years})'     # 'obs' attribute in netCDF files
+  else:
+    ref_label = 'obs'
+    ref_attr = args.obs
+    # set coordinates to the same as the model's
+    obs['xh'] = model.xh; obs['yh'] = model.yh;
 
-  # Match obs and model levels by index: obs and model layer depths differ by
-  # rounding errors, so xarray's value-based alignment would silently drop levels.
-  check_vertical_levels(obs.z_l, model.z_l)
-  obs['z_l'] = model.z_l
+    # Match obs and model levels by index: obs and model layer depths differ by
+    # rounding errors, so xarray's value-based alignment would silently drop levels.
+    check_vertical_levels(obs.z_l, model.z_l)
+    obs['z_l'] = model.z_l
 
   # compute difference
   diff = model - obs
@@ -688,26 +794,33 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
     # Horizontal Mean difference (model - obs)
     description = 'Horizontal Mean drift for {}'.format(var)
     print('\n {}...'.format(description))
-    startTime = datetime.now()
     vname = '{}_drift'.format(var)
     drift = HorizontalMeanDiff_da(diff,weights=area3d_masked, basins=basins3d, debug=args.debug).rename(vname)
-    print('Time elasped: ', datetime.now() - startTime)
 
   if args.rms:
     # Horizontal Mean rms (model - obs)
     description = 'Horizontal RMSE for {}'.format(var)
     print('\n {}...'.format(description))
-    startTime = datetime.now()
     vname = '{}_rms'.format(var)
     rms = HorizontalMeanRmse_da(diff,weights=area3d_masked, basins=basins3d, debug=args.debug).rename(vname)
-    print('Time elasped: ', datetime.now() - startTime)
+
+  # compute all regions, drift and rms together: one pass over the model output
+  print('\n Computing...')
+  startTime = datetime.now()
+  if args.drift and args.rms:
+    drift, rms = dask.compute(drift, rms)
+  elif args.drift:
+    drift = drift.compute()
+  elif args.rms:
+    rms = rms.compute()
+  print('Time elasped: ', datetime.now() - startTime)
 
   release_workers(parallel, cluster, client)
 
   print('Saving netCDF files...')
   attrs = {'casename': dcase.casename,
            'description': description,
-           'obs': args.obs,
+           'obs': ref_attr,
            'module': os.path.basename(__file__)}
 
   if args.drift:
@@ -735,7 +848,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
           splitscale =  [0., -1000., -drift_reg.z_l.max()]
 
         savefig_diff=os.path.join(args.pngdir, str(dcase.casename)+'_'+str(reg.values)+'_{}_drift.png'.format(var))
-        vname = ', {} [{}], diff (model - obs)'.format(var,units)
+        vname = ', {} [{}], diff (model - {})'.format(var,units,ref_label)
         ztplot(drift_reg.values, drift_reg.time.values, drift_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
                suptitle=dcase.casename, contour=True, title= str(reg.values) + vname,
                extend='both', colormap='dunnePM', autocenter=True, tunits='Year', show=False, clim=clim_diff,
@@ -757,7 +870,7 @@ def horizontal_mean_diff_rms(grd, dcase, basins, args, obs, jobqueue_config=None
           splitscale =  [0., -1000., -rms_reg.z_l.max()]
 
         savefig_rms=os.path.join(args.pngdir, str(dcase.casename)+'_'+str(reg.values)+'_{}_rms.png'.format(var))
-        vname = ', {} [{}], rms (model - obs)'.format(var,units)
+        vname = ', {} [{}], rms (model - {})'.format(var,units,ref_label)
 
         ztplot(rms_reg.values, rms_reg.time.values, rms_reg.z_l.values*-1, ignore=np.nan, splitscale=splitscale,
                suptitle=dcase.casename, contour=True, title= str(reg.values) + vname,

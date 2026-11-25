@@ -60,6 +60,7 @@ class DiagsCase(object,):
         Catalog names of the obs datasets used by drift.py, equatorial_comparison.py
         and TS_levels.py (Obs.Drift, Obs.Equatorial, Obs.TS_levels). Each falls back
         to `woa` if unset or "none"; a --obs command-line argument overrides it.
+        `drift` may also be 'self' (see drift.py --obs).
     mld
         Catalog name of the mixed layer depth dataset (Obs.MLD)
 
@@ -97,13 +98,17 @@ class DiagsCase(object,):
                 TS:            # optional; time series window (None: entire record)
                     start_date: ...
                     end_date: ...
+                    annual_mean: ...  # optional; if true (default), time series are annual means weighted
+                                        by days in each month; if false, the native (monthly) output is used
                 Fnames: ...    # history file suffixes per stream, see get_fname
                 Obs:           # optional; observational datasets to use for comparison
                     oce_cat: ...  # optional; path to the ocean catalogs for observational datasets (default is
                                     '/glade/campaign/cgd/oce/projects/CESM-MOM6/diagnostics/oce-catalogs/reference-datasets.yml')
                     WOA: ...      # optional; Name of the WOA data in the ocean catalogs (default is woa-2018-tx2_3v2-annual-all,
                                     which needs to be updated once the 65-layer z-grid is used in the simulations)
-                    Drift: ...    # optional; Name of the obs data used by drift.py (default: the WOA value above)
+                    Drift: ...    # optional; Name of the obs data used by drift.py (default: the WOA value above),
+                                    or 'self' to compare against the model's own mean over reference years
+                                    (set with drift.py --ref_year_start/--ref_year_end; default years 1-20)
                     Equatorial: ... # optional; Name of the obs data used by equatorial_comparison.py (default: the WOA value above)
                     TS_levels: ... # optional; Name of the obs data used by TS_levels.py (default: the WOA value above)
                     MLD: ...      # optional; Name of the MLD data in the ocean catalogs (default is mld-deboyer-2023-tx2_3v2)
@@ -161,6 +166,7 @@ class DiagsCase(object,):
         self.end_date = self.get_value('end_date', 'Avg')
         self.ts_start_date = self.get_value('start_date', 'TS')
         self.ts_end_date = self.get_value('end_date', 'TS')
+        self.annual_mean = self.get_value('annual_mean', 'TS', True)
         self.label = self.get_value('SNAME')
         self.ocn_diag_root = self.create_output_dir()
 
