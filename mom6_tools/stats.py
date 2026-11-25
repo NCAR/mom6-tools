@@ -8,7 +8,7 @@ import xarray as xr
 import numpy as np
 import cftime
 import matplotlib.pyplot as plt
-from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.m6toolbox import cime_xmlquery, select_files_by_date
 from mom6_tools.ClimoGenerator import ClimoGenerator
 from mom6_tools.m6toolbox import genBasinMasks, add_global_attrs
 from mom6_tools.m6plot import ztplot, plot_stats_da, xyplot
@@ -610,7 +610,9 @@ def extract_time_series(fname, variables, area, args, jobqueue_config=None):
   # read forcing files
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(fname, parallel=parallel,
+  files = select_files_by_date(fname, args.ts_start_date, args.ts_end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds1 = xr.open_mfdataset(files, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
 
@@ -686,7 +688,11 @@ def xystats(fname, variables, grd, basins, args, jobqueue_config=None):
   # read forcing files
   startTime = datetime.now()
   print('Reading dataset...')
-  ds1 = xr.open_mfdataset(fname, parallel=parallel,
+  # Only open files covering both the Avg and TS windows
+  files = select_files_by_date(fname, [args.start_date, args.ts_start_date],
+                               [args.end_date, args.ts_end_date])
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
+  ds1 = xr.open_mfdataset(files, parallel=parallel,
                           data_vars='minimal', compat='override', coords='minimal',
                           chunks={'time': 12})
   ds_full = preprocess(ds1)

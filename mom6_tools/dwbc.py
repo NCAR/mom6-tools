@@ -9,7 +9,7 @@ import warnings, os, yaml, argparse, dask
 from datetime import datetime
 import gsw
 from mom6_tools.jobqueue import add_jobqueue_args, get_cluster, release_workers
-from mom6_tools.m6toolbox import cime_xmlquery
+from mom6_tools.m6toolbox import cime_xmlquery, select_files_by_date
 from mom6_tools.DiagsCase import DiagsCase
 
 warnings.filterwarnings('ignore')
@@ -132,8 +132,10 @@ def main():
 
   print('Opening z-level files...')
   startTime = datetime.now()
+  files = select_files_by_date(z_stream, args.start_date, args.end_date)
+  print('Opening {} files: {} ... {}'.format(len(files), files[0], files[-1]))
   ds = xr.open_mfdataset(
-      z_stream,
+      files,
       parallel=parallel,
       data_vars='minimal',
       coords='minimal',
