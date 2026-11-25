@@ -137,17 +137,10 @@ def HorizontalMeanRmse_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
         rmask_od[str(reg.values)] = rms_da(var, weights=tmp_weights, weights_sum=total_weights)
 
         if debug: print('rms is:', rmask_od[str(reg.values)])
-      # create DataArray to store output
-      out = xr.DataArray(np.zeros((len(basins.region), var.shape[0], var.shape[1])),
-                         dims=(basins.dims[0], var.dims[0], var.dims[1]),
-                         coords={basins.dims[0]:list(rmask_od.keys()),
-                                 var.dims[0]: var.time,
-                                 var.dims[1]: var.z_l})
+      out = stack_regions(rmask_od, basins.dims[0])
       if debug: print(out)
-      for i, rmask_field in enumerate(rmask_od.values()):
-        out.values[i,:,:] = rmask_field
 
-    return out
+    return out.compute()
 
 def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, debug=False):
   """
@@ -222,17 +215,21 @@ def HorizontalMeanDiff_da(var, dims=('yh', 'xh'), weights=None, basins=None, deb
         total_weights = tmp_weights.sum(dim=dims)
         rmask_od[str(reg.values)] = mean_da(var, dims, weights=tmp_weights, weights_sum=total_weights)
         if debug: print('horizontal mean is:', rmask_od[str(reg.values)])
-      # create dataArray to store rmask_od
-      out = xr.DataArray(np.zeros((len(basins.region), var.shape[0], var.shape[1])),
-                         dims=(basins.dims[0], var.dims[0], var.dims[1]),
-                         coords={basins.dims[0]:list(rmask_od.keys()),
-                                 var.dims[0]: var.time,
-                                 var.dims[1]: var.z_l})
+      out = stack_regions(rmask_od, basins.dims[0])
 
-    for i, rmask_field in enumerate(rmask_od.values()):
-      out.values[i,:,:] = rmask_field
+    return out.compute()
 
-    return out
+def stack_regions(rmask_od, dim):
+  '''
+  Stack the regional results in rmask_od (region name -> DataArray) along a new
+  dimension dim, without computing them. Assigning each region into a numpy array
+  instead would compute each one separately, reading all the input data once per
+  region.
+  '''
+  out = xr.concat(list(rmask_od.values()), dim=dim, coords='minimal', compat='override')
+  out[dim] = list(rmask_od.keys())
+  out.attrs = {}
+  return out
 
 def min_da(da, dims=('yh', 'xh')):
   """
